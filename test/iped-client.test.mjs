@@ -744,6 +744,17 @@ test("collects evidence context for a focused investigation", async () => {
   assert.equal(result.query, "anything");
   assert.equal(result.matchedEvidence.length, 3);
 
+  assert.deepEqual(result.scope, {
+    sources: [
+      {
+        sourceId: "case-test",
+        evidenceCount: 3
+      }
+    ],
+    spansMultipleSources: false,
+    sourceSpecified: true
+  });
+
   assert.deepEqual(
     {
       sourceId: result.matchedEvidence[0].sourceId,
