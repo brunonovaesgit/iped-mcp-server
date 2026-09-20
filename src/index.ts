@@ -534,6 +534,10 @@ server.tool(
           ),
         matchedEvidenceTruncated:
           investigation.matchedEvidenceTruncated,
+        entityCount:
+          investigation.entities.length,
+        communicationParticipantCount:
+          investigation.communicationParticipants.length,
         duplicateGroupCount:
           investigation.duplicateEvidence.length
       });
