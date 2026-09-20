@@ -183,5 +183,54 @@ server.tool(
     return result(categories);
   }
 );
+server.registerPrompt(
+  "investigate_evidence",
+  {
+    title: "Investigate IPED Evidence",
+    description:
+      "Investigate a question using only evidence available through the IPED MCP server.",
+    argsSchema: {
+      question: z.string().min(1),
+      sourceId: z.string().optional()
+    }
+  },
+  ({ question, sourceId }) => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: [
+            "Investigate the following question using exclusively evidence available in IPED.",
+            "",
+            `Question: ${question}`,
+            sourceId ? `Case/source to investigate: ${sourceId}` : "",
+            "",
+            "Investigation rules:",
+            "- Use the IPED MCP tools autonomously to locate and inspect relevant evidence.",
+            "- Do not use the web, external knowledge or information that is not present in the evidence.",
+            "- Follow relevant relationships between evidence when they may help answer the question.",
+            "- Use metadata, extracted text, original content, bookmarks, relationships and timeline when relevant.",
+            "- Every factual finding must identify its supporting evidence using sourceId and itemId.",
+            "- Never present a file timestamp as the date of an event described inside that file unless the evidence establishes that relationship.",
+            "- Distinguish clearly between FACT, INFERENCE and HYPOTHESIS.",
+            "- A FACT must be directly supported by one or more evidence items.",
+            "- An INFERENCE must identify the evidence used to derive it and must not be presented as a fact.",
+            "- A HYPOTHESIS is an investigative possibility and must be explicitly identified as unconfirmed.",
+            "- If the available evidence does not support an answer, say so instead of filling the gap.",
+            "- Do not assume that two people, companies, accounts or identifiers are the same entity only because their names are similar.",
+            "",
+            "Present the result for an investigator, not for a software developer.",
+            "Start with a concise answer to the investigative question.",
+            "Then present the relevant findings and relationships.",
+            "Include technical evidence references without exposing unnecessary MCP or API implementation details."
+          ]
+            .filter(Boolean)
+            .join("\n")
+        }
+      }
+    ]
+  })
+);
 await audit.write("server_started",{ipedUrl:config.ipedUrl});
 await server.connect(new StdioServerTransport());
