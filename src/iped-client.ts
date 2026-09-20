@@ -415,10 +415,10 @@ export class IpedClient {
   }
 
   async investigateEntity(
-  query: string,
-  sourceId?: string,
-  requestedLimit?: number
-) {
+    query: string,
+    sourceId?: string,
+    requestedLimit?: number
+  ) {
   const limit = Math.min(
     requestedLimit ?? 20,
     this.config.searchResultLimit
@@ -491,6 +491,127 @@ export class IpedClient {
       initialEvidence: evidence,
       connections: [...connections.values()],
       initialSearchTruncated: initialSearch.truncated
+    };
+  }
+
+  async traceEntityPaths(
+    query: string,
+    sourceId?: string,
+    depth = 2,
+    requestedLimit?: number
+  ) {
+    const maxDepth = Math.min(Math.max(depth, 1), 3);
+    const limit = Math.min(
+      requestedLimit ?? 20,
+      this.config.searchResultLimit
+    );
+
+    const initialSearch = await this.search(
+      query,
+      sourceId,
+      limit
+    );
+
+    type PathStep = {
+      sourceId: string;
+      itemId: number;
+      via?: {
+        type: string;
+        value: string;
+      };
+    };
+
+    const paths: PathStep[][] = [];
+    const visited = new Set<string>();
+
+    const walk = async (
+      reference: EvidenceReference,
+      path: PathStep[],
+      currentDepth: number,
+      via?: {
+        type: string;
+        value: string;
+      }
+    ) => {
+      const evidenceKey =
+        `${reference.sourceId}:${reference.itemId}`;
+
+      if (path.some(
+        step =>
+          step.sourceId === reference.sourceId &&
+          step.itemId === reference.itemId
+      )) {
+        return;
+      }
+
+      const nextPath = [
+        ...path,
+        {
+          sourceId: reference.sourceId,
+          itemId: reference.itemId,
+          ...(via ? { via } : {})
+        }
+      ];
+
+      paths.push(nextPath);
+
+      if (currentDepth >= maxDepth) {
+        return;
+      }
+
+      const expansionKey =
+        `${evidenceKey}:${currentDepth}`;
+
+      if (visited.has(expansionKey)) {
+        return;
+      }
+
+      visited.add(expansionKey);
+
+      const entities = await this.getEvidenceEntities(
+        reference.sourceId,
+        reference.itemId
+      );
+
+      for (const entity of entities.entities) {
+        const search = await this.search(
+          entity.searchQuery,
+          reference.sourceId,
+          limit
+        );
+
+        for (const match of search.matches) {
+          if (
+            match.sourceId === reference.sourceId &&
+            match.itemId === reference.itemId
+          ) {
+            continue;
+          }
+
+          await walk(
+            match,
+            nextPath,
+            currentDepth + 1,
+            {
+              type: entity.type,
+              value: entity.value
+            }
+          );
+        }
+      }
+    };
+
+    for (const reference of initialSearch.matches) {
+      await walk(reference, [], 1);
+    }
+
+    return {
+      query,
+      sourceId,
+      depth: maxDepth,
+      initialEvidence: initialSearch.matches,
+      initialSearchTruncated: initialSearch.truncated,
+      paths
     };
   }
 

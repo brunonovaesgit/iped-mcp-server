@@ -34,7 +34,8 @@ const items = {
     properties: {
       name: ["same-email.txt"],
       hash: ["HASH-B"],
-      "Regex:EMAIL": ["person@example.test"]
+      "Regex:EMAIL": ["person@example.test"],
+      "Regex:PHONE": ["+5511999999999"]
     },
     bookmarks: [],
     selected: false
@@ -45,7 +46,8 @@ const items = {
     luceneId: 112,
     properties: {
       name: ["same-hash.txt"],
-      hash: ["HASH-A"]
+      hash: ["HASH-A"],
+      "Regex:PHONE": ["+5511999999999"]
     },
     bookmarks: [],
     selected: false
@@ -70,6 +72,7 @@ before(async () => {
         "parentId:10": [],
         "hash:HASH-A": [10, 12],
         'Regex\\:EMAIL:"person@example.test"': [10, 11],
+        'Regex\\:PHONE:"+5511999999999"': [11, 12],
         'Regex\\:MONEY:"18.750,00"': [10]
       };
 
@@ -467,4 +470,61 @@ test("investigates an entity and expands structured evidence connections", async
   ]);
 
   assert.equal(result.initialSearchTruncated, false);
+});
+
+test("traces multi-step evidence paths without loops", async () => {
+  const iped = client();
+
+  const result = await iped.traceEntityPaths(
+    "Person Test",
+    "case-test",
+    3
+  );
+
+  assert.equal(result.query, "Person Test");
+  assert.equal(result.depth, 3);
+
+  const path = result.paths.find(
+    candidate =>
+      candidate.length === 3 &&
+      candidate[0].itemId === 10 &&
+      candidate[1].itemId === 11 &&
+      candidate[2].itemId === 12
+  );
+
+  assert.ok(path);
+
+  assert.deepEqual(path, [
+    {
+      sourceId: "case-test",
+      itemId: 10
+    },
+    {
+      sourceId: "case-test",
+      itemId: 11,
+      via: {
+        type: "EMAIL",
+        value: "person@example.test"
+      }
+    },
+    {
+      sourceId: "case-test",
+      itemId: 12,
+      via: {
+        type: "PHONE",
+        value: "+5511999999999"
+      }
+    }
+  ]);
+
+  for (const candidate of result.paths) {
+    const references = candidate.map(
+      step => `${step.sourceId}:${step.itemId}`
+    );
+
+    assert.equal(
+      new Set(references).size,
+      references.length
+    );
+  }
 });

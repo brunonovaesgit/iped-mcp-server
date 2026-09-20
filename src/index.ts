@@ -28,6 +28,9 @@ const server = new McpServer(
       "- Treat shared identifiers, addresses, names, phone numbers, usernames and other indexed values as connections to investigate, not as proof that two records represent the same real-world entity.",
       "- When the investigation is centered on a person, organization, account, phone number, email address or other entity, use entity investigation to discover its initial evidence and structured connections before manually repeating equivalent searches.",
       "- Expand entity connections only when they are relevant to the investigative question. Do not assume that evidence sharing an indexed value refers to the same real-world person, organization or event.",
+      "- When an entity investigation requires following relationships across multiple evidence items, trace evidence paths instead of manually repeating searches.",
+      "- Keep evidence paths explicit. A path shows how indexed values connect evidence items; it does not establish that the connected records represent the same real-world person, organization or event.",
+      "- Prefer shallow relationship traversal first. Expand deeper only when the additional path is relevant to the investigative question.",
       "- Examine additional evidence before treating repeated names, identifiers, values or other matches as meaningful relationships.",
       "- Use timelines and structural relationships when they add investigative value.",
       "",
@@ -380,6 +383,50 @@ server.tool(
       await audit.write("investigate_entity_failed", {
         query,
         sourceId,
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
+server.tool(
+  "trace_entity_paths",
+  "Trace evidence paths from a person, organization, identifier or other search term through structured values indexed by IPED. Each path records the evidence items and the indexed value that connected them. Paths are investigative leads, not proof of real-world identity or relationship.",
+  {
+    query: z.string().min(1),
+    sourceId: z.string().optional(),
+    depth: z.number().int().min(1).max(3).optional(),
+    limit: z.number().int().positive().max(100).optional()
+  },
+  async ({ query, sourceId, depth, limit }) => {
+    try {
+      const paths = await iped.traceEntityPaths(
+        query,
+        sourceId,
+        depth,
+        limit
+      );
+
+      await audit.write("trace_entity_paths", {
+        query,
+        sourceId,
+        depth: paths.depth,
+        initialEvidence: paths.initialEvidence,
+        pathCount: paths.paths.length,
+        initialSearchTruncated:
+          paths.initialSearchTruncated
+      });
+
+      return result(paths);
+    } catch (error) {
+      await audit.write("trace_entity_paths_failed", {
+        query,
+        sourceId,
+        depth,
         error:
           error instanceof Error
             ? error.message
