@@ -214,6 +214,34 @@ server.tool(
     return result(categories);
   }
 );
+server.tool(
+  "get_case_context",
+  "Describe the IPED investigation environment available to the agent, including sources, evidence categories and bookmarks. Use this to understand the case before starting a broad investigation.",
+  {
+    sourceId: z.string().optional()
+  },
+  async ({ sourceId }) => {
+    try {
+      const context = await iped.getCaseContext(sourceId);
+
+      await audit.write("get_case_context", {
+        sourceId,
+        sources: context.sources,
+        categories: context.categories,
+        bookmarks: context.bookmarks
+      });
+
+      return result(context);
+    } catch (error) {
+      await audit.write("get_case_context_failed", {
+        sourceId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
 server.registerPrompt(
   "investigate_evidence",
   {

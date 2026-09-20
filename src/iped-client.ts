@@ -9,6 +9,20 @@ export class IpedClient {
   listBookmarks(): Promise<unknown> { return this.getJson("/bookmarks"); }
   getBookmarkEvidence(bookmark: string): Promise<unknown> { return this.getJson(`/bookmarks/${encodeURIComponent(bookmark)}`); }
   listCategories(): Promise<unknown> { return this.getJson("/categories"); }
+    async getCaseContext(sourceId?: string) {
+    const [sources, categories, bookmarks] = await Promise.all([
+      this.listSources(),
+      this.listCategories(),
+      this.listBookmarks()
+    ]);
+
+    return {
+      sourceId,
+      sources,
+      categories,
+      bookmarks
+    };
+  }
 
   async search(query: string, sourceId?: string, requestedLimit?: number) {
     const limit = Math.min(requestedLimit ?? this.config.searchResultLimit, this.config.searchResultLimit);
