@@ -947,6 +947,51 @@ export class IpedClient {
       [...communicationParticipants.values()]
         .filter(participant => participant.evidence.length > 1);
 
+    const crossEvidenceLinks = [];
+
+    for (const entity of recurringEntities) {
+      for (let left = 0; left < entity.evidence.length; left += 1) {
+        for (
+          let right = left + 1;
+          right < entity.evidence.length;
+          right += 1
+        ) {
+          crossEvidenceLinks.push({
+            left: entity.evidence[left],
+            right: entity.evidence[right],
+            via: {
+              kind: "INDEXED_ENTITY" as const,
+              type: entity.type,
+              value: entity.value
+            }
+          });
+        }
+      }
+    }
+
+    for (const participant of recurringCommunicationParticipants) {
+      for (
+        let left = 0;
+        left < participant.evidence.length;
+        left += 1
+      ) {
+        for (
+          let right = left + 1;
+          right < participant.evidence.length;
+          right += 1
+        ) {
+          crossEvidenceLinks.push({
+            left: participant.evidence[left],
+            right: participant.evidence[right],
+            via: {
+              kind: "COMMUNICATION_PARTICIPANT" as const,
+              value: participant.value
+            }
+          });
+        }
+      }
+    }
+
     const duplicateEvidence = [...duplicateGroups.entries()]
       .filter(([, items]) => items.length > 1)
       .map(([hash, items]) => ({
@@ -964,10 +1009,12 @@ export class IpedClient {
       communicationParticipants:
         [...communicationParticipants.values()],
       recurringCommunicationParticipants,
+      crossEvidenceLinks,
       duplicateEvidence,
       investigationLeads: {
         recurringEntities,
         recurringCommunicationParticipants,
+        crossEvidenceLinks,
         duplicateEvidence
       }
     };
