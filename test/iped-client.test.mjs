@@ -651,6 +651,29 @@ test("investigates a relationship through shared indexed evidence values", async
       itemId: 11
     }
   ]);
+
+  assert.deepEqual(result.communicationMentions, [
+    {
+      evidence: {
+        sourceId: "case-test",
+        itemId: 10
+      },
+      matchedQuery: "Other Person",
+      side: "to",
+      participant: {
+        value: "other@example.test",
+        id: undefined,
+        name: "Other Person",
+        phoneNumber: undefined,
+        username: undefined
+      },
+      conversation: {
+        id: "conversation-1",
+        name: "Test Conversation",
+        type: "email"
+      }
+    }
+  ]);
 });
 
 test("identifies evidence shared by both investigated terms", async () => {
