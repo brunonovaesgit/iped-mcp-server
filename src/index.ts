@@ -18,10 +18,32 @@ server.tool("search_evidence", "Search an IPED case and return references to mat
   const search = await iped.search(query,sourceId,limit); await audit.write("search_evidence",{query,sourceId,returned:search.matches.length,truncated:search.truncated,results:search.matches}); return result(search);
 });
 server.tool("get_evidence", "Read the indexed metadata for one evidence item.", { sourceId:z.string().min(1), itemId:z.number().int().nonnegative() }, async ({sourceId,itemId}) => {
-  const evidence=await iped.getEvidence(sourceId,itemId); await audit.write("get_evidence",{sourceId,itemId}); return result(evidence);
+  try {
+    const evidence=await iped.getEvidence(sourceId,itemId);
+    await audit.write("get_evidence",{sourceId,itemId});
+    return result(evidence);
+  } catch (error) {
+    await audit.write("get_evidence_failed",{
+      sourceId,
+      itemId,
+      error:error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
 });
 server.tool("get_evidence_text", "Read the text extracted by IPED for one evidence item.", { sourceId:z.string().min(1), itemId:z.number().int().nonnegative() }, async ({sourceId,itemId}) => {
-  const evidence=await iped.getText(sourceId,itemId); await audit.write("get_evidence_text",{sourceId,itemId,returnedCharacters:evidence.text.length,truncated:evidence.truncated}); return result(evidence);
+  try {
+    const evidence=await iped.getText(sourceId,itemId);
+    await audit.write("get_evidence_text",{sourceId,itemId,returnedCharacters:evidence.text.length,truncated:evidence.truncated});
+    return result(evidence);
+  } catch (error) {
+    await audit.write("get_evidence_text_failed",{
+      sourceId,
+      itemId,
+      error:error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
 });
 server.tool("list_bookmarks", "List bookmarks already present in the IPED case.", {}, async () => {
   const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
