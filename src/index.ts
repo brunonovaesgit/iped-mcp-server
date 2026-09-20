@@ -49,6 +49,23 @@ server.tool("list_bookmarks", "List bookmarks already present in the IPED case."
   const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
 });
 server.tool(
+  "get_bookmark_evidence",
+  "List the evidence items contained in an IPED bookmark.",
+  {
+    bookmark: z.string().min(1)
+  },
+  async ({ bookmark }) => {
+    const evidence = await iped.getBookmarkEvidence(bookmark);
+
+    await audit.write("get_bookmark_evidence", {
+      bookmark,
+      results: evidence
+    });
+
+    return result(evidence);
+  }
+);
+server.tool(
   "list_categories",
   "List the evidence categories available in IPED.",
   {},

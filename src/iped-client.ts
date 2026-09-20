@@ -7,6 +7,7 @@ export class IpedClient {
   constructor(private readonly config: Config) {}
   listSources(): Promise<unknown> { return this.getJson("/sources"); }
   listBookmarks(): Promise<unknown> { return this.getJson("/bookmarks"); }
+  getBookmarkEvidence(bookmark: string): Promise<unknown> { return this.getJson(`/bookmarks/${encodeURIComponent(bookmark)}`); }
   listCategories(): Promise<unknown> { return this.getJson("/categories"); }
 
   async search(query: string, sourceId?: string, requestedLimit?: number) {
