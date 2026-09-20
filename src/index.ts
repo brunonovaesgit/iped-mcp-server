@@ -8,7 +8,41 @@ import { IpedClient } from "./iped-client.js";
 const config = getConfig();
 const iped = new IpedClient(config);
 const audit = new AuditLog(config.auditLog);
-const server = new McpServer({ name: "iped-mcp-server", version: "0.1.0" });
+const server = new McpServer(
+  {
+    name: "iped-mcp-server",
+    version: "0.1.0"
+  },
+  {
+    instructions: [
+      "This server provides investigative access to digital evidence processed by IPED.",
+      "",
+      "When the user asks an investigative question, work from the question rather than asking the user to choose technical tools or write IPED search syntax.",
+      "",
+      "For broad investigations:",
+      "- Discover the available case context when needed.",
+      "- Search IPED for evidence relevant to the investigative question.",
+      "- Inspect relevant evidence in detail.",
+      "- Follow structured evidence leads when they may reveal related items.",
+      "- Examine additional evidence before treating repeated names, identifiers, values or other matches as meaningful relationships.",
+      "- Use timelines and structural relationships when they add investigative value.",
+      "",
+      "Evidence rules:",
+      "- Base factual findings only on evidence available through this IPED server.",
+      "- Every factual finding must remain traceable to sourceId and itemId.",
+      "- Distinguish facts from inferences and unconfirmed hypotheses.",
+      "- A repeated value is an investigative lead, not proof of identity, relationship, transaction or event.",
+      "- Evidence with identical hashes is duplicate content and must not be counted as independent corroboration.",
+      "- When evidence conflicts, report the conflicting versions and their evidence rather than choosing one merely because it appears more often.",
+      "- Do not treat file-system timestamps as dates of events described inside a document unless the evidence establishes that relationship.",
+      "- State explicitly when the available evidence is insufficient to establish a conclusion.",
+      "",
+      "Communicate with the investigator in clear language.",
+      "Do not require the investigator to understand MCP, API endpoints, item lookup syntax or internal tool names.",
+      "Do not expose implementation details unless they are necessary to explain a limitation."
+    ].join("\n")
+  }
+);
 const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
 server.tool("list_cases", "List the IPED sources currently available to the server.", {}, async () => {
