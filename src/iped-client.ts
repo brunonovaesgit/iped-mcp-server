@@ -940,20 +940,36 @@ export class IpedClient {
       }
     }
 
+    const recurringEntities = [...entities.values()]
+      .filter(entity => entity.evidence.length > 1);
+
+    const recurringCommunicationParticipants =
+      [...communicationParticipants.values()]
+        .filter(participant => participant.evidence.length > 1);
+
+    const duplicateEvidence = [...duplicateGroups.entries()]
+      .filter(([, items]) => items.length > 1)
+      .map(([hash, items]) => ({
+        hash,
+        evidence: items
+      }));
+
     return {
       query,
       sourceId,
       matchedEvidence: evidence,
       matchedEvidenceTruncated: search.truncated,
       entities: [...entities.values()],
+      recurringEntities,
       communicationParticipants:
         [...communicationParticipants.values()],
-      duplicateEvidence: [...duplicateGroups.entries()]
-        .filter(([, items]) => items.length > 1)
-        .map(([hash, items]) => ({
-          hash,
-          evidence: items
-        }))
+      recurringCommunicationParticipants,
+      duplicateEvidence,
+      investigationLeads: {
+        recurringEntities,
+        recurringCommunicationParticipants,
+        duplicateEvidence
+      }
     };
   }
 
