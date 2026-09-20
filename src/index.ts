@@ -185,6 +185,43 @@ server.tool(
   }
 );
 server.tool(
+  "follow_evidence_leads",
+  "Follow structured values already extracted by IPED from an evidence item and find where the same indexed values appear elsewhere in the case. Matching values are investigative leads and must not be treated by themselves as proof of identity, relationship or corroboration.",
+  {
+    sourceId: z.string().min(1),
+    itemId: z.number().int().nonnegative()
+  },
+  async ({ sourceId, itemId }) => {
+    try {
+      const investigation = await iped.followEvidenceLeads(
+        sourceId,
+        itemId
+      );
+
+      await audit.write("follow_evidence_leads", {
+        sourceId,
+        itemId,
+        leads: investigation.leads.map(lead => ({
+          type: lead.type,
+          value: lead.value,
+          matches: lead.matches.length,
+          truncated: lead.truncated
+        }))
+      });
+
+      return result(investigation);
+    } catch (error) {
+      await audit.write("follow_evidence_leads_failed", {
+        sourceId,
+        itemId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
+server.tool(
   "get_evidence_timeline",
   "Build a chronological timeline from timestamps indexed by IPED for specific evidence items. Events are returned with sourceId and itemId so every timestamp remains traceable to its evidence.",
   {

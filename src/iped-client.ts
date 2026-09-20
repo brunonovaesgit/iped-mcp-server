@@ -205,6 +205,36 @@ export class IpedClient {
     };
   }
 
+  async followEvidenceLeads(sourceId: string, itemId: number) {
+    const entities = await this.getEvidenceEntities(sourceId, itemId);
+
+    const leads = [];
+
+    for (const entity of entities.entities) {
+      const search = await this.search(entity.searchQuery, sourceId);
+
+      leads.push({
+        type: entity.type,
+        value: entity.value,
+        searchQuery: entity.searchQuery,
+        matches: search.matches.filter(
+          match =>
+            match.sourceId !== sourceId ||
+            match.itemId !== itemId
+        ),
+        truncated: search.truncated
+      });
+    }
+
+    return {
+      origin: {
+        sourceId,
+        itemId
+      },
+      leads
+    };
+  }
+
   async getTimeline(items: EvidenceReference[]) {
     const events: Array<{
       sourceId: string;
