@@ -838,6 +838,28 @@ test("collects evidence context for a focused investigation", async () => {
     result.recurringEntities
   );
 
+  assert.ok(
+    result.crossEvidenceLinks.some(
+      link =>
+        link.left.itemId === 10 &&
+        link.right.itemId === 11 &&
+        link.via.kind === "INDEXED_ENTITY" &&
+        link.via.type === "EMAIL" &&
+        link.via.value === "person@example.test"
+    )
+  );
+
+  assert.ok(
+    result.crossEvidenceLinks.some(
+      link =>
+        link.left.itemId === 11 &&
+        link.right.itemId === 12 &&
+        link.via.kind === "INDEXED_ENTITY" &&
+        link.via.type === "PHONE" &&
+        link.via.value === "+5511999999999"
+    )
+  );
+
   assert.deepEqual(result.duplicateEvidence, [
     {
       hash: "HASH-A",
