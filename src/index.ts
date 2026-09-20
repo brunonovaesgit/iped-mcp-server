@@ -536,8 +536,12 @@ server.tool(
           investigation.matchedEvidenceTruncated,
         entityCount:
           investigation.entities.length,
+        recurringEntityCount:
+          investigation.recurringEntities.length,
         communicationParticipantCount:
           investigation.communicationParticipants.length,
+        recurringCommunicationParticipantCount:
+          investigation.recurringCommunicationParticipants.length,
         duplicateGroupCount:
           investigation.duplicateEvidence.length
       });
