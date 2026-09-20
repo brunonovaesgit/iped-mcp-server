@@ -77,6 +77,9 @@ before(async () => {
         "Person Test": [10],
         "parentId:10": [],
         "hash:HASH-A": [10, 12],
+        "Other Person": [11],
+        "Shared Person A": [10],
+        "Shared Person B": [10],
         'Regex\\:EMAIL:"person@example.test"': [10, 11],
         'Regex\\:PHONE:"+5511999999999"': [11, 12],
         'Regex\\:MONEY:"18.750,00"': [10]
@@ -606,4 +609,63 @@ test("investigates communications from a search term", async () => {
       "third@example.test"
     ]
   );
+});
+
+test("investigates a relationship through shared indexed evidence values", async () => {
+  const iped = client();
+
+  const result = await iped.investigateRelationship(
+    "Person Test",
+    "Other Person",
+    "case-test"
+  );
+
+  assert.deepEqual(result.left.evidence, [
+    {
+      sourceId: "case-test",
+      itemId: 10
+    }
+  ]);
+
+  assert.deepEqual(result.right.evidence, [
+    {
+      sourceId: "case-test",
+      itemId: 11
+    }
+  ]);
+
+  assert.deepEqual(result.sharedEvidence, []);
+
+  const connection = result.connections.find(
+    item =>
+      item.from.itemId === 10 &&
+      item.via.type === "EMAIL" &&
+      item.via.value === "person@example.test"
+  );
+
+  assert.ok(connection);
+
+  assert.deepEqual(connection.to, [
+    {
+      sourceId: "case-test",
+      itemId: 11
+    }
+  ]);
+});
+
+test("identifies evidence shared by both investigated terms", async () => {
+  const iped = client();
+
+  const result = await iped.investigateRelationship(
+    "Shared Person A",
+    "Shared Person B",
+    "case-test"
+  );
+
+  assert.deepEqual(result.sharedEvidence, [
+    {
+      sourceId: "case-test",
+      itemId: 10
+    }
+  ]);
 });

@@ -31,6 +31,9 @@ const server = new McpServer(
       "- When the investigation is centered on a person, organization, account, phone number, email address or other entity, use entity investigation to discover its initial evidence and structured connections before manually repeating equivalent searches.",
       "- Expand entity connections only when they are relevant to the investigative question. Do not assume that evidence sharing an indexed value refers to the same real-world person, organization or event.",
       "- When an entity investigation requires following relationships across multiple evidence items, trace evidence paths instead of manually repeating searches.",
+      "- When the investigator asks about the relationship between two people, organizations, accounts, identifiers or other entities, investigate the relationship directly before manually assembling separate searches.",
+      "- Distinguish evidence that contains both investigated terms from evidence connected only through a shared indexed value.",
+      "- A discovered path between evidence items is an investigative connection. Do not present it as proof that the investigated entities have a real-world relationship.",
       "- Keep evidence paths explicit. A path shows how indexed values connect evidence items; it does not establish that the connected records represent the same real-world person, organization or event.",
       "- Prefer shallow relationship traversal first. Expand deeper only when the additional path is relevant to the investigative question.",
       "- Examine additional evidence before treating repeated names, identifiers, values or other matches as meaningful relationships.",
@@ -427,6 +430,66 @@ server.tool(
         "investigate_communications_failed",
         {
           query,
+          sourceId,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error)
+        }
+      );
+
+      throw error;
+    }
+  }
+);
+server.tool(
+  "investigate_relationship",
+  "Investigate whether two people, organizations, identifiers or other search terms are connected in IPED evidence. Finds evidence matching each side, evidence containing both terms, and structured values that connect evidence from one side to evidence from the other. Returned connections are investigative paths and do not by themselves prove a real-world relationship.",
+  {
+    leftQuery: z.string().min(1),
+    rightQuery: z.string().min(1),
+    sourceId: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional()
+  },
+  async ({
+    leftQuery,
+    rightQuery,
+    sourceId,
+    limit
+  }) => {
+    try {
+      const investigation =
+        await iped.investigateRelationship(
+          leftQuery,
+          rightQuery,
+          sourceId,
+          limit
+        );
+
+      await audit.write(
+        "investigate_relationship",
+        {
+          leftQuery,
+          rightQuery,
+          sourceId,
+          leftEvidence:
+            investigation.left.evidence,
+          rightEvidence:
+            investigation.right.evidence,
+          sharedEvidence:
+            investigation.sharedEvidence,
+          connectionCount:
+            investigation.connections.length
+        }
+      );
+
+      return result(investigation);
+    } catch (error) {
+      await audit.write(
+        "investigate_relationship_failed",
+        {
+          leftQuery,
+          rightQuery,
           sourceId,
           error:
             error instanceof Error

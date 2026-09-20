@@ -527,6 +527,80 @@ export class IpedClient {
     };
   }
 
+  async investigateRelationship(
+    leftQuery: string,
+    rightQuery: string,
+    sourceId?: string,
+    requestedLimit?: number
+  ) {
+    const limit = Math.min(
+      requestedLimit ?? 20,
+      this.config.searchResultLimit
+    );
+
+    const [leftSearch, rightSearch] = await Promise.all([
+      this.search(leftQuery, sourceId, limit),
+      this.search(rightQuery, sourceId, limit)
+    ]);
+
+    const referenceKey = (reference: EvidenceReference) =>
+      `${reference.sourceId}:${reference.itemId}`;
+
+    const rightKeys = new Set(
+      rightSearch.matches.map(referenceKey)
+    );
+
+    const sharedEvidence = leftSearch.matches.filter(
+      reference => rightKeys.has(referenceKey(reference))
+    );
+
+    const rightEvidenceKeys = new Set(
+      rightSearch.matches.map(referenceKey)
+    );
+
+    const connections = [];
+
+    for (const left of leftSearch.matches) {
+      const evidenceConnections =
+        await this.getEvidenceConnections(
+          left.sourceId,
+          left.itemId
+        );
+
+      for (const connection of evidenceConnections.connections) {
+        const matches = connection.evidence.filter(
+          reference =>
+            rightEvidenceKeys.has(referenceKey(reference))
+        );
+
+        if (matches.length === 0) {
+          continue;
+        }
+
+        connections.push({
+          from: left,
+          via: connection.entity,
+          to: matches
+        });
+      }
+    }
+
+    return {
+      left: {
+        query: leftQuery,
+        evidence: leftSearch.matches,
+        truncated: leftSearch.truncated
+      },
+      right: {
+        query: rightQuery,
+        evidence: rightSearch.matches,
+        truncated: rightSearch.truncated
+      },
+      sharedEvidence,
+      connections
+    };
+  }
+
   async investigateEntity(
     query: string,
     sourceId?: string,
