@@ -713,3 +713,57 @@ test("identifies evidence shared by both investigated terms", async () => {
     }
   ]);
 });
+
+test("collects evidence context for a focused investigation", async () => {
+  const iped = client();
+
+  const result = await iped.investigateEvidence(
+    "anything",
+    "case-test"
+  );
+
+  assert.equal(result.query, "anything");
+  assert.equal(result.matchedEvidence.length, 3);
+
+  assert.deepEqual(
+    {
+      sourceId: result.matchedEvidence[0].sourceId,
+      itemId: result.matchedEvidence[0].itemId,
+      name: result.matchedEvidence[0].name
+    },
+    {
+      sourceId: "case-test",
+      itemId: 10,
+      name: "origin.txt"
+    }
+  );
+
+  assert.equal(
+    result.matchedEvidence[0].communication.from[0].name,
+    "Person Test"
+  );
+
+  assert.ok(
+    result.matchedEvidence[0].entities.some(
+      entity =>
+        entity.type === "EMAIL" &&
+        entity.value === "person@example.test"
+    )
+  );
+
+  assert.deepEqual(result.duplicateEvidence, [
+    {
+      hash: "HASH-A",
+      evidence: [
+        {
+          sourceId: "case-test",
+          itemId: 10
+        },
+        {
+          sourceId: "case-test",
+          itemId: 12
+        }
+      ]
+    }
+  ]);
+});
