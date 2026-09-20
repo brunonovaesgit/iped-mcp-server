@@ -507,7 +507,7 @@ server.tool(
 );
 server.tool(
   "investigate_evidence",
-  "Start a focused investigation from a natural-language search term or IPED query. Returns the matching evidence with extracted text, key indexed entities, communication context and duplicate-content groups in one operation. Use this as the default starting point for broad investigative questions before expanding only the relevant leads.",
+  "Start a focused investigation from a natural-language search term or IPED query. Returns matching evidence with extracted text, indexed entities, communication context, duplicate-content groups and explicit links between evidence that shares recurring indexed values. Use this as the default starting point for broad investigative questions before expanding only the relevant leads.",
   {
     query: z.string().min(1),
     sourceId: z.string().optional(),
@@ -542,6 +542,8 @@ server.tool(
           investigation.communicationParticipants.length,
         recurringCommunicationParticipantCount:
           investigation.recurringCommunicationParticipants.length,
+        crossEvidenceLinkCount:
+          investigation.crossEvidenceLinks.length,
         duplicateGroupCount:
           investigation.duplicateEvidence.length
       });
