@@ -554,10 +554,6 @@ export class IpedClient {
       reference => rightKeys.has(referenceKey(reference))
     );
 
-    const rightEvidenceKeys = new Set(
-      rightSearch.matches.map(referenceKey)
-    );
-
     const connections = [];
 
     for (const left of leftSearch.matches) {
@@ -569,8 +565,7 @@ export class IpedClient {
 
       for (const connection of evidenceConnections.connections) {
         const matches = connection.evidence.filter(
-          reference =>
-            rightEvidenceKeys.has(referenceKey(reference))
+          reference => rightKeys.has(referenceKey(reference))
         );
 
         if (matches.length === 0) {
@@ -582,6 +577,80 @@ export class IpedClient {
           via: connection.entity,
           to: matches
         });
+      }
+    }
+
+    const participantMatchesQuery = (
+      participant: {
+        value?: string;
+        id?: string;
+        name?: string;
+        phoneNumber?: string;
+        username?: string;
+      },
+      query: string
+    ) => {
+      const expected = query.trim().toLocaleLowerCase();
+
+      return [
+        participant.value,
+        participant.id,
+        participant.name,
+        participant.phoneNumber,
+        participant.username
+      ].some(
+        value =>
+          value?.trim().toLocaleLowerCase() === expected
+      );
+    };
+
+    const communicationMentions = [];
+
+    for (const reference of leftSearch.matches) {
+      const communication =
+        await this.getCommunicationParticipants(
+          reference.sourceId,
+          reference.itemId
+        );
+
+      for (const side of ["from", "to"] as const) {
+        for (const participant of communication[side]) {
+          if (!participantMatchesQuery(participant, rightQuery)) {
+            continue;
+          }
+
+          communicationMentions.push({
+            evidence: reference,
+            matchedQuery: rightQuery,
+            side,
+            participant,
+            conversation: communication.conversation
+          });
+        }
+      }
+    }
+
+    for (const reference of rightSearch.matches) {
+      const communication =
+        await this.getCommunicationParticipants(
+          reference.sourceId,
+          reference.itemId
+        );
+
+      for (const side of ["from", "to"] as const) {
+        for (const participant of communication[side]) {
+          if (!participantMatchesQuery(participant, leftQuery)) {
+            continue;
+          }
+
+          communicationMentions.push({
+            evidence: reference,
+            matchedQuery: leftQuery,
+            side,
+            participant,
+            conversation: communication.conversation
+          });
+        }
       }
     }
 
@@ -597,7 +666,8 @@ export class IpedClient {
         truncated: rightSearch.truncated
       },
       sharedEvidence,
-      connections
+      connections,
+      communicationMentions
     };
   }
 
