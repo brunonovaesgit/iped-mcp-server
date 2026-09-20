@@ -202,3 +202,48 @@ test("follows indexed evidence leads without returning the origin item", async (
   assert.ok(money);
   assert.deepEqual(money.matches, []);
 });
+
+test("checks claim references and does not count duplicate content twice", async () => {
+  const iped = client();
+
+  const result = await iped.checkClaimEvidence(
+    "INFERENCE",
+    "The origin item may be related to the duplicate item.",
+    [
+      { sourceId: "case-test", itemId: 10 },
+      { sourceId: "case-test", itemId: 12 }
+    ]
+  );
+
+  assert.equal(result.classification, "INFERENCE");
+  assert.equal(result.referencesVerified, true);
+  assert.equal(result.semanticSupportValidated, false);
+  assert.equal(result.independentEvidenceCount, 1);
+
+  assert.deepEqual(result.duplicateGroups, [
+    {
+      hash: "HASH-A",
+      items: [
+        { sourceId: "case-test", itemId: 10 },
+        { sourceId: "case-test", itemId: 12 }
+      ]
+    }
+  ]);
+});
+
+test("keeps different evidence items independent", async () => {
+  const iped = client();
+
+  const result = await iped.checkClaimEvidence(
+    "FACT",
+    "Two independently stored evidence items were referenced.",
+    [
+      { sourceId: "case-test", itemId: 10 },
+      { sourceId: "case-test", itemId: 11 }
+    ]
+  );
+
+  assert.equal(result.referencesVerified, true);
+  assert.equal(result.independentEvidenceCount, 2);
+  assert.deepEqual(result.duplicateGroups, []);
+});

@@ -30,6 +30,10 @@ const server = new McpServer(
       "Evidence rules:",
       "- Base factual findings only on evidence available through this IPED server.",
       "- Every factual finding must remain traceable to sourceId and itemId.",
+      "- Before presenting an important multi-item factual claim, use check_claim_evidence to verify its evidence references and detect duplicate supporting items.",
+      "- check_claim_evidence validates references and duplicate content only; it does not establish that the evidence semantically proves the claim.",
+      "- For an INFERENCE, make clear what relationship was inferred from the cited evidence.",
+      "- For a HYPOTHESIS, make clear what additional evidence would be needed to confirm or reject it.",
       "- Distinguish facts from inferences and unconfirmed hypotheses.",
       "- A repeated value is an investigative lead, not proof of identity, relationship, transaction or event.",
       "- Evidence with identical hashes is duplicate content and must not be counted as independent corroboration.",
@@ -252,6 +256,49 @@ server.tool(
       await audit.write("follow_evidence_leads_failed", {
         sourceId,
         itemId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
+server.tool(
+  "check_claim_evidence",
+  "Check the evidence references used to support an investigative claim. Verifies that referenced IPED items exist and identifies same-hash duplicates that must not be counted as independent corroboration. This structural check does not determine whether the evidence semantically proves the claim.",
+  {
+    classification: z.enum(["FACT", "INFERENCE", "HYPOTHESIS"]),
+    claim: z.string().min(1),
+    evidence: z.array(
+      z.object({
+        sourceId: z.string().min(1),
+        itemId: z.number().int().nonnegative()
+      })
+    ).min(1).max(100)
+  },
+  async ({ classification, claim, evidence }) => {
+    try {
+      const validation = await iped.checkClaimEvidence(
+        classification,
+        claim,
+        evidence
+      );
+
+      await audit.write("check_claim_evidence", {
+        classification,
+        claim,
+        evidence,
+        referencesVerified: validation.referencesVerified,
+        duplicateGroups: validation.duplicateGroups,
+        independentEvidenceCount: validation.independentEvidenceCount
+      });
+
+      return result(validation);
+    } catch (error) {
+      await audit.write("check_claim_evidence_failed", {
+        classification,
+        claim,
+        evidence,
         error: error instanceof Error ? error.message : String(error)
       });
 

@@ -9,7 +9,7 @@ export class IpedClient {
   listBookmarks(): Promise<unknown> { return this.getJson("/bookmarks"); }
   getBookmarkEvidence(bookmark: string): Promise<unknown> { return this.getJson(`/bookmarks/${encodeURIComponent(bookmark)}`); }
   listCategories(): Promise<unknown> { return this.getJson("/categories"); }
-    async getCaseContext(sourceId?: string) {
+  async getCaseContext(sourceId?: string) {
     const [sources, categories, bookmarks] = await Promise.all([
       this.listSources(),
       this.listCategories(),
@@ -21,6 +21,59 @@ export class IpedClient {
       sources,
       categories,
       bookmarks
+    };
+  }
+
+  async checkClaimEvidence(
+    classification: "FACT" | "INFERENCE" | "HYPOTHESIS",
+    claim: string,
+    references: EvidenceReference[]
+  ) {
+    const evidence = await Promise.all(
+      references.map(reference =>
+        this.getEvidence(reference.sourceId, reference.itemId)
+      )
+    );
+
+    const hashGroups = new Map<string, EvidenceReference[]>();
+
+    for (const item of evidence) {
+      const hash = item.properties.hash?.[0];
+
+      if (!hash) {
+        continue;
+      }
+
+      const group = hashGroups.get(hash) ?? [];
+
+      group.push({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      });
+
+      hashGroups.set(hash, group);
+    }
+
+    const duplicateGroups = [...hashGroups.entries()]
+      .filter(([, items]) => items.length > 1)
+      .map(([hash, items]) => ({
+        hash,
+        items
+      }));
+
+    return {
+      classification,
+      claim,
+      references,
+      referencesVerified: true,
+      duplicateGroups,
+      independentEvidenceCount:
+        references.length -
+        duplicateGroups.reduce(
+          (duplicates, group) => duplicates + group.items.length - 1,
+          0
+        ),
+      semanticSupportValidated: false
     };
   }
 
