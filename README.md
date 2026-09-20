@@ -198,6 +198,19 @@ Using an absolute path is recommended.
 
 The exact location of the MCP configuration file depends on the AI client.
 
+### Ready-to-use configuration examples
+
+Configuration examples are available in:
+
+- `examples/generic-stdio/`
+- `examples/claude-desktop/`
+
+The examples intentionally use an absolute path placeholder:
+
+```text
+/absolute/path/to/iped-mcp-server/dist/index.js
+```
+
 ## First investigation
 
 With IPED Web API running and the MCP server configured in the AI client, start a new conversation and ask an investigative question normally.

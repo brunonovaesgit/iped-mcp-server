@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "iped": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/iped-mcp-server/dist/index.js"
+      ],
+      "env": {
+        "IPED_URL": "http://127.0.0.1:8080",
+        "SEARCH_RESULT_LIMIT": "50",
+        "TEXT_LIMIT": "50000",
+        "CONTENT_LIMIT": "10000000",
+        "AUDIT_LOG": "./audit/requests.jsonl"
+      }
+    }
+  }
+}
