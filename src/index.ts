@@ -14,7 +14,7 @@ const result = (value: unknown) => ({ content: [{ type: "text" as const, text: J
 server.tool("list_cases", "List the IPED sources currently available to the server.", {}, async () => {
   const sources = await iped.listSources(); await audit.write("list_cases",{results:sources}); return result(sources);
 });
-server.tool("search_evidence", "Search an IPED case and return references to matching evidence items.", { query: z.string().min(1), sourceId: z.string().optional(), limit: z.number().int().positive().optional() }, async ({query,sourceId,limit}) => {
+server.tool("search_evidence", "Search evidence in IPED and return matching sourceId and itemId references. The query supports IPED field searches such as hash:<value>, md5:<value>, sha-256:<value>, trackId:<value>, type:<value>, category:\"<value>\", path:\"<value>\" and Regex\\:MONEY:\"<value>\". Use a plain term or quoted phrase for general content searches.", { query: z.string().min(1), sourceId: z.string().optional(), limit: z.number().int().positive().optional() }, async ({query,sourceId,limit}) => {
   const search = await iped.search(query,sourceId,limit); await audit.write("search_evidence",{query,sourceId,returned:search.matches.length,truncated:search.truncated,results:search.matches}); return result(search);
 });
 server.tool("get_evidence", "Read the indexed metadata for one evidence item.", { sourceId:z.string().min(1), itemId:z.number().int().nonnegative() }, async ({sourceId,itemId}) => {
