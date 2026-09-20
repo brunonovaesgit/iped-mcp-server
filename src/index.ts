@@ -531,6 +531,8 @@ server.tool(
           })
         ),
         connectionCount: investigation.connections.length,
+        communicationParticipantCount:
+          investigation.communicationParticipants.length,
         initialSearchTruncated:
           investigation.initialSearchTruncated
       });
