@@ -232,5 +232,61 @@ server.registerPrompt(
     ]
   })
 );
+server.registerPrompt(
+  "analyze_bookmark",
+  {
+    title: "Analyze IPED Bookmark",
+    description:
+      "Analyze evidence selected by an investigator in an IPED bookmark and produce a traceable investigative analysis.",
+    argsSchema: {
+      bookmark: z.string().min(1),
+      question: z.string().optional()
+    }
+  },
+  ({ bookmark, question }) => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: [
+            `Analyze the IPED bookmark "${bookmark}".`,
+            question ? `Investigation question: ${question}` : "",
+            "",
+            "Use the bookmark as the starting scope of the investigation.",
+            "",
+            "Investigation workflow:",
+            "- Retrieve the evidence contained in the bookmark.",
+            "- Inspect metadata and extracted text of relevant items.",
+            "- Follow parent, child and same-content relationships when they may add investigative value.",
+            "- Correlate people, organizations, identifiers, values, dates and references found in the evidence.",
+            "- Build a timeline when timestamps help explain the relationships.",
+            "- Search for additional IPED evidence only when something found in the bookmarked evidence justifies that search.",
+            "",
+            "Evidence rules:",
+            "- Use exclusively evidence available through the IPED MCP server.",
+            "- Do not use the web or external knowledge.",
+            "- Every factual finding must cite sourceId and itemId.",
+            "- A FACT must be directly supported by evidence.",
+            "- An INFERENCE must identify the evidence from which it was derived.",
+            "- A HYPOTHESIS must be explicitly identified as unconfirmed.",
+            "- Do not treat similar names as the same person or organization without supporting evidence.",
+            "- Do not treat file-system timestamps as dates of events described inside a document unless the evidence establishes that relationship.",
+            "- If the evidence is insufficient, state what could not be established.",
+            "",
+            "Write the result for a forensic investigator.",
+            "Begin with a concise investigative summary.",
+            "Then describe the relevant findings and relationships.",
+            "Separate facts, inferences and hypotheses when applicable.",
+            "Finish with the evidence references used and any relevant unanswered questions.",
+            "Do not expose MCP, API or implementation details unless they are necessary to explain a limitation."
+          ]
+            .filter(Boolean)
+            .join("\n")
+        }
+      }
+    ]
+  })
+);
 await audit.write("server_started",{ipedUrl:config.ipedUrl});
 await server.connect(new StdioServerTransport());

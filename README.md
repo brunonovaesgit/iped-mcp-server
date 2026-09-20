@@ -19,3 +19,15 @@ npm install
 cp .env.example .env
 npm run build
 ```
+
+### Investigation prompts
+
+`investigate_evidence`
+
+Starts an investigation from a question. The agent searches IPED, inspects relevant evidence and follows relationships when necessary.
+
+`analyze_bookmark`
+
+Starts from evidence already selected by an investigator in an IPED bookmark. The agent analyzes the bookmarked items and may follow evidence-backed relationships to other items in the case.
+
+Both workflows require factual findings to remain traceable to `sourceId` and `itemId` and distinguish facts from inferences and hypotheses.
