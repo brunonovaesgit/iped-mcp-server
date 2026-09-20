@@ -150,6 +150,41 @@ server.tool(
   }
 );
 server.tool(
+  "inspect_evidence",
+  "Inspect an IPED evidence item in one step, returning its indexed metadata, extracted text, structured values and structural relationships. Use this as the primary tool when an investigation needs to understand an evidence item in detail.",
+  {
+    sourceId: z.string().min(1),
+    itemId: z.number().int().nonnegative()
+  },
+  async ({ sourceId, itemId }) => {
+    try {
+      const inspection = await iped.inspectEvidence(sourceId, itemId);
+
+      await audit.write("inspect_evidence", {
+        sourceId,
+        itemId,
+        textCharacters: inspection.text.text.length,
+        textTruncated: inspection.text.truncated,
+        entities: inspection.entities.length,
+        children: inspection.related.children.length,
+        childrenTruncated: inspection.related.childrenTruncated,
+        sameHash: inspection.related.sameHash.length,
+        sameHashTruncated: inspection.related.sameHashTruncated
+      });
+
+      return result(inspection);
+    } catch (error) {
+      await audit.write("inspect_evidence_failed", {
+        sourceId,
+        itemId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
+server.tool(
   "get_evidence_timeline",
   "Build a chronological timeline from timestamps indexed by IPED for specific evidence items. Events are returned with sourceId and itemId so every timestamp remains traceable to its evidence.",
   {

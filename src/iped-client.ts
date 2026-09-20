@@ -183,6 +183,28 @@ export class IpedClient {
     };
   }
 
+  async inspectEvidence(sourceId: string, itemId: number) {
+    const [evidence, text, entities, related] = await Promise.all([
+      this.getEvidence(sourceId, itemId),
+      this.getText(sourceId, itemId),
+      this.getEvidenceEntities(sourceId, itemId),
+      this.getRelatedEvidence(sourceId, itemId)
+    ]);
+
+    return {
+      evidence,
+      text,
+      entities: entities.entities,
+      related: {
+        parent: related.parent,
+        children: related.children,
+        childrenTruncated: related.childrenTruncated,
+        sameHash: related.sameHash,
+        sameHashTruncated: related.sameHashTruncated
+      }
+    };
+  }
+
   async getTimeline(items: EvidenceReference[]) {
     const events: Array<{
       sourceId: string;
