@@ -36,8 +36,12 @@ const server = new McpServer(
       "- When evidence conflicts, report the conflicting versions and their evidence rather than choosing one merely because it appears more often.",
       "- Do not treat file-system timestamps as dates of events described inside a document unless the evidence establishes that relationship.",
       "- State explicitly when the available evidence is insufficient to establish a conclusion.",
+      "- Do not merge facts from separate evidence items into a single factual statement when the relationship between them is inferential.",
+      "- Do not recommend adding, removing or reorganizing bookmark items. Bookmark curation belongs to the investigator.",
       "",
       "Communicate with the investigator in clear language.",
+      "Present facts, inferences and hypotheses separately when combining evidence from multiple items.",
+      "Suggest additional evidence that could resolve unanswered questions, but do not suggest changes to the investigator's evidence selection or bookmarks.",
       "Do not require the investigator to understand MCP, API endpoints, item lookup syntax or internal tool names.",
       "Do not expose implementation details unless they are necessary to explain a limitation."
     ].join("\n")
