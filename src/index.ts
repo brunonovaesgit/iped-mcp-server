@@ -12,10 +12,10 @@ const server = new McpServer({ name: "iped-mcp-server", version: "0.1.0" });
 const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
 server.tool("list_cases", "List the IPED sources currently available to the server.", {}, async () => {
-  const sources = await iped.listSources(); await audit.write("list_cases"); return result(sources);
+  const sources = await iped.listSources(); await audit.write("list_cases",{results:sources}); return result(sources);
 });
 server.tool("search_evidence", "Search an IPED case and return references to matching evidence items.", { query: z.string().min(1), sourceId: z.string().optional(), limit: z.number().int().positive().optional() }, async ({query,sourceId,limit}) => {
-  const search = await iped.search(query,sourceId,limit); await audit.write("search_evidence",{query,sourceId,returned:search.matches.length,truncated:search.truncated}); return result(search);
+  const search = await iped.search(query,sourceId,limit); await audit.write("search_evidence",{query,sourceId,returned:search.matches.length,truncated:search.truncated,results:search.matches}); return result(search);
 });
 server.tool("get_evidence", "Read the indexed metadata for one evidence item.", { sourceId:z.string().min(1), itemId:z.number().int().nonnegative() }, async ({sourceId,itemId}) => {
   const evidence=await iped.getEvidence(sourceId,itemId); await audit.write("get_evidence",{sourceId,itemId}); return result(evidence);
@@ -24,7 +24,7 @@ server.tool("get_evidence_text", "Read the text extracted by IPED for one eviden
   const evidence=await iped.getText(sourceId,itemId); await audit.write("get_evidence_text",{sourceId,itemId,returnedCharacters:evidence.text.length,truncated:evidence.truncated}); return result(evidence);
 });
 server.tool("list_bookmarks", "List bookmarks already present in the IPED case.", {}, async () => {
-  const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks"); return result(bookmarks);
+  const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
 });
 await audit.write("server_started",{ipedUrl:config.ipedUrl});
 await server.connect(new StdioServerTransport());
