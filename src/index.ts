@@ -312,5 +312,76 @@ server.registerPrompt(
     ]
   })
 );
+server.registerPrompt(
+  "generate_investigation_report",
+  {
+    title: "Generate IPED Investigation Report",
+    description:
+      "Generate a structured investigative report grounded exclusively in evidence available through IPED.",
+    argsSchema: {
+      bookmark: z.string().min(1),
+      question: z.string().optional()
+    }
+  },
+  ({ bookmark, question }) => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: [
+            `Generate an investigative report starting from the IPED bookmark "${bookmark}".`,
+            question ? `Investigation objective: ${question}` : "",
+            "",
+            "Investigation workflow:",
+            "- Retrieve and inspect the evidence contained in the bookmark.",
+            "- Inspect metadata and extracted text of relevant items.",
+            "- Use original content when extracted text or metadata is insufficient.",
+            "- Follow relevant parent, child and same-content relationships.",
+            "- Search for additional IPED evidence when findings from the bookmarked evidence justify expanding the investigation.",
+            "- Correlate people, organizations, identifiers, values, dates and references.",
+            "- Identify contradictions, duplicate content and potentially misleading coincidences.",
+            "",
+            "Evidence rules:",
+            "- Use exclusively evidence available through the IPED MCP server.",
+            "- Do not use the web or external knowledge.",
+            "- Every factual finding must cite sourceId and itemId.",
+            "- Facts must be directly supported by evidence.",
+            "- Inferences must identify their supporting evidence and must not be presented as facts.",
+            "- Hypotheses must be explicitly identified as unconfirmed.",
+            "- Do not assign subjective confidence levels unless the evidence provides a defined confidence measure.",
+            "- Do not treat similar names, values or identifiers as proof of identity or relationship.",
+            "- When evidence conflicts, report each version and its supporting evidence without choosing one merely because it appears more often.",
+            "- Evidence with identical hashes must not be counted as independent corroboration.",
+            "- File-system timestamps must not be presented as dates of events described in a document unless the evidence establishes that relationship.",
+            "- Evidence found outside the bookmark must be identified as outside the initial scope.",
+            "- Do not modify or recommend changes to evidence or bookmark curation.",
+            "",
+            "Report structure:",
+            "1. Investigation scope",
+            "2. Executive summary",
+            "3. Factual findings",
+            "4. People, organizations and identifiers",
+            "5. Relevant relationships and correlations",
+            "6. Chronology, when supported by evidence",
+            "7. Conflicting evidence",
+            "8. Related evidence found outside the initial scope",
+            "9. Inferences",
+            "10. Unconfirmed hypotheses",
+            "11. Limitations and unanswered questions",
+            "12. Evidence references",
+            "",
+            "Write for a forensic investigator who will review and validate the analysis.",
+            "Use clear professional language.",
+            "Do not describe MCP, API calls, tool usage or implementation details in the report.",
+            "Do not present the report as a final expert conclusion or substitute for investigator validation."
+          ]
+            .filter(Boolean)
+            .join("\n")
+        }
+      }
+    ]
+  })
+);
 await audit.write("server_started",{ipedUrl:config.ipedUrl});
 await server.connect(new StdioServerTransport());
