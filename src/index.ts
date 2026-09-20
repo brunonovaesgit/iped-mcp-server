@@ -506,6 +506,57 @@ server.tool(
   }
 );
 server.tool(
+  "investigate_evidence",
+  "Start a focused investigation from a natural-language search term or IPED query. Returns the matching evidence with extracted text, key indexed entities, communication context and duplicate-content groups in one operation. Use this as the default starting point for broad investigative questions before expanding only the relevant leads.",
+  {
+    query: z.string().min(1),
+    sourceId: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional()
+  },
+  async ({ query, sourceId, limit }) => {
+    try {
+      const investigation =
+        await iped.investigateEvidence(
+          query,
+          sourceId,
+          limit
+        );
+
+      await audit.write("investigate_evidence", {
+        query,
+        sourceId,
+        matchedEvidence:
+          investigation.matchedEvidence.map(
+            item => ({
+              sourceId: item.sourceId,
+              itemId: item.itemId
+            })
+          ),
+        matchedEvidenceTruncated:
+          investigation.matchedEvidenceTruncated,
+        duplicateGroupCount:
+          investigation.duplicateEvidence.length
+      });
+
+      return result(investigation);
+    } catch (error) {
+      await audit.write(
+        "investigate_evidence_failed",
+        {
+          query,
+          sourceId,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error)
+        }
+      );
+
+      throw error;
+    }
+  }
+);
+server.tool(
   "investigate_entity",
   "Investigate a person, organization, identifier or other term across an IPED case. Finds initial evidence matching the term and expands structured entities found in that evidence to reveal additional evidence connections. Connections are investigative leads and do not by themselves prove identity or relationship.",
   {
@@ -813,7 +864,7 @@ server.registerPrompt(
             "- Inspect metadata and extracted text of relevant items.",
             "- Use original content when extracted text or metadata is insufficient for the investigation.",
             "- Follow parent, child and same-content relationships when they may add investigative value.",
-            "- Prefer the higher-level investigation tools when the question is centered on an entity, communications or a relationship. Use lower-level searches and evidence inspection to verify or deepen relevant findings.",
+            "- Start broad investigative questions with investigate_evidence so relevant evidence, text, entities, communication context and duplicate content are collected together. Use the specialized entity, communication or relationship investigations when the question or findings call for them. Use lower-level searches and evidence inspection to verify or deepen relevant findings.",
             "- Use entity investigation for a person, organization, account, phone number, email address or other identifier.",
             "- Use relationship investigation when the question asks how two entities are connected. Distinguish shared evidence, shared indexed values and communication metadata.",
             "- Use communication investigation when messages, senders, recipients, accounts or conversations are central to the question.",
