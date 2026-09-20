@@ -18,8 +18,14 @@ const items = {
       "Communication:From": ["person@example.test"],
       "Communication:From:name": ["Person Test"],
       "Communication:From:username": ["person"],
-      "Communication:To": ["other@example.test"],
-      "Communication:To:name": ["Other Person"],
+      "Communication:To": [
+        "other@example.test",
+        "third@example.test"
+      ],
+      "Communication:To:name": [
+        "Other Person",
+        "Third Person"
+      ],
       "Conversation:id": ["conversation-1"],
       "Conversation:Name": ["Test Conversation"],
       "Conversation:Type": ["email"]
@@ -398,27 +404,32 @@ test("reads communication participants from IPED metadata", async () => {
       10
     );
 
-  assert.deepEqual(result.from, {
-    value: "person@example.test",
-    id: undefined,
-    name: "Person Test",
-    phoneNumber: undefined,
-    username: "person"
-  });
+  assert.deepEqual(result.from, [
+    {
+      value: "person@example.test",
+      id: undefined,
+      name: "Person Test",
+      phoneNumber: undefined,
+      username: "person"
+    }
+  ]);
 
-  assert.deepEqual(result.to, {
-    value: "other@example.test",
-    id: undefined,
-    name: "Other Person",
-    phoneNumber: undefined,
-    username: undefined
-  });
-
-  assert.deepEqual(result.conversation, {
-    id: "conversation-1",
-    name: "Test Conversation",
-    type: "email"
-  });
+  assert.deepEqual(result.to, [
+    {
+      value: "other@example.test",
+      id: undefined,
+      name: "Other Person",
+      phoneNumber: undefined,
+      username: undefined
+    },
+    {
+      value: "third@example.test",
+      id: undefined,
+      name: "Third Person",
+      phoneNumber: undefined,
+      username: undefined
+    }
+  ]);
 });
 
 test("investigates an entity and expands structured evidence connections", async () => {
@@ -446,7 +457,7 @@ test("investigates an entity and expands structured evidence connections", async
   );
 
   assert.equal(
-    result.initialEvidence[0].communication.from.name,
+    result.initialEvidence[0].communication.from[0].name,
     "Person Test"
   );
 
@@ -527,4 +538,72 @@ test("traces multi-step evidence paths without loops", async () => {
       references.length
     );
   }
+});
+
+test("builds a communication network from evidence metadata", async () => {
+  const iped = client();
+
+  const result = await iped.getCommunicationNetwork([
+    {
+      sourceId: "case-test",
+      itemId: 10
+    }
+  ]);
+
+  assert.equal(result.communications.length, 1);
+
+  assert.deepEqual(
+    result.participants.map(participant => participant.value),
+    [
+      "person@example.test",
+      "other@example.test",
+      "third@example.test"
+    ]
+  );
+
+  assert.deepEqual(
+    result.participants[0].evidence,
+    [
+      {
+        sourceId: "case-test",
+        itemId: 10
+      }
+    ]
+  );
+});
+
+test("investigates communications from a search term", async () => {
+  const iped = client();
+
+  const result = await iped.investigateCommunications(
+    "Person Test",
+    "case-test"
+  );
+
+  assert.equal(result.query, "Person Test");
+
+  assert.deepEqual(result.matchedEvidence, [
+    {
+      sourceId: "case-test",
+      itemId: 10
+    }
+  ]);
+
+  assert.equal(
+    result.matchedEvidenceTruncated,
+    false
+  );
+
+  assert.equal(result.communications.length, 1);
+
+  assert.deepEqual(
+    result.participants.map(
+      participant => participant.value
+    ),
+    [
+      "person@example.test",
+      "other@example.test",
+      "third@example.test"
+    ]
+  );
 });

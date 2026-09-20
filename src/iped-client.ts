@@ -377,40 +377,153 @@ export class IpedClient {
     };
   }
 
-  async getCommunicationParticipants(sourceId: string, itemId: number) {
+  async getCommunicationParticipants(
+    sourceId: string,
+    itemId: number
+  ) {
     const evidence = await this.getEvidence(sourceId, itemId);
     const properties = evidence.properties;
 
-    const read = (prefix: string) => ({
-      value: properties[prefix]?.[0],
-      id: properties[`${prefix}:id`]?.[0],
-      name: properties[`${prefix}:name`]?.[0],
-      phoneNumber: properties[`${prefix}:phoneNumber`]?.[0],
-      username: properties[`${prefix}:username`]?.[0]
-    });
+    const values = (key: string) =>
+      properties[key]?.filter(value => value !== "") ?? [];
 
-    const hasValue = (
-      participant: ReturnType<typeof read>
-    ) =>
-      Object.values(participant).some(
-        value => value !== undefined && value !== ""
+    const participantValues = (prefix: string) => {
+      const rawValues = values(prefix);
+      const ids = values(`${prefix}:id`);
+      const names = values(`${prefix}:name`);
+      const phoneNumbers = values(`${prefix}:phoneNumber`);
+      const usernames = values(`${prefix}:username`);
+
+      const count = Math.max(
+        rawValues.length,
+        ids.length,
+        names.length,
+        phoneNumbers.length,
+        usernames.length
       );
 
-    const from = read("Communication:From");
-    const to = read("Communication:To");
+      return Array.from({ length: count }, (_, index) => ({
+        value: rawValues[index],
+        id: ids[index],
+        name: names[index],
+        phoneNumber: phoneNumbers[index],
+        username: usernames[index]
+      }));
+    };
 
     return {
       evidence: {
         sourceId,
         itemId
       },
-      from: hasValue(from) ? from : null,
-      to: hasValue(to) ? to : null,
+      from: participantValues("Communication:From"),
+      to: participantValues("Communication:To"),
       conversation: {
         id: properties["Conversation:id"]?.[0],
         name: properties["Conversation:Name"]?.[0],
         type: properties["Conversation:Type"]?.[0]
       }
+    };
+  }
+
+  async getCommunicationNetwork(
+    items: EvidenceReference[]
+  ) {
+    const communications = [];
+    const participants = new Map<
+      string,
+      {
+        value: string;
+        evidence: EvidenceReference[];
+      }
+    >();
+
+    for (const reference of items) {
+      const communication =
+        await this.getCommunicationParticipants(
+          reference.sourceId,
+          reference.itemId
+        );
+
+      const allParticipants = [
+        ...communication.from,
+        ...communication.to
+      ];
+
+      if (allParticipants.length === 0) {
+        continue;
+      }
+
+      communications.push(communication);
+
+      for (const participant of allParticipants) {
+        const value =
+          participant.value ??
+          participant.id ??
+          participant.phoneNumber ??
+          participant.username ??
+          participant.name;
+
+        if (!value) {
+          continue;
+        }
+
+        const existing = participants.get(value);
+
+        if (existing) {
+          if (
+            !existing.evidence.some(
+              item =>
+                item.sourceId === reference.sourceId &&
+                item.itemId === reference.itemId
+            )
+          ) {
+            existing.evidence.push(reference);
+          }
+
+          continue;
+        }
+
+        participants.set(value, {
+          value,
+          evidence: [reference]
+        });
+      }
+    }
+
+    return {
+      communications,
+      participants: [...participants.values()]
+    };
+  }
+
+  async investigateCommunications(
+    query: string,
+    sourceId?: string,
+    requestedLimit?: number
+  ) {
+    const limit = Math.min(
+      requestedLimit ?? 20,
+      this.config.searchResultLimit
+    );
+
+    const search = await this.search(
+      query,
+      sourceId,
+      limit
+    );
+
+    const network = await this.getCommunicationNetwork(
+      search.matches
+    );
+
+    return {
+      query,
+      sourceId,
+      matchedEvidence: search.matches,
+      matchedEvidenceTruncated: search.truncated,
+      communications: network.communications,
+      participants: network.participants
     };
   }
 

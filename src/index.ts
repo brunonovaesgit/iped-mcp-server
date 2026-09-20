@@ -25,6 +25,8 @@ const server = new McpServer(
       "- Inspect relevant evidence in detail.",
       "- Follow structured evidence leads when they may reveal related items.",
       "- When communications or recurring structured entities are relevant, examine their evidence connections and communication participants to identify relationships worth investigating.",
+      "- When the investigative question is specifically about communications involving a person, organization, email address, phone number or other entity, investigate its communications directly before manually assembling a communication network.",
+      "- Treat sender, recipient and conversation metadata as observations extracted from evidence. Do not use them alone to establish that an account, address or identifier belongs to a particular real-world person.",
       "- Treat shared identifiers, addresses, names, phone numbers, usernames and other indexed values as connections to investigate, not as proof that two records represent the same real-world entity.",
       "- When the investigation is centered on a person, organization, account, phone number, email address or other entity, use entity investigation to discover its initial evidence and structured connections before manually repeating equivalent searches.",
       "- Expand entity connections only when they are relevant to the investigative question. Do not assume that evidence sharing an indexed value refers to the same real-world person, organization or event.",
@@ -337,6 +339,95 @@ server.tool(
         {
           sourceId,
           itemId,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error)
+        }
+      );
+
+      throw error;
+    }
+  }
+);
+server.tool(
+  "get_communication_network",
+  "Build a communication network from selected IPED evidence items using sender, recipient and conversation metadata extracted by IPED. The network describes participants observed in the evidence and does not by itself establish real-world identity.",
+  {
+    items: z.array(
+      z.object({
+        sourceId: z.string().min(1),
+        itemId: z.number().int().nonnegative()
+      })
+    ).min(1).max(100)
+  },
+  async ({ items }) => {
+    try {
+      const network =
+        await iped.getCommunicationNetwork(items);
+
+      await audit.write("get_communication_network", {
+        items,
+        communicationCount:
+          network.communications.length,
+        participantCount:
+          network.participants.length
+      });
+
+      return result(network);
+    } catch (error) {
+      await audit.write(
+        "get_communication_network_failed",
+        {
+          items,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error)
+        }
+      );
+
+      throw error;
+    }
+  }
+);
+server.tool(
+  "investigate_communications",
+  "Investigate communications related to a person, organization, email address, phone number or other search term. Finds matching IPED evidence and builds the communication network observed in sender, recipient and conversation metadata. Matching evidence and participants do not by themselves establish real-world identity.",
+  {
+    query: z.string().min(1),
+    sourceId: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional()
+  },
+  async ({ query, sourceId, limit }) => {
+    try {
+      const investigation =
+        await iped.investigateCommunications(
+          query,
+          sourceId,
+          limit
+        );
+
+      await audit.write("investigate_communications", {
+        query,
+        sourceId,
+        matchedEvidence:
+          investigation.matchedEvidence,
+        matchedEvidenceTruncated:
+          investigation.matchedEvidenceTruncated,
+        communicationCount:
+          investigation.communications.length,
+        participantCount:
+          investigation.participants.length
+      });
+
+      return result(investigation);
+    } catch (error) {
+      await audit.write(
+        "investigate_communications_failed",
+        {
+          query,
+          sourceId,
           error:
             error instanceof Error
               ? error.message
