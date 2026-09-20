@@ -676,18 +676,18 @@ export class IpedClient {
     sourceId?: string,
     requestedLimit?: number
   ) {
-  const limit = Math.min(
-    requestedLimit ?? 20,
-    this.config.searchResultLimit
-  );
+    const limit = Math.min(
+      requestedLimit ?? 20,
+      this.config.searchResultLimit
+    );
 
-  const initialSearch = await this.search(
-    query,
-    sourceId,
-    limit
-  );
+    const initialSearch = await this.search(
+      query,
+      sourceId,
+      limit
+    );
 
-  const evidence = [];
+    const evidence = [];
     const connections = new Map<
       string,
       {
@@ -695,6 +695,14 @@ export class IpedClient {
         value: string;
         evidence: EvidenceReference[];
         truncated: boolean;
+      }
+    >();
+
+    const communicationParticipants = new Map<
+      string,
+      {
+        value: string;
+        evidence: EvidenceReference[];
       }
     >();
 
@@ -720,11 +728,47 @@ export class IpedClient {
         communication: participants
       });
 
-      for (const entity of entities.entities) {
-        const key = `${entity.type}\u0000${entity.value}`;
-        const existing = connections.get(key);
+      for (const participant of [
+        ...participants.from,
+        ...participants.to
+      ]) {
+        const value =
+          participant.value ??
+          participant.id ??
+          participant.phoneNumber ??
+          participant.username ??
+          participant.name;
+
+        if (!value) {
+          continue;
+        }
+
+        const existing = communicationParticipants.get(value);
 
         if (existing) {
+          if (
+            !existing.evidence.some(
+              item =>
+                item.sourceId === reference.sourceId &&
+                item.itemId === reference.itemId
+            )
+          ) {
+            existing.evidence.push(reference);
+          }
+
+          continue;
+        }
+
+        communicationParticipants.set(value, {
+          value,
+          evidence: [reference]
+        });
+      }
+
+      for (const entity of entities.entities) {
+        const key = `${entity.type}\u0000${entity.value}`;
+
+        if (connections.has(key)) {
           continue;
         }
 
@@ -747,6 +791,8 @@ export class IpedClient {
       sourceId,
       initialEvidence: evidence,
       connections: [...connections.values()],
+      communicationParticipants:
+        [...communicationParticipants.values()],
       initialSearchTruncated: initialSearch.truncated
     };
   }
