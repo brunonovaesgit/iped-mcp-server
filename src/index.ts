@@ -87,6 +87,37 @@ server.tool(
     }
   }
 );
+server.tool(
+  "get_related_evidence",
+  "Find evidence structurally related to an IPED item, including its parent, children and other items with the same hash.",
+  {
+    sourceId: z.string().min(1),
+    itemId: z.number().int().nonnegative()
+  },
+  async ({ sourceId, itemId }) => {
+    try {
+      const related = await iped.getRelatedEvidence(sourceId, itemId);
+
+      await audit.write("get_related_evidence", {
+        sourceId,
+        itemId,
+        parent: related.parent,
+        children: related.children,
+        sameHash: related.sameHash
+      });
+
+      return result(related);
+    } catch (error) {
+      await audit.write("get_related_evidence_failed", {
+        sourceId,
+        itemId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
 server.tool("list_bookmarks", "List bookmarks already present in the IPED case.", {}, async () => {
   const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
 });

@@ -55,6 +55,41 @@ export class IpedClient {
     };
   }
 
+  async getRelatedEvidence(sourceId: string, itemId: number) {
+  const evidence = await this.getEvidence(sourceId, itemId);
+  const properties = evidence.properties;
+
+  let parent: EvidenceReference | null = null;
+  const parentId = properties.parentId?.[0];
+
+  if (parentId && /^\d+$/.test(parentId)) {
+    parent = {
+      sourceId,
+      itemId: Number(parentId)
+    };
+  }
+
+  const children = (
+    await this.search(`parentId:${itemId}`, sourceId)
+  ).matches.filter(item => item.itemId !== itemId);
+
+  let sameHash: EvidenceReference[] = [];
+  const hash = properties.hash?.[0];
+
+  if (hash) {
+    sameHash = (
+      await this.search(`hash:${hash}`, sourceId)
+    ).matches.filter(item => item.itemId !== itemId);
+  }
+
+  return {
+    evidence: { sourceId, itemId },
+    parent,
+    children,
+    sameHash
+  };
+}
+
   private async getJson<T = unknown>(path: string, parameters: Record<string,string|undefined> = {}): Promise<T> {
     return (await this.request(path, parameters)).json() as Promise<T>;
   }
