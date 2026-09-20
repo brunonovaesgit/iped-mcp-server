@@ -14,7 +14,15 @@ const items = {
       parentId: ["5"],
       hash: ["HASH-A"],
       "Regex:EMAIL": ["person@example.test"],
-      "Regex:MONEY": ["18.750,00"]
+      "Regex:MONEY": ["18.750,00"],
+      "Communication:From": ["person@example.test"],
+      "Communication:From:name": ["Person Test"],
+      "Communication:From:username": ["person"],
+      "Communication:To": ["other@example.test"],
+      "Communication:To:name": ["Other Person"],
+      "Conversation:id": ["conversation-1"],
+      "Conversation:Name": ["Test Conversation"],
+      "Conversation:Type": ["email"]
     },
     bookmarks: [],
     selected: false
@@ -344,4 +352,67 @@ test("rejects fact basis on an inference", async () => {
       ]),
     /factBasis can only be used with FACT/
   );
+});
+
+test("returns evidence connections through shared indexed entities", async () => {
+  const iped = client();
+
+  const result = await iped.getEvidenceConnections(
+    "case-test",
+    10
+  );
+
+  assert.deepEqual(result.origin, {
+    sourceId: "case-test",
+    itemId: 10,
+    name: "origin.txt",
+    path: undefined
+  });
+
+  const email = result.connections.find(
+    connection =>
+      connection.entity.type === "EMAIL" &&
+      connection.entity.value === "person@example.test"
+  );
+
+  assert.ok(email);
+
+  assert.deepEqual(email.evidence, [
+    {
+      sourceId: "case-test",
+      itemId: 11
+    }
+  ]);
+});
+
+test("reads communication participants from IPED metadata", async () => {
+  const iped = client();
+
+  const result =
+    await iped.getCommunicationParticipants(
+      "case-test",
+      10
+    );
+
+  assert.deepEqual(result.from, {
+    value: "person@example.test",
+    id: undefined,
+    name: "Person Test",
+    phoneNumber: undefined,
+    username: "person"
+  });
+
+  assert.deepEqual(result.to, {
+    value: "other@example.test",
+    id: undefined,
+    name: "Other Person",
+    phoneNumber: undefined,
+    username: undefined
+  });
+
+  assert.deepEqual(result.conversation, {
+    id: "conversation-1",
+    name: "Test Conversation",
+    type: "email"
+  });
 });

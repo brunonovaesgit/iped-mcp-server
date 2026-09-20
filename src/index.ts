@@ -24,6 +24,8 @@ const server = new McpServer(
       "- Search IPED for evidence relevant to the investigative question.",
       "- Inspect relevant evidence in detail.",
       "- Follow structured evidence leads when they may reveal related items.",
+      "- When communications or recurring structured entities are relevant, examine their evidence connections and communication participants to identify relationships worth investigating.",
+      "- Treat shared identifiers, addresses, names, phone numbers, usernames and other indexed values as connections to investigate, not as proof that two records represent the same real-world entity.",
       "- Examine additional evidence before treating repeated names, identifiers, values or other matches as meaningful relationships.",
       "- Use timelines and structural relationships when they add investigative value.",
       "",
@@ -264,6 +266,78 @@ server.tool(
         itemId,
         error: error instanceof Error ? error.message : String(error)
       });
+
+      throw error;
+    }
+  }
+);
+server.tool(
+  "get_evidence_connections",
+  "Find other evidence items that share structured values indexed by IPED with an origin item. Shared values are investigative connections, not proof that records refer to the same person, organization or event.",
+  {
+    sourceId: z.string().min(1),
+    itemId: z.number().int().nonnegative()
+  },
+  async ({ sourceId, itemId }) => {
+    try {
+      const connections = await iped.getEvidenceConnections(
+        sourceId,
+        itemId
+      );
+
+      await audit.write("get_evidence_connections", {
+        sourceId,
+        itemId,
+        connections: connections.connections
+      });
+
+      return result(connections);
+    } catch (error) {
+      await audit.write("get_evidence_connections_failed", {
+        sourceId,
+        itemId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
+
+server.tool(
+  "get_communication_participants",
+  "Read sender, recipient and conversation participant metadata indexed by IPED for a communication evidence item. The returned metadata describes what IPED extracted and does not by itself establish real-world identity.",
+  {
+    sourceId: z.string().min(1),
+    itemId: z.number().int().nonnegative()
+  },
+  async ({ sourceId, itemId }) => {
+    try {
+      const participants =
+        await iped.getCommunicationParticipants(
+          sourceId,
+          itemId
+        );
+
+      await audit.write("get_communication_participants", {
+        sourceId,
+        itemId,
+        participants
+      });
+
+      return result(participants);
+    } catch (error) {
+      await audit.write(
+        "get_communication_participants_failed",
+        {
+          sourceId,
+          itemId,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error)
+        }
+      );
 
       throw error;
     }

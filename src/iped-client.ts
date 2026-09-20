@@ -337,6 +337,83 @@ export class IpedClient {
     };
   }
 
+  async getEvidenceConnections(sourceId: string, itemId: number) {
+    const origin = await this.getEvidence(sourceId, itemId);
+    const entities = await this.getEvidenceEntities(sourceId, itemId);
+
+    const connections = [];
+
+    for (const entity of entities.entities) {
+      const search = await this.search(entity.searchQuery, sourceId);
+
+      const matches = search.matches.filter(
+        match =>
+          match.sourceId !== sourceId ||
+          match.itemId !== itemId
+      );
+
+      if (matches.length === 0) {
+        continue;
+      }
+
+      connections.push({
+        entity: {
+          type: entity.type,
+          value: entity.value
+        },
+        evidence: matches,
+        truncated: search.truncated
+      });
+    }
+
+    return {
+      origin: {
+        sourceId,
+        itemId,
+        name: origin.properties.name?.[0],
+        path: origin.properties.path?.[0]
+      },
+      connections
+    };
+  }
+
+  async getCommunicationParticipants(sourceId: string, itemId: number) {
+    const evidence = await this.getEvidence(sourceId, itemId);
+    const properties = evidence.properties;
+
+    const read = (prefix: string) => ({
+      value: properties[prefix]?.[0],
+      id: properties[`${prefix}:id`]?.[0],
+      name: properties[`${prefix}:name`]?.[0],
+      phoneNumber: properties[`${prefix}:phoneNumber`]?.[0],
+      username: properties[`${prefix}:username`]?.[0]
+    });
+
+    const hasValue = (
+      participant: ReturnType<typeof read>
+    ) =>
+      Object.values(participant).some(
+        value => value !== undefined && value !== ""
+      );
+
+    const from = read("Communication:From");
+    const to = read("Communication:To");
+
+    return {
+      evidence: {
+        sourceId,
+        itemId
+      },
+      from: hasValue(from) ? from : null,
+      to: hasValue(to) ? to : null,
+      conversation: {
+        id: properties["Conversation:id"]?.[0],
+        name: properties["Conversation:Name"]?.[0],
+        type: properties["Conversation:Type"]?.[0]
+      }
+    };
+  }
+
   async getTimeline(items: EvidenceReference[]) {
     const events: Array<{
       sourceId: string;
