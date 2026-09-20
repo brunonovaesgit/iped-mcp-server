@@ -999,11 +999,39 @@ export class IpedClient {
         evidence: items
       }));
 
+    const evidenceBySource = new Map<
+      string,
+      EvidenceReference[]
+    >();
+
+    for (const item of evidence) {
+      const group = evidenceBySource.get(item.sourceId) ?? [];
+
+      group.push({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      });
+
+      evidenceBySource.set(item.sourceId, group);
+    }
+
+    const scope = {
+      sources: [...evidenceBySource.entries()].map(
+        ([sourceId, items]) => ({
+          sourceId,
+          evidenceCount: items.length
+        })
+      ),
+      spansMultipleSources: evidenceBySource.size > 1,
+      sourceSpecified: sourceId !== undefined
+    };
+
     return {
       query,
       sourceId,
       matchedEvidence: evidence,
       matchedEvidenceTruncated: search.truncated,
+      scope,
       entities: [...entities.values()],
       recurringEntities,
       communicationParticipants:
