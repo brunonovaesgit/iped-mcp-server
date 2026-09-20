@@ -40,7 +40,7 @@ export class IpedClient {
   private async request(path: string, parameters: Record<string,string|undefined> = {}): Promise<Response> {
     const url = new URL(path, this.config.ipedUrl);
     for (const [name,value] of Object.entries(parameters)) if (value !== undefined) url.searchParams.set(name,value);
-    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    const response = await fetch(url);
     if (!response.ok) throw new Error(`IPED request failed: ${response.status} ${response.statusText}`);
     return response;
   }
