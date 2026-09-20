@@ -40,7 +40,27 @@ export class IpedClient {
       `/sources/${encodeURIComponent(sourceId)}/docs/${itemId}/content`
     );
 
+    const contentLength = Number(response.headers.get("content-length"));
+
+    if (
+      Number.isFinite(contentLength) &&
+      contentLength > this.config.contentLimit
+    ) {
+      await response.body?.cancel();
+
+      throw new Error(
+        `Evidence content is too large to return through MCP (${contentLength} bytes, limit ${this.config.contentLimit})`
+      );
+    }
+
     const bytes = Buffer.from(await response.arrayBuffer());
+
+    if (bytes.length > this.config.contentLimit) {
+      throw new Error(
+        `Evidence content is too large to return through MCP (${bytes.length} bytes, limit ${this.config.contentLimit})`
+      );
+    }
+
     const disposition = response.headers.get("content-disposition") ?? "";
     const filename =
       disposition.match(/filename="([^"]+)"/)?.[1] ?? `item-${itemId}`;
@@ -49,7 +69,8 @@ export class IpedClient {
       sourceId,
       itemId,
       filename,
-      mimeType: response.headers.get("content-type") ?? "application/octet-stream",
+      mimeType:
+        response.headers.get("content-type") ?? "application/octet-stream",
       size: bytes.length,
       data: bytes.toString("base64")
     };
