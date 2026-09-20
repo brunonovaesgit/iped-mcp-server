@@ -414,6 +414,86 @@ export class IpedClient {
     };
   }
 
+  async investigateEntity(
+  query: string,
+  sourceId?: string,
+  requestedLimit?: number
+) {
+  const limit = Math.min(
+    requestedLimit ?? 20,
+    this.config.searchResultLimit
+  );
+
+  const initialSearch = await this.search(
+    query,
+    sourceId,
+    limit
+  );
+
+  const evidence = [];
+    const connections = new Map<
+      string,
+      {
+        type: string;
+        value: string;
+        evidence: EvidenceReference[];
+        truncated: boolean;
+      }
+    >();
+
+    for (const reference of initialSearch.matches) {
+      const [item, entities, participants] = await Promise.all([
+        this.getEvidence(reference.sourceId, reference.itemId),
+        this.getEvidenceEntities(
+          reference.sourceId,
+          reference.itemId
+        ),
+        this.getCommunicationParticipants(
+          reference.sourceId,
+          reference.itemId
+        )
+      ]);
+
+      evidence.push({
+        sourceId: reference.sourceId,
+        itemId: reference.itemId,
+        name: item.properties.name?.[0],
+        path: item.properties.path?.[0],
+        entities: entities.entities,
+        communication: participants
+      });
+
+      for (const entity of entities.entities) {
+        const key = `${entity.type}\u0000${entity.value}`;
+        const existing = connections.get(key);
+
+        if (existing) {
+          continue;
+        }
+
+        const search = await this.search(
+          entity.searchQuery,
+          reference.sourceId
+        );
+
+        connections.set(key, {
+          type: entity.type,
+          value: entity.value,
+          evidence: search.matches,
+          truncated: search.truncated
+        });
+      }
+    }
+
+    return {
+      query,
+      sourceId,
+      initialEvidence: evidence,
+      connections: [...connections.values()],
+      initialSearchTruncated: initialSearch.truncated
+    };
+  }
+
   async getTimeline(items: EvidenceReference[]) {
     const events: Array<{
       sourceId: string;

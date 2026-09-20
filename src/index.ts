@@ -26,6 +26,8 @@ const server = new McpServer(
       "- Follow structured evidence leads when they may reveal related items.",
       "- When communications or recurring structured entities are relevant, examine their evidence connections and communication participants to identify relationships worth investigating.",
       "- Treat shared identifiers, addresses, names, phone numbers, usernames and other indexed values as connections to investigate, not as proof that two records represent the same real-world entity.",
+      "- When the investigation is centered on a person, organization, account, phone number, email address or other entity, use entity investigation to discover its initial evidence and structured connections before manually repeating equivalent searches.",
+      "- Expand entity connections only when they are relevant to the investigative question. Do not assume that evidence sharing an indexed value refers to the same real-world person, organization or event.",
       "- Examine additional evidence before treating repeated names, identifiers, values or other matches as meaningful relationships.",
       "- Use timelines and structural relationships when they add investigative value.",
       "",
@@ -338,6 +340,51 @@ server.tool(
               : String(error)
         }
       );
+
+      throw error;
+    }
+  }
+);
+server.tool(
+  "investigate_entity",
+  "Investigate a person, organization, identifier or other term across an IPED case. Finds initial evidence matching the term and expands structured entities found in that evidence to reveal additional evidence connections. Connections are investigative leads and do not by themselves prove identity or relationship.",
+  {
+    query: z.string().min(1),
+    sourceId: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional()
+  },
+  async ({ query, sourceId, limit }) => {
+    try {
+      const investigation = await iped.investigateEntity(
+        query,
+        sourceId,
+        limit
+      );
+
+      await audit.write("investigate_entity", {
+        query,
+        sourceId,
+        initialEvidence: investigation.initialEvidence.map(
+          item => ({
+            sourceId: item.sourceId,
+            itemId: item.itemId
+          })
+        ),
+        connectionCount: investigation.connections.length,
+        initialSearchTruncated:
+          investigation.initialSearchTruncated
+      });
+
+      return result(investigation);
+    } catch (error) {
+      await audit.write("investigate_entity_failed", {
+        query,
+        sourceId,
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error)
+      });
 
       throw error;
     }

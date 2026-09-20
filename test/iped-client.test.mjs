@@ -66,6 +66,7 @@ before(async () => {
 
       const results = {
         "anything": [10, 11, 12],
+        "Person Test": [10],
         "parentId:10": [],
         "hash:HASH-A": [10, 12],
         'Regex\\:EMAIL:"person@example.test"': [10, 11],
@@ -415,4 +416,55 @@ test("reads communication participants from IPED metadata", async () => {
     name: "Test Conversation",
     type: "email"
   });
+});
+
+test("investigates an entity and expands structured evidence connections", async () => {
+  const iped = client();
+
+  const result = await iped.investigateEntity(
+    "Person Test",
+    "case-test"
+  );
+
+  assert.equal(result.query, "Person Test");
+  assert.equal(result.initialEvidence.length, 1);
+
+  assert.deepEqual(
+    {
+      sourceId: result.initialEvidence[0].sourceId,
+      itemId: result.initialEvidence[0].itemId,
+      name: result.initialEvidence[0].name
+    },
+    {
+      sourceId: "case-test",
+      itemId: 10,
+      name: "origin.txt"
+    }
+  );
+
+  assert.equal(
+    result.initialEvidence[0].communication.from.name,
+    "Person Test"
+  );
+
+  const email = result.connections.find(
+    connection =>
+      connection.type === "EMAIL" &&
+      connection.value === "person@example.test"
+  );
+
+  assert.ok(email);
+
+  assert.deepEqual(email.evidence, [
+    {
+      sourceId: "case-test",
+      itemId: 10
+    },
+    {
+      sourceId: "case-test",
+      itemId: 11
+    }
+  ]);
+
+  assert.equal(result.initialSearchTruncated, false);
 });
