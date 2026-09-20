@@ -56,39 +56,89 @@ export class IpedClient {
   }
 
   async getRelatedEvidence(sourceId: string, itemId: number) {
-  const evidence = await this.getEvidence(sourceId, itemId);
-  const properties = evidence.properties;
+    const evidence = await this.getEvidence(sourceId, itemId);
+    const properties = evidence.properties;
 
-  let parent: EvidenceReference | null = null;
-  const parentId = properties.parentId?.[0];
+    let parent: EvidenceReference | null = null;
+    const parentId = properties.parentId?.[0];
 
-  if (parentId && /^\d+$/.test(parentId)) {
-    parent = {
-      sourceId,
-      itemId: Number(parentId)
+    if (parentId && /^\d+$/.test(parentId)) {
+      parent = {
+        sourceId,
+        itemId: Number(parentId)
+      };
+    }
+
+    const children = (
+      await this.search(`parentId:${itemId}`, sourceId)
+    ).matches.filter(item => item.itemId !== itemId);
+
+    let sameHash: EvidenceReference[] = [];
+    const hash = properties.hash?.[0];
+
+    if (hash) {
+      sameHash = (
+        await this.search(`hash:${hash}`, sourceId)
+      ).matches.filter(item => item.itemId !== itemId);
+    }
+
+    return {
+      evidence: { sourceId, itemId },
+      parent,
+      children,
+      sameHash
     };
   }
 
-  const children = (
-    await this.search(`parentId:${itemId}`, sourceId)
-  ).matches.filter(item => item.itemId !== itemId);
+  async getTimeline(items: EvidenceReference[]) {
+    const events: Array<{
+      sourceId: string;
+      itemId: number;
+      name?: string;
+      path?: string;
+      event: string;
+      timestamp: string;
+    }> = [];
 
-  let sameHash: EvidenceReference[] = [];
-  const hash = properties.hash?.[0];
+    for (const item of items) {
+      const evidence = await this.getEvidence(item.sourceId, item.itemId);
+      const properties = evidence.properties;
 
-  if (hash) {
-    sameHash = (
-      await this.search(`hash:${hash}`, sourceId)
-    ).matches.filter(item => item.itemId !== itemId);
+      const addEvent = (event: string, timestamp?: string) => {
+        if (!timestamp) return;
+
+        events.push({
+          sourceId: item.sourceId,
+          itemId: item.itemId,
+          name: properties.name?.[0],
+          path: properties.path?.[0],
+          event,
+          timestamp
+        });
+      };
+
+      addEvent("created", properties.created?.[0]);
+      addEvent("modified", properties.modified?.[0]);
+      addEvent("accessed", properties.accessed?.[0]);
+      addEvent("changed", properties.changed?.[0]);
+    }
+
+    events.sort((a, b) => {
+      const aTime = Date.parse(a.timestamp);
+      const bTime = Date.parse(b.timestamp);
+
+      if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+        return a.timestamp.localeCompare(b.timestamp);
+      }
+
+      return aTime - bTime;
+    });
+
+    return {
+      items: items.length,
+      events
+    };
   }
-
-  return {
-    evidence: { sourceId, itemId },
-    parent,
-    children,
-    sameHash
-  };
-}
 
   private async getJson<T = unknown>(path: string, parameters: Record<string,string|undefined> = {}): Promise<T> {
     return (await this.request(path, parameters)).json() as Promise<T>;

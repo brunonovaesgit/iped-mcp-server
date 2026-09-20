@@ -118,6 +118,37 @@ server.tool(
     }
   }
 );
+server.tool(
+  "get_evidence_timeline",
+  "Build a chronological timeline from timestamps indexed by IPED for specific evidence items. Events are returned with sourceId and itemId so every timestamp remains traceable to its evidence.",
+  {
+    items: z.array(
+      z.object({
+        sourceId: z.string().min(1),
+        itemId: z.number().int().nonnegative()
+      })
+    ).min(1).max(100)
+  },
+  async ({ items }) => {
+    try {
+      const timeline = await iped.getTimeline(items);
+
+      await audit.write("get_evidence_timeline", {
+        items,
+        returnedEvents: timeline.events.length
+      });
+
+      return result(timeline);
+    } catch (error) {
+      await audit.write("get_evidence_timeline_failed", {
+        items,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
 server.tool("list_bookmarks", "List bookmarks already present in the IPED case.", {}, async () => {
   const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
 });
