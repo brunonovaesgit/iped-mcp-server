@@ -79,7 +79,11 @@ export class IpedClient {
   async getEvidenceEntities(sourceId: string, itemId: number) {
     const evidence = await this.getEvidence(sourceId, itemId);
 
-    const extracted: Record<string, string[]> = {};
+    const entities: Array<{
+      type: string;
+      value: string;
+      searchQuery: string;
+    }> = [];
 
     for (const [property, values] of Object.entries(evidence.properties)) {
       if (!property.startsWith("Regex:") || !values?.length) {
@@ -92,7 +96,17 @@ export class IpedClient {
         continue;
       }
 
-      extracted[type] = values;
+      for (const value of values) {
+        const escapedValue = value
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"');
+
+        entities.push({
+          type,
+          value,
+          searchQuery: `Regex\\:${type}:"${escapedValue}"`
+        });
+      }
     }
 
     return {
@@ -100,7 +114,7 @@ export class IpedClient {
         sourceId,
         itemId
       },
-      extracted
+      entities
     };
   }
 

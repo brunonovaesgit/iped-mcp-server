@@ -47,7 +47,7 @@ server.tool("get_evidence_text", "Read the text extracted by IPED for one eviden
 });
 server.tool(
   "get_evidence_entities",
-  "Read structured values already extracted and indexed by IPED for an evidence item, such as email addresses, monetary values and other configured Regex fields. Returned values are evidence-derived hits and must not by themselves be treated as proof of identity or relationship.",
+  "Read structured values already extracted and indexed by IPED for an evidence item. Each entity includes a searchQuery that can be passed directly to search_evidence to find the same indexed value elsewhere in the case. A repeated value is a lead for investigation, not by itself proof of identity or relationship.",
   {
     sourceId: z.string().min(1),
     itemId: z.number().int().nonnegative()
@@ -59,7 +59,7 @@ server.tool(
       await audit.write("get_evidence_entities", {
         sourceId,
         itemId,
-        extracted: entities.extracted
+        entities: entities.entities
       });
 
       return result(entities);
