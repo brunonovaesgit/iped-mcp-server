@@ -234,14 +234,20 @@ The server currently exposes MCP tools for:
 - original evidence content;
 - structured values extracted by IPED;
 - consolidated evidence inspection;
-- evidence lead navigation;
+- entity-centered investigation and evidence lead navigation;
+- relationship investigation across shared evidence, indexed values and communication metadata;
+- communication participant and network analysis;
+- bounded multi-step evidence path tracing;
 - parent, child and duplicate relationships;
+- structural claim validation and evidence ledgers;
 - file metadata timelines;
 - IPED categories;
 - bookmark discovery;
 - bookmarked evidence.
 
 These are implementation capabilities. They are not intended to become commands that an investigator must learn.
+
+The AI client is instructed to prefer the higher-level entity, relationship and communication workflows before assembling the same investigation from lower-level searches. Lower-level tools remain available for verification, evidence inspection and cases where a focused investigation needs to be deepened.
 
 ## Investigation prompts
 
