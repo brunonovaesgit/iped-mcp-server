@@ -799,6 +799,45 @@ test("collects evidence context for a focused investigation", async () => {
     ]
   );
 
+  assert.deepEqual(
+    result.recurringEntities,
+    [
+      {
+        type: "EMAIL",
+        value: "person@example.test",
+        evidence: [
+          {
+            sourceId: "case-test",
+            itemId: 10
+          },
+          {
+            sourceId: "case-test",
+            itemId: 11
+          }
+        ]
+      },
+      {
+        type: "PHONE",
+        value: "+5511999999999",
+        evidence: [
+          {
+            sourceId: "case-test",
+            itemId: 11
+          },
+          {
+            sourceId: "case-test",
+            itemId: 12
+          }
+        ]
+      }
+    ]
+  );
+
+  assert.deepEqual(
+    result.investigationLeads.recurringEntities,
+    result.recurringEntities
+  );
+
   assert.deepEqual(result.duplicateEvidence, [
     {
       hash: "HASH-A",
