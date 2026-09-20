@@ -99,6 +99,25 @@ before(async () => {
       return;
     }
 
+    const textMatch = url.pathname.match(
+      /^\/sources\/case-test\/docs\/(\d+)\/text$/
+    );
+
+    if (textMatch) {
+      const itemId = Number(textMatch[1]);
+      const item = items[itemId];
+
+      if (!item) {
+        response.statusCode = 404;
+        response.end(JSON.stringify({ error: "not found" }));
+        return;
+      }
+
+      response.setHeader("Content-Type", "text/plain");
+      response.end(`Extracted text for ${item.properties.name[0]}`);
+      return;
+    }
+
     const documentMatch = url.pathname.match(
       /^\/sources\/case-test\/docs\/(\d+)$/
     );
