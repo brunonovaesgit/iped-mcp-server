@@ -848,19 +848,96 @@ export class IpedClient {
       EvidenceReference[]
     >();
 
-    for (const item of evidence) {
-      if (!item.hash) {
-        continue;
+    const entities = new Map<
+      string,
+      {
+        type: string;
+        value: string;
+        evidence: EvidenceReference[];
+      }
+    >();
+
+    const communicationParticipants = new Map<
+      string,
+      {
+        value: string;
+        evidence: EvidenceReference[];
+      }
+    >();
+
+    const addReference = (
+      collection: EvidenceReference[],
+      reference: EvidenceReference
+    ) => {
+      if (
+        collection.some(
+          item =>
+            item.sourceId === reference.sourceId &&
+            item.itemId === reference.itemId
+        )
+      ) {
+        return;
       }
 
-      const group = duplicateGroups.get(item.hash) ?? [];
+      collection.push(reference);
+    };
 
-      group.push({
+    for (const item of evidence) {
+      const reference = {
         sourceId: item.sourceId,
         itemId: item.itemId
-      });
+      };
 
-      duplicateGroups.set(item.hash, group);
+      if (item.hash) {
+        const group = duplicateGroups.get(item.hash) ?? [];
+        addReference(group, reference);
+        duplicateGroups.set(item.hash, group);
+      }
+
+      for (const entity of item.entities) {
+        const key = `${entity.type}\u0000${entity.value}`;
+        const existing = entities.get(key);
+
+        if (existing) {
+          addReference(existing.evidence, reference);
+          continue;
+        }
+
+        entities.set(key, {
+          type: entity.type,
+          value: entity.value,
+          evidence: [reference]
+        });
+      }
+
+      for (const participant of [
+        ...item.communication.from,
+        ...item.communication.to
+      ]) {
+        const value =
+          participant.value ??
+          participant.id ??
+          participant.phoneNumber ??
+          participant.username ??
+          participant.name;
+
+        if (!value) {
+          continue;
+        }
+
+        const existing =
+          communicationParticipants.get(value);
+
+        if (existing) {
+          addReference(existing.evidence, reference);
+          continue;
+        }
+
+        communicationParticipants.set(value, {
+          value,
+          evidence: [reference]
+        });
+      }
     }
 
     return {
@@ -868,6 +945,9 @@ export class IpedClient {
       sourceId,
       matchedEvidence: evidence,
       matchedEvidenceTruncated: search.truncated,
+      entities: [...entities.values()],
+      communicationParticipants:
+        [...communicationParticipants.values()],
       duplicateEvidence: [...duplicateGroups.entries()]
         .filter(([, items]) => items.length > 1)
         .map(([hash, items]) => ({
