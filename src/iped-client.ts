@@ -77,6 +77,55 @@ export class IpedClient {
     };
   }
 
+  async buildEvidenceLedger(
+    claims: Array<{
+      classification: "FACT" | "INFERENCE" | "HYPOTHESIS";
+      statement: string;
+      factBasis?: "DOCUMENT_STATEMENT" | "OBSERVED_METADATA";
+      evidence: EvidenceReference[];
+      limitation?: string;
+    }>
+  ) {
+    const entries = [];
+
+    for (const claim of claims) {
+      if (claim.classification === "FACT" && !claim.factBasis) {
+        throw new Error(
+          "FACT claims must identify whether they are a DOCUMENT_STATEMENT or OBSERVED_METADATA"
+        );
+      }
+
+      if (claim.classification !== "FACT" && claim.factBasis) {
+        throw new Error(
+          "factBasis can only be used with FACT claims"
+        );
+      }
+
+      const validation = await this.checkClaimEvidence(
+        claim.classification,
+        claim.statement,
+        claim.evidence
+      );
+
+      entries.push({
+        classification: claim.classification,
+        statement: claim.statement,
+        ...(claim.factBasis ? { factBasis: claim.factBasis } : {}),
+        evidence: claim.evidence,
+        limitation: claim.limitation,
+        referencesVerified: validation.referencesVerified,
+        duplicateGroups: validation.duplicateGroups,
+        independentEvidenceCount: validation.independentEvidenceCount,
+        semanticSupportValidated: false
+      });
+    }
+
+    return {
+      entries,
+      entryCount: entries.length
+    };
+  }
+
   async search(query: string, sourceId?: string, requestedLimit?: number) {
     const limit = Math.min(requestedLimit ?? this.config.searchResultLimit, this.config.searchResultLimit);
     const response = await this.getJson<SearchResponse>("/search", { q: query, sourceID: sourceId });

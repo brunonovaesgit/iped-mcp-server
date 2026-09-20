@@ -313,6 +313,59 @@ server.tool(
   }
 );
 server.tool(
+  "build_evidence_ledger",
+  "Build a structured ledger of investigative claims before presenting conclusions. Facts must distinguish statements contained in evidence from directly observed metadata. The ledger verifies evidence references and same-hash duplicates but does not determine semantic truth.",
+  {
+    claims: z.array(
+      z.object({
+        classification: z.enum([
+          "FACT",
+          "INFERENCE",
+          "HYPOTHESIS"
+        ]),
+        statement: z.string().min(1),
+        factBasis: z.enum([
+          "DOCUMENT_STATEMENT",
+          "OBSERVED_METADATA"
+        ]).optional(),
+        evidence: z.array(
+          z.object({
+            sourceId: z.string().min(1),
+            itemId: z.number().int().nonnegative()
+          })
+        ).min(1).max(100),
+        limitation: z.string().min(1).optional()
+      })
+    ).min(1).max(100)
+  },
+  async ({ claims }) => {
+    try {
+      const ledger = await iped.buildEvidenceLedger(claims);
+
+      await audit.write("build_evidence_ledger", {
+        entries: ledger.entries.map(entry => ({
+          classification: entry.classification,
+          statement: entry.statement,
+          factBasis: entry.factBasis,
+          evidence: entry.evidence,
+          referencesVerified: entry.referencesVerified,
+          duplicateGroups: entry.duplicateGroups,
+          independentEvidenceCount: entry.independentEvidenceCount
+        }))
+      });
+
+      return result(ledger);
+    } catch (error) {
+      await audit.write("build_evidence_ledger_failed", {
+        claims,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
+server.tool(
   "get_evidence_timeline",
   "Build a chronological timeline from timestamps indexed by IPED for specific evidence items. Events are returned with sourceId and itemId so every timestamp remains traceable to its evidence.",
   {

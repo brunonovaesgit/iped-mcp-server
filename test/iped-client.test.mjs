@@ -247,3 +247,101 @@ test("keeps different evidence items independent", async () => {
   assert.equal(result.independentEvidenceCount, 2);
   assert.deepEqual(result.duplicateGroups, []);
 });
+
+test("builds a ledger that distinguishes document statements from metadata facts", async () => {
+  const iped = client();
+
+  const ledger = await iped.buildEvidenceLedger([
+    {
+      classification: "FACT",
+      statement: "The document records a value of 18.750,00.",
+      factBasis: "DOCUMENT_STATEMENT",
+      evidence: [
+        { sourceId: "case-test", itemId: 10 }
+      ]
+    },
+    {
+      classification: "FACT",
+      statement: "Items 10 and 12 have identical content hashes.",
+      factBasis: "OBSERVED_METADATA",
+      evidence: [
+        { sourceId: "case-test", itemId: 10 },
+        { sourceId: "case-test", itemId: 12 }
+      ]
+    },
+    {
+      classification: "INFERENCE",
+      statement: "The two records may refer to related evidence.",
+      evidence: [
+        { sourceId: "case-test", itemId: 10 },
+        { sourceId: "case-test", itemId: 11 }
+      ],
+      limitation: "Matching indexed values do not establish identity."
+    }
+  ]);
+
+  assert.equal(ledger.entryCount, 3);
+
+  assert.equal(
+    ledger.entries[0].factBasis,
+    "DOCUMENT_STATEMENT"
+  );
+
+  assert.equal(
+    ledger.entries[1].factBasis,
+    "OBSERVED_METADATA"
+  );
+
+  assert.equal(
+    ledger.entries[1].independentEvidenceCount,
+    1
+  );
+
+  assert.equal(
+    ledger.entries[2].classification,
+    "INFERENCE"
+  );
+
+  assert.equal(
+    ledger.entries[2].semanticSupportValidated,
+    false
+  );
+});
+
+test("rejects a fact without an evidence basis", async () => {
+  const iped = client();
+
+  await assert.rejects(
+    () =>
+      iped.buildEvidenceLedger([
+        {
+          classification: "FACT",
+          statement: "A payment occurred.",
+          evidence: [
+            { sourceId: "case-test", itemId: 10 }
+          ]
+        }
+      ]),
+    /FACT claims must identify/
+  );
+});
+
+test("rejects fact basis on an inference", async () => {
+  const iped = client();
+
+  await assert.rejects(
+    () =>
+      iped.buildEvidenceLedger([
+        {
+          classification: "INFERENCE",
+          statement: "The records concern the same event.",
+          factBasis: "DOCUMENT_STATEMENT",
+          evidence: [
+            { sourceId: "case-test", itemId: 10 },
+            { sourceId: "case-test", itemId: 11 }
+          ]
+        }
+      ]),
+    /factBasis can only be used with FACT/
+  );
+});
