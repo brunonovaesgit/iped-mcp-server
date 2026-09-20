@@ -46,6 +46,35 @@ server.tool("get_evidence_text", "Read the text extracted by IPED for one eviden
   }
 });
 server.tool(
+  "get_evidence_entities",
+  "Read structured values already extracted and indexed by IPED for an evidence item, such as email addresses, monetary values and other configured Regex fields. Returned values are evidence-derived hits and must not by themselves be treated as proof of identity or relationship.",
+  {
+    sourceId: z.string().min(1),
+    itemId: z.number().int().nonnegative()
+  },
+  async ({ sourceId, itemId }) => {
+    try {
+      const entities = await iped.getEvidenceEntities(sourceId, itemId);
+
+      await audit.write("get_evidence_entities", {
+        sourceId,
+        itemId,
+        extracted: entities.extracted
+      });
+
+      return result(entities);
+    } catch (error) {
+      await audit.write("get_evidence_entities_failed", {
+        sourceId,
+        itemId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
+server.tool(
   "get_evidence_content",
   "Read the original file associated with an IPED evidence item. Use this when the original artifact is needed instead of only its extracted text.",
   {

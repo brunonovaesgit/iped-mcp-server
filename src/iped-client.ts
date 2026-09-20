@@ -76,6 +76,34 @@ export class IpedClient {
     };
   }
 
+  async getEvidenceEntities(sourceId: string, itemId: number) {
+    const evidence = await this.getEvidence(sourceId, itemId);
+
+    const extracted: Record<string, string[]> = {};
+
+    for (const [property, values] of Object.entries(evidence.properties)) {
+      if (!property.startsWith("Regex:") || !values?.length) {
+        continue;
+      }
+
+      const type = property.slice("Regex:".length);
+
+      if (!type) {
+        continue;
+      }
+
+      extracted[type] = values;
+    }
+
+    return {
+      evidence: {
+        sourceId,
+        itemId
+      },
+      extracted
+    };
+  }
+
   async getRelatedEvidence(sourceId: string, itemId: number) {
     const evidence = await this.getEvidence(sourceId, itemId);
     const properties = evidence.properties;
