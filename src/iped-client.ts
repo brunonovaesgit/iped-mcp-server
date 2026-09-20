@@ -7,6 +7,7 @@ export class IpedClient {
   constructor(private readonly config: Config) {}
   listSources(): Promise<unknown> { return this.getJson("/sources"); }
   listBookmarks(): Promise<unknown> { return this.getJson("/bookmarks"); }
+  listCategories(): Promise<unknown> { return this.getJson("/categories"); }
 
   async search(query: string, sourceId?: string, requestedLimit?: number) {
     const limit = Math.min(requestedLimit ?? this.config.searchResultLimit, this.config.searchResultLimit);

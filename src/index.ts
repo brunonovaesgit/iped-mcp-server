@@ -48,5 +48,19 @@ server.tool("get_evidence_text", "Read the text extracted by IPED for one eviden
 server.tool("list_bookmarks", "List bookmarks already present in the IPED case.", {}, async () => {
   const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
 });
+server.tool(
+  "list_categories",
+  "List the evidence categories available in IPED.",
+  {},
+  async () => {
+    const categories = await iped.listCategories();
+
+    await audit.write("list_categories", {
+      results: categories
+    });
+
+    return result(categories);
+  }
+);
 await audit.write("server_started",{ipedUrl:config.ipedUrl});
 await server.connect(new StdioServerTransport());
