@@ -90,24 +90,40 @@ export class IpedClient {
       };
     }
 
-    const children = (
-      await this.search(`parentId:${itemId}`, sourceId)
-    ).matches.filter(item => item.itemId !== itemId);
+    const childrenSearch = await this.search(
+      `parentId:${itemId}`,
+      sourceId
+    );
+
+    const children = childrenSearch.matches.filter(
+      item => item.itemId !== itemId
+    );
 
     let sameHash: EvidenceReference[] = [];
+    let sameHashTruncated = false;
+
     const hash = properties.hash?.[0];
 
     if (hash) {
-      sameHash = (
-        await this.search(`hash:${hash}`, sourceId)
-      ).matches.filter(item => item.itemId !== itemId);
+      const sameHashSearch = await this.search(
+        `hash:${hash}`,
+        sourceId
+      );
+
+      sameHash = sameHashSearch.matches.filter(
+        item => item.itemId !== itemId
+      );
+
+      sameHashTruncated = sameHashSearch.truncated;
     }
 
     return {
       evidence: { sourceId, itemId },
       parent,
       children,
-      sameHash
+      childrenTruncated: childrenSearch.truncated,
+      sameHash,
+      sameHashTruncated
     };
   }
 

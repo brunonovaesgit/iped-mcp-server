@@ -89,7 +89,7 @@ server.tool(
 );
 server.tool(
   "get_related_evidence",
-  "Find evidence structurally related to an IPED item, including its parent, children and other items with the same hash.",
+  "Find evidence structurally related to an IPED item, including its parent, children and other items with the same hash. Check the truncation flags before assuming the returned relationships are complete.",
   {
     sourceId: z.string().min(1),
     itemId: z.number().int().nonnegative()
@@ -103,7 +103,9 @@ server.tool(
         itemId,
         parent: related.parent,
         children: related.children,
-        sameHash: related.sameHash
+        childrenTruncated: related.childrenTruncated,
+        sameHash: related.sameHash,
+        sameHashTruncated: related.sameHashTruncated
       });
 
       return result(related);
