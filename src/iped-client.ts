@@ -35,6 +35,26 @@ export class IpedClient {
     return { sourceId, itemId, text: truncated ? text.slice(0, this.config.textLimit) : text, truncated };
   }
 
+  async getContent(sourceId: string, itemId: number) {
+    const response = await this.request(
+      `/sources/${encodeURIComponent(sourceId)}/docs/${itemId}/content`
+    );
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const disposition = response.headers.get("content-disposition") ?? "";
+    const filename =
+      disposition.match(/filename="([^"]+)"/)?.[1] ?? `item-${itemId}`;
+
+    return {
+      sourceId,
+      itemId,
+      filename,
+      mimeType: response.headers.get("content-type") ?? "application/octet-stream",
+      size: bytes.length,
+      data: bytes.toString("base64")
+    };
+  }
+
   private async getJson<T = unknown>(path: string, parameters: Record<string,string|undefined> = {}): Promise<T> {
     return (await this.request(path, parameters)).json() as Promise<T>;
   }

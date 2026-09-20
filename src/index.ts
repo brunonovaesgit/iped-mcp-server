@@ -45,6 +45,48 @@ server.tool("get_evidence_text", "Read the text extracted by IPED for one eviden
     throw error;
   }
 });
+server.tool(
+  "get_evidence_content",
+  "Read the original file associated with an IPED evidence item. Use this when the original artifact is needed instead of only its extracted text.",
+  {
+    sourceId: z.string().min(1),
+    itemId: z.number().int().nonnegative()
+  },
+  async ({ sourceId, itemId }) => {
+    try {
+      const evidence = await iped.getContent(sourceId, itemId);
+
+      await audit.write("get_evidence_content", {
+        sourceId,
+        itemId,
+        filename: evidence.filename,
+        mimeType: evidence.mimeType,
+        size: evidence.size
+      });
+
+      return {
+        content: [
+          {
+            type: "resource" as const,
+            resource: {
+              uri: `iped://evidence/${encodeURIComponent(sourceId)}/${itemId}/content`,
+              mimeType: evidence.mimeType,
+              blob: evidence.data
+            }
+          }
+        ]
+      };
+    } catch (error) {
+      await audit.write("get_evidence_content_failed", {
+        sourceId,
+        itemId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      throw error;
+    }
+  }
+);
 server.tool("list_bookmarks", "List bookmarks already present in the IPED case.", {}, async () => {
   const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
 });
