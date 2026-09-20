@@ -797,6 +797,86 @@ export class IpedClient {
     };
   }
 
+  async investigateEvidence(
+    query: string,
+    sourceId?: string,
+    requestedLimit?: number
+  ) {
+    const limit = Math.min(
+      requestedLimit ?? 10,
+      this.config.searchResultLimit
+    );
+
+    const search = await this.search(
+      query,
+      sourceId,
+      limit
+    );
+
+    const evidence = [];
+
+    for (const reference of search.matches) {
+      const [item, text, entities, communication] =
+        await Promise.all([
+          this.getEvidence(reference.sourceId, reference.itemId),
+          this.getText(reference.sourceId, reference.itemId),
+          this.getEvidenceEntities(
+            reference.sourceId,
+            reference.itemId
+          ),
+          this.getCommunicationParticipants(
+            reference.sourceId,
+            reference.itemId
+          )
+        ]);
+
+      evidence.push({
+        sourceId: reference.sourceId,
+        itemId: reference.itemId,
+        name: item.properties.name?.[0],
+        path: item.properties.path?.[0],
+        hash: item.properties.hash?.[0],
+        text: text.text,
+        textTruncated: text.truncated,
+        entities: entities.entities,
+        communication
+      });
+    }
+
+    const duplicateGroups = new Map<
+      string,
+      EvidenceReference[]
+    >();
+
+    for (const item of evidence) {
+      if (!item.hash) {
+        continue;
+      }
+
+      const group = duplicateGroups.get(item.hash) ?? [];
+
+      group.push({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      });
+
+      duplicateGroups.set(item.hash, group);
+    }
+
+    return {
+      query,
+      sourceId,
+      matchedEvidence: evidence,
+      matchedEvidenceTruncated: search.truncated,
+      duplicateEvidence: [...duplicateGroups.entries()]
+        .filter(([, items]) => items.length > 1)
+        .map(([hash, items]) => ({
+          hash,
+          evidence: items
+        }))
+    };
+  }
+
   async traceEntityPaths(
     query: string,
     sourceId?: string,
