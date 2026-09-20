@@ -247,7 +247,9 @@ The server currently exposes MCP tools for:
 
 These are implementation capabilities. They are not intended to become commands that an investigator must learn.
 
-The AI client is instructed to prefer the higher-level entity, relationship and communication workflows before assembling the same investigation from lower-level searches. Lower-level tools remain available for verification, evidence inspection and cases where a focused investigation needs to be deepened.
+For a broad investigative question, the AI client can start with a consolidated investigation operation that retrieves matching evidence together with extracted text, indexed entities, communication context and duplicate-content groups. From there it is instructed to use the higher-level entity, relationship and communication workflows only when the findings justify deeper investigation.
+
+Lower-level tools remain available for verification, evidence inspection and cases where a focused investigation needs to be deepened.
 
 ## Investigation prompts
 
