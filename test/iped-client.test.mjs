@@ -483,6 +483,27 @@ test("investigates an entity and expands structured evidence connections", async
     }
   ]);
 
+  assert.deepEqual(
+    result.communicationParticipants.map(
+      participant => participant.value
+    ),
+    [
+      "person@example.test",
+      "other@example.test",
+      "third@example.test"
+    ]
+  );
+
+  assert.deepEqual(
+    result.communicationParticipants[1].evidence,
+    [
+      {
+        sourceId: "case-test",
+        itemId: 10
+      }
+    ]
+  );
+
   assert.equal(result.initialSearchTruncated, false);
 });
 
