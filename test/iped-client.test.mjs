@@ -770,6 +770,35 @@ test("collects evidence context for a focused investigation", async () => {
     )
   );
 
+  const email = result.entities.find(
+    entity =>
+      entity.type === "EMAIL" &&
+      entity.value === "person@example.test"
+  );
+
+  assert.ok(email);
+  assert.deepEqual(email.evidence, [
+    {
+      sourceId: "case-test",
+      itemId: 10
+    },
+    {
+      sourceId: "case-test",
+      itemId: 11
+    }
+  ]);
+
+  assert.deepEqual(
+    result.communicationParticipants.map(
+      participant => participant.value
+    ),
+    [
+      "person@example.test",
+      "other@example.test",
+      "third@example.test"
+    ]
+  );
+
   assert.deepEqual(result.duplicateEvidence, [
     {
       hash: "HASH-A",
