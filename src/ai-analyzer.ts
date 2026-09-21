@@ -19,6 +19,8 @@ export type AiAnalysis = {
   enabled: boolean;
   text?: string;
   findings?: AiFinding[];
+  limitations?: string[];
+  nextSteps?: string[];
   model?: string;
   reason?: string;
   validation?: {
@@ -71,7 +73,11 @@ function fitEvidenceToContext(input: AiAnalysisInput) {
   });
 }
 
-function parseStructuredFindings(text: string): AiFinding[] | undefined {
+function parseStructuredAnalysis(text: string): {
+  findings: AiFinding[];
+  limitations: string[];
+  nextSteps: string[];
+} | undefined {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
   const candidate = (fenced ?? text).trim();
 
@@ -81,7 +87,7 @@ function parseStructuredFindings(text: string): AiFinding[] | undefined {
     };
     if (!Array.isArray(parsed.findings)) return undefined;
 
-    return parsed.findings.flatMap(item => {
+    const findings = parsed.findings.flatMap(item => {
       if (!item || typeof item !== "object") return [];
       const value = item as Record<string, unknown>;
       if (
@@ -98,6 +104,17 @@ function parseStructuredFindings(text: string): AiFinding[] | undefined {
         evidence: value.evidence
       }];
     });
+
+    const strings = (value: unknown) =>
+      Array.isArray(value)
+        ? value.filter(item => typeof item === "string").map(item => item.trim()).filter(Boolean)
+        : [];
+
+    return {
+      findings,
+      limitations: strings(parsed.limitations),
+      nextSteps: strings(parsed.nextSteps)
+    };
   } catch {
     return undefined;
   }
@@ -275,7 +292,8 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       throw new Error("AI provider returned no analysis text");
     }
 
-    const findings = parseStructuredFindings(text);
+    const structured = parseStructuredAnalysis(text);
+    const findings = structured?.findings;
     const renderedText = findings?.length
       ? findings.map(finding =>
           `${finding.kind}: ${finding.statement} ${finding.evidence.map(reference => `[${reference}]`).join(" ")}`
@@ -294,6 +312,8 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       enabled: true,
       text: renderedText,
       findings,
+      limitations: structured?.limitations,
+      nextSteps: structured?.nextSteps,
       model: this.model,
       validation
     };
