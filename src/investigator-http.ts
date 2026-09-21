@@ -38,6 +38,9 @@ const investigatorHtml = `<!doctype html>
     .graph svg{display:block;min-width:620px}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}
     .graph .node{cursor:pointer}.graph .node circle{fill:white;stroke:#52677b;stroke-width:2}.graph .node.evidence circle{stroke:#263b50}.graph .node.communication circle{stroke:#68727e}
     .graph .edge{cursor:pointer}.graph .edge:hover{stroke-width:3}.graphDetail{margin-top:10px;padding:10px;background:#f7f9fb;border-radius:7px;font-size:12px}
+    .evidenceButton{background:none;color:#263b50;padding:0;text-align:left;font-weight:700}.evidenceButton:hover{text-decoration:underline}
+    .drawer{position:fixed;top:0;right:0;width:min(620px,92vw);height:100vh;background:white;border-left:1px solid #dfe4ea;box-shadow:-8px 0 30px #0002;padding:24px;overflow:auto;z-index:20}
+    .drawerHeader{display:flex;justify-content:space-between;gap:16px;align-items:start}.drawerHeader button{padding:7px 11px}.evidenceText{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.5;background:#f7f9fb;padding:14px;border-radius:8px;max-height:46vh;overflow:auto}.property{padding:7px 0;border-top:1px solid #edf0f3}
     .empty{color:#7a8490;font-size:14px}.hidden{display:none}
     @media(max-width:800px){.summary{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}form{flex-direction:column}}
   </style>
@@ -68,6 +71,12 @@ const investigatorHtml = `<!doctype html>
     </div>
   </section>
 </main>
+<aside id="evidenceDrawer" class="drawer hidden">
+  <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><button id="closeEvidence">Fechar</button></div>
+  <div id="evidenceMeta" class="meta"></div>
+  <h3>Texto extraído</h3><div id="evidenceText"></div>
+  <h3>Metadados</h3><div id="evidenceProperties"></div>
+</aside>
 <script>
 let activeInvestigationId;
 const byId=id=>document.getElementById(id);
@@ -81,7 +90,8 @@ function renderWorkspace(workspace){
   const s=workspace.summary||{};
   const metrics=[["Evidências",s.evidenceCount],["Entidades",s.entityCount],["Relações",s.relationshipCount],["Comunicações",s.communicationParticipantCount],["Pistas abertas",s.openLeadCount]];
   byId("summary").innerHTML=metrics.map(([label,value])=>'<div class="metric"><b>'+escapeHtml(value??0)+'</b><span>'+label+'</span></div>').join("");
-  items("evidence",workspace.panels?.evidence,e=>'<div class="item"><b>'+escapeHtml(e.name||"Evidência")+'</b><div class="meta">'+escapeHtml(e.path||"")+' · item '+escapeHtml(e.itemId)+'</div></div>');
+  items("evidence",workspace.panels?.evidence,e=>'<div class="item"><button type="button" class="evidenceButton" data-source="'+escapeHtml(e.sourceId)+'" data-item="'+escapeHtml(e.itemId)+'">'+escapeHtml(e.name||"Evidência")+'</button><div class="meta">'+escapeHtml(e.path||"")+' · item '+escapeHtml(e.itemId)+'</div></div>');
+  document.querySelectorAll(".evidenceButton").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
   items("leads",workspace.panels?.leads,l=>'<div class="item lead"><div><b>'+escapeHtml(l.value)+'</b><div class="meta">'+escapeHtml(l.type)+'</div></div>'+(l.status==="OPEN"?'<button type="button" class="leadButton" data-type="'+escapeHtml(l.type)+'" data-value="'+escapeHtml(l.value)+'">Explorar</button>':'<span class="meta">'+escapeHtml(l.status)+'</span>')+'</div>');
   document.querySelectorAll(".leadButton").forEach(button=>button.addEventListener("click",()=>exploreLead(button.dataset.type,button.dataset.value)));
   renderGraph(workspace.panels?.relationships);
@@ -120,6 +130,21 @@ function renderGraph(graph){
     detail.innerHTML='<div class="graphDetail"><b>'+escapeHtml(edge.relationship)+'</b><div>'+escapeHtml(edge.interpretation||"Relação observada nas evidências.")+'</div><div class="meta">'+(edge.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>';
   }));
 }
+async function openEvidence(sourceId,itemId){
+  byId("evidenceDrawer").classList.remove("hidden");
+  byId("evidenceTitle").textContent="Carregando...";
+  byId("evidenceText").innerHTML='<div class="empty">Consultando evidência...</div>';
+  byId("evidenceProperties").innerHTML="";
+  try{
+    const response=await fetch("/api/evidence/"+encodeURIComponent(sourceId)+"/"+encodeURIComponent(itemId));
+    const evidence=await response.json();
+    byId("evidenceTitle").textContent=evidence.name||("Item "+itemId);
+    byId("evidenceMeta").textContent=(evidence.path||"")+" · "+sourceId+":"+itemId+(evidence.hash?" · hash "+evidence.hash:"");
+    byId("evidenceText").innerHTML=evidence.text?'<div class="evidenceText">'+escapeHtml(evidence.text)+'</div>'+(evidence.textTruncated?'<div class="meta">Texto limitado para visualização.</div>'):'<div class="empty">Texto extraído não disponível.</div>';
+    byId("evidenceProperties").innerHTML=(evidence.properties||[]).map(p=>'<div class="property"><b>'+escapeHtml(p.name)+'</b><div class="meta">'+escapeHtml((p.values||[]).join(" · "))+'</div></div>').join("");
+  }catch{byId("evidenceTitle").textContent="Evidência";byId("evidenceText").innerHTML='<div class="empty">Não foi possível carregar esta evidência.</div>'}
+}
+byId("closeEvidence").addEventListener("click",()=>byId("evidenceDrawer").classList.add("hidden"));
 async function loadHome(){
   try{
     const response=await fetch("/api/home");
@@ -235,6 +260,20 @@ const server = createServer(async (request, response) => {
         response,
         200,
         await investigator.begin(question, sourceId)
+      );
+    }
+
+    const evidenceMatch = url.pathname.match(
+      /^\/api\/evidence\/([^/]+)\/(\d+)$/
+    );
+    if (request.method === "GET" && evidenceMatch) {
+      return json(
+        response,
+        200,
+        await investigator.evidence(
+          decodeURIComponent(evidenceMatch[1]),
+          Number(evidenceMatch[2])
+        )
       );
     }
 
