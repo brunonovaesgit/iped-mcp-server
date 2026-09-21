@@ -51,6 +51,37 @@ export type InvestigationGraphEdge = {
   interpretation: string;
 };
 
+export function describeInvestigationGraphEdge(
+  graph: {
+    nodes: InvestigationGraphNode[];
+    edges: InvestigationGraphEdge[];
+  },
+  edgeId: string
+) {
+  const edge = graph.edges.find(item => item.id === edgeId);
+
+  if (!edge) {
+    throw new Error(`Unknown investigation graph edge: ${edgeId}`);
+  }
+
+  const from = graph.nodes.find(node => node.id === edge.from);
+  const to = graph.nodes.find(node => node.id === edge.to);
+
+  if (!from || !to) {
+    throw new Error(
+      `Investigation graph edge ${edgeId} references a missing node`
+    );
+  }
+
+  return {
+    edge,
+    from,
+    to,
+    provenance: edge.evidence,
+    interpretation: edge.interpretation
+  };
+}
+
 export function summarizeInvestigationGraph(graph: {
   nodes: InvestigationGraphNode[];
   edges: InvestigationGraphEdge[];
