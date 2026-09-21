@@ -74,8 +74,14 @@ test("stops automatic expansion at configured investigation boundaries", () => {
     true
   );
 
-  sessions.record(started.id, { expansion: true });
-  sessions.record(started.id, { expansion: true });
+  sessions.record(started.id, {
+    evidence: [{ sourceId: "case-test", itemId: 1 }],
+    expansion: true
+  });
+  sessions.record(started.id, {
+    evidence: [{ sourceId: "case-test", itemId: 2 }],
+    expansion: true
+  });
 
   assert.deepEqual(
     sessions.shouldExpand(started.id, { maxExpansions: 2 }),
@@ -83,7 +89,7 @@ test("stops automatic expansion at configured investigation boundaries", () => {
       expand: false,
       reason: "EXPANSION_LIMIT_REACHED",
       expansions: 2,
-      evidenceCount: 0
+      evidenceCount: 2
     }
   );
 });
