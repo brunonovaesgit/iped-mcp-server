@@ -1,4 +1,4 @@
-import type { AiAnalyzer } from "./ai-analyzer.js";
+import type { AiAnalysis, AiAnalyzer } from "./ai-analyzer.js";
 import type { AuditLog } from "./audit-log.js";
 import type { IpedClient } from "./iped-client.js";
 import type { InvestigationSessions } from "./investigation-sessions.js";
@@ -207,7 +207,7 @@ export class InvestigatorService {
       }
     };
 
-    const aiAnalysis = this.ai
+    const aiAnalysis: AiAnalysis | undefined = this.ai
       ? await this.ai.analyze({
           question,
           evidence: investigation.matchedEvidence.map(item => ({
