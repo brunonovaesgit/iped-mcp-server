@@ -5,6 +5,7 @@ import type { InvestigationSessions } from "../investigation-sessions.js";
 import type { IpedClient } from "../iped-client.js";
 import {
   buildInvestigationResultState,
+  buildInvestigationWorkspace,
   enrichInvestigatorView
 } from "../investigator-view.js";
 import { toolResult } from "../tool-context.js";
@@ -106,19 +107,24 @@ export function registerSessionTools(
         matchedEvidenceCount: investigation.matchedEvidence.length
       });
 
+      const resultState = buildInvestigationResultState({
+        evidenceCount: investigation.matchedEvidence.length,
+        openLeadCount: session.leads.filter(
+          lead => lead.status === "OPEN"
+        ).length,
+        progress
+      });
+
       return toolResult({
         status: "INVESTIGATION_UPDATED",
-        investigationId,
-        question,
-        focus: session.focus,
-        resultState: buildInvestigationResultState({
-          evidenceCount: investigation.matchedEvidence.length,
-          openLeadCount: session.leads.filter(
-            lead => lead.status === "OPEN"
-          ).length,
-          progress
-        }),
-        investigatorView
+        workspace: buildInvestigationWorkspace({
+          investigationId,
+          question: session.question,
+          focus: session.focus,
+          sourceId: session.sourceId,
+          view: investigatorView,
+          resultState
+        })
       });
     }
   );
