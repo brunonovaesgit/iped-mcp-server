@@ -9,9 +9,16 @@ export type AiAnalysisInput = {
   }>;
 };
 
+export type AiFinding = {
+  statement: string;
+  kind: "FACT" | "INFERENCE" | "HYPOTHESIS";
+  evidence: string[];
+};
+
 export type AiAnalysis = {
   enabled: boolean;
   text?: string;
+  findings?: AiFinding[];
   model?: string;
   reason?: string;
   validation?: {
@@ -62,6 +69,38 @@ function fitEvidenceToContext(input: AiAnalysisInput) {
       textTruncated: Boolean(text && excerpt && excerpt.length < text.length)
     };
   });
+}
+
+function parseStructuredFindings(text: string): AiFinding[] | undefined {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+  const candidate = (fenced ?? text).trim();
+
+  try {
+    const parsed = JSON.parse(candidate) as {
+      findings?: unknown;
+    };
+    if (!Array.isArray(parsed.findings)) return undefined;
+
+    return parsed.findings.flatMap(item => {
+      if (!item || typeof item !== "object") return [];
+      const value = item as Record<string, unknown>;
+      if (
+        typeof value.statement !== "string" ||
+        !["FACT", "INFERENCE", "HYPOTHESIS"].includes(String(value.kind)) ||
+        !Array.isArray(value.evidence) ||
+        !value.evidence.every(reference => typeof reference === "string")
+      ) {
+        return [];
+      }
+      return [{
+        statement: value.statement.trim(),
+        kind: value.kind as AiFinding["kind"],
+        evidence: value.evidence
+      }];
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 function evidenceReferences(input: AiAnalysisInput): Set<string> {
@@ -187,7 +226,8 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       "If an evidence excerpt is truncated, do not assume what the omitted content says.",
       "If the evidence is insufficient, say so explicitly.",
       "Answer in Brazilian Portuguese for the investigator.",
-      "Produce a concise investigative synthesis with: Resumo, Achados sustentados, Relações relevantes, Lacunas/limitações, Próximos passos."
+      "Return JSON only, with this shape: {\"findings\":[{\"statement\":\"...\",\"kind\":\"FACT|INFERENCE|HYPOTHESIS\",\"evidence\":[\"sourceId:itemId\"]}],\"limitations\":[\"...\"],\"nextSteps\":[\"...\"]}.",
+      "Each FACT must have at least one evidence reference. Keep findings atomic: one claim per finding."
     ].join("\n");
 
     const response = await fetch(
@@ -235,7 +275,14 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       throw new Error("AI provider returned no analysis text");
     }
 
-    const validation = validateAnalysis(text, input);
+    const findings = parseStructuredFindings(text);
+    const renderedText = findings?.length
+      ? findings.map(finding =>
+          `${finding.kind}: ${finding.statement} ${finding.evidence.map(reference => `[${reference}]`).join(" ")}`
+        ).join("\n")
+      : text;
+
+    const validation = validateAnalysis(renderedText, input);
 
     if (validation.supportWarnings.length > 0) {
       throw new Error(
@@ -245,7 +292,8 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
 
     return {
       enabled: true,
-      text,
+      text: renderedText,
+      findings,
       model: this.model,
       validation
     };
