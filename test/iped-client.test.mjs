@@ -539,6 +539,15 @@ test("reads communication participants from IPED metadata", async () => {
   ]);
 });
 
+test("reuses origin metadata while finding evidence connections", async () => {
+  documentRequests.clear();
+  const iped = client();
+
+  await iped.getEvidenceConnections("case-test", 10);
+
+  assert.equal(documentRequests.get(10), 1);
+});
+
 test("reuses evidence metadata while investigating an entity", async () => {
   documentRequests.clear();
   const iped = client();
