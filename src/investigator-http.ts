@@ -26,7 +26,8 @@ const investigatorHtml = `<!doctype html>
     main{max-width:1180px;margin:auto;padding:32px 24px}
     .hero,.panel{background:white;border:1px solid #dfe4ea;border-radius:12px;padding:24px}
     .hero h1{margin:0 0 8px;font-size:26px}.hero p{margin:0;color:#5d6773}
-    form{display:flex;gap:10px;margin-top:22px} input{flex:1;padding:13px 15px;border:1px solid #b8c1cc;border-radius:8px}
+    form{display:flex;gap:10px;margin-top:22px} input,select{font:inherit;padding:13px 15px;border:1px solid #b8c1cc;border-radius:8px;background:white} input{flex:1}
+    .caseBar{display:flex;gap:12px;align-items:center;margin-top:18px;padding:12px 14px;background:#f7f9fb;border-radius:8px}.caseBar label{font-size:13px;color:#5d6773}.caseBar select{padding:8px 10px}
     button{border:0;border-radius:8px;padding:12px 18px;background:#263b50;color:white;cursor:pointer}
     button:disabled{opacity:.5;cursor:not-allowed}.status{margin-top:14px;font-size:14px}
     .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:20px 0}
@@ -51,6 +52,7 @@ const investigatorHtml = `<!doctype html>
   <section class="hero">
     <h1>O que você quer investigar neste caso?</h1>
     <p>Descreva o fato, pessoa, organização, comunicação ou relação que deseja analisar.</p>
+    <div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
     <form id="questionForm">
       <input id="question" autocomplete="off" placeholder="Ex.: investigue relações e comunicações envolvendo Carlos Almeida">
       <button id="startButton">Investigar</button>
@@ -147,14 +149,25 @@ async function openEvidence(sourceId,itemId){
 byId("closeEvidence").addEventListener("click",()=>byId("evidenceDrawer").classList.add("hidden"));
 async function loadHome(){
   try{
-    const response=await fetch("/api/home");
+    const selected=byId("sourceSelect").value;
+    const response=await fetch("/api/home"+(selected?"?sourceId="+encodeURIComponent(selected):""));
     const home=await response.json();
     const ready=home.status==="READY";
-    byId("connection").textContent=ready?"IPED conectado":"IPED não disponível";
+    const sources=home.sourceSelection?.sources||home.sources||[];
+    if(sources.length>1){
+      byId("caseBar").classList.remove("hidden");
+      const current=home.sourceId||selected;
+      byId("sourceSelect").innerHTML='<option value="">Selecione a fonte...</option>'+sources.map(s=>'<option value="'+escapeHtml(s.id)+'"'+(s.id===current?' selected':'')+'>'+escapeHtml(s.label||s.id)+'</option>').join("");
+    }else{
+      byId("caseBar").classList.add("hidden");
+    }
+    byId("connection").textContent=ready?"IPED conectado":"IPED conectado · selecione uma fonte";
     byId("startButton").disabled=!ready;
-    if(!ready) byId("status").textContent="Abra o IPED com o caso processado e mantenha a Web API disponível.";
-  }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true}
+    if(!ready) byId("status").textContent=home.status==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Abra o IPED com o caso processado e mantenha a Web API disponível.";
+    else byId("status").textContent="";
+  }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true;byId("status").textContent="Abra o IPED com o caso processado e mantenha a Web API disponível."}
 }
+byId("sourceSelect").addEventListener("change",loadHome);
 async function updateInvestigation(path,payload){
   if(!activeInvestigationId)return;
   byId("status").textContent="Analisando evidências...";
@@ -179,7 +192,7 @@ byId("questionForm").addEventListener("submit",async event=>{
   const question=byId("question").value.trim(); if(!question)return;
   byId("startButton").disabled=true;byId("status").textContent="Investigando evidências...";
   try{
-    const response=await fetch("/api/investigations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question})});
+    const response=await fetch("/api/investigations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question,sourceId:byId("sourceSelect").value||undefined})});
     const result=await response.json();
     if(result.workspace) renderWorkspace(result.workspace);
     else if(result.sourceSelection) byId("status").textContent="Selecione uma fonte do caso para continuar.";
