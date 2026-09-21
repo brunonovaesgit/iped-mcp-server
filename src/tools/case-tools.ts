@@ -2,10 +2,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
+import { buildInvestigatorHome } from "../investigator-view.js";
 
 export function registerCaseTools(
   server: McpServer,
-  { iped, audit }: ToolContext
+  { iped, audit, investigations }: ToolContext
 ): void {
   server.tool(
     "list_bookmarks",
@@ -44,6 +45,80 @@ export function registerCaseTools(
         results: categories
       });
       return toolResult(categories);
+    }
+  );
+
+  server.tool(
+    "get_investigator_home",
+    "Return a simple investigator-facing entry state for the current IPED environment. It hides MCP and IPED API details and tells the client whether investigation can start.",
+    {
+      sourceId: z.string().optional(),
+      investigationId: z.string().uuid().optional()
+    },
+    async ({ sourceId, investigationId }) => {
+      try {
+        const context = await iped.getCaseContext(sourceId);
+        const session =
+          investigationId && investigations
+            ? investigations.get(investigationId)
+            : undefined;
+
+        if (investigationId && investigations && !session) {
+          throw new Error(
+            `Unknown investigation session: ${investigationId}`
+          );
+        }
+
+        const progress =
+          session && investigations
+            ? investigations.progress(session.id)
+            : undefined;
+
+        const home = buildInvestigatorHome({
+          caseAvailable: context.sources.length > 0,
+          sourceId:
+            sourceId ??
+            (context.sources.length === 1
+              ? context.sources[0]?.id
+              : undefined),
+          activeInvestigation:
+            session && progress
+              ? {
+                  id: session.id,
+                  question: session.question,
+                  focus: session.focus,
+                  evidenceCount: session.evidence.length,
+                  openLeadCount: session.leads.filter(
+                    lead => lead.status === "OPEN"
+                  ).length,
+                  status: progress.status
+                }
+              : undefined
+        });
+
+        await audit.write("get_investigator_home", {
+          investigationId,
+          sourceId,
+          status: home.status,
+          sourceCount: context.sources.length,
+          activeInvestigation: Boolean(session)
+        });
+
+        return toolResult(home);
+      } catch (error) {
+        const home = buildInvestigatorHome({
+          caseAvailable: false,
+          sourceId
+        });
+
+        await audit.write("get_investigator_home_unavailable", {
+          investigationId,
+          sourceId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+
+        return toolResult(home);
+      }
     }
   );
 
