@@ -230,3 +230,62 @@ test("allows an unscoped investigation to use the source requested by a tool", (
     "case-selected"
   );
 });
+
+
+test("keeps evidence-backed leads and marks them explored", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate Carlos", "case-test");
+
+  sessions.record(started.id, {
+    leads: [
+      {
+        type: "EMAIL",
+        value: "person@example.test",
+        evidence: [{ sourceId: "case-test", itemId: 10 }]
+      }
+    ]
+  });
+
+  sessions.record(started.id, {
+    leads: [
+      {
+        type: "EMAIL",
+        value: "person@example.test",
+        evidence: [{ sourceId: "case-test", itemId: 11 }]
+      },
+      {
+        type: "PHONE",
+        value: "+5511999999999",
+        evidence: [{ sourceId: "case-test", itemId: 12 }]
+      }
+    ]
+  });
+
+  sessions.record(started.id, {
+    exploredLead: {
+      type: "EMAIL",
+      value: "person@example.test"
+    }
+  });
+
+  const context = sessions.get(started.id);
+
+  assert.ok(context);
+  assert.deepEqual(context.leads, [
+    {
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [
+        { sourceId: "case-test", itemId: 10 },
+        { sourceId: "case-test", itemId: 11 }
+      ],
+      status: "EXPLORED"
+    },
+    {
+      type: "PHONE",
+      value: "+5511999999999",
+      evidence: [{ sourceId: "case-test", itemId: 12 }],
+      status: "OPEN"
+    }
+  ]);
+});
