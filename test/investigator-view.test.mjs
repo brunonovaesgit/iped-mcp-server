@@ -409,6 +409,10 @@ test("keeps the complete investigator workspace grounded and reviewable", () => 
 
   for (const edge of workspace.panels.relationships.edges) {
     assert.ok(edge.evidence.length > 0);
+    for (const reference of edge.evidence) {
+      assert.equal(reference.sourceId, "case-a");
+      assert.ok(Number.isInteger(reference.itemId));
+    }
   }
 
   assert.equal("conclusion" in workspace, false);
