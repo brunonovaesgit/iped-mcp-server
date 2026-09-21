@@ -30,12 +30,19 @@ export class InvestigatorService {
         return [];
       }
 
-      const label =
-        "name" in source && typeof source.name === "string"
-          ? source.name
-          : undefined;
+      const labelCandidates = ["name", "label", "description", "path"];
+      const label = labelCandidates
+        .map(key =>
+          key in source && typeof source[key] === "string"
+            ? source[key]
+            : undefined
+        )
+        .find(Boolean);
 
-      return [{ id: source.id, ...(label ? { label } : {}) }];
+      return [{
+        id: source.id,
+        label: label ?? "Fonte do caso"
+      }];
     });
   }
 
