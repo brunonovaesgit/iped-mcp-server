@@ -29,6 +29,35 @@ export class DisabledAiAnalyzer implements AiAnalyzer {
   }
 }
 
+const DEFAULT_AI_CONTEXT_LIMIT = 12_000;
+const MAX_TEXT_PER_EVIDENCE = 2_000;
+
+function fitEvidenceToContext(input: AiAnalysisInput) {
+  let remaining = DEFAULT_AI_CONTEXT_LIMIT;
+
+  return input.evidence.map(item => {
+    const reference = `${item.sourceId}:${item.itemId}`;
+    const text = item.text?.trim();
+    const allowed = Math.max(
+      0,
+      Math.min(MAX_TEXT_PER_EVIDENCE, remaining)
+    );
+    const excerpt = text && allowed > 0
+      ? text.slice(0, allowed)
+      : undefined;
+
+    remaining -= excerpt?.length ?? 0;
+
+    return {
+      reference,
+      name: item.name,
+      path: item.path,
+      text: excerpt,
+      textTruncated: Boolean(text && excerpt && excerpt.length < text.length)
+    };
+  });
+}
+
 export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
   constructor(
     private readonly baseUrl: string,
@@ -37,12 +66,7 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
   ) {}
 
   async analyze(input: AiAnalysisInput): Promise<AiAnalysis> {
-    const evidence = input.evidence.map(item => ({
-      reference: `${item.sourceId}:${item.itemId}`,
-      name: item.name,
-      path: item.path,
-      text: item.text
-    }));
+    const evidence = fitEvidenceToContext(input);
 
     const instructions = [
       "You are assisting a digital forensic investigator.",
@@ -53,6 +77,7 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       "Do not infer guilt, intent, authorship, identity, or legal relevance without evidence.",
       "Every factual statement must cite one or more evidence references exactly as [sourceId:itemId].",
       "Duplicate or repeated content is not independent corroboration.",
+      "If an evidence excerpt is truncated, do not assume what the omitted content says.",
       "If the evidence is insufficient, say so explicitly.",
       "Answer in Brazilian Portuguese for the investigator.",
       "Produce a concise investigative synthesis with: Resumo, Achados sustentados, Relações relevantes, Lacunas/limitações, Próximos passos."
