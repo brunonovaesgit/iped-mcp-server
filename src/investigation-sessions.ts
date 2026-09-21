@@ -158,6 +158,23 @@ export class InvestigationSessions {
     return structuredClone(state);
   }
 
+  lead(id: string, type: string, value: string) {
+    const state = this.sessions.get(id);
+
+    if (!state) {
+      throw new Error(`Unknown investigation session: ${id}`);
+    }
+
+    const lead = state.leads.find(
+      item =>
+        item.type === type &&
+        item.value === value &&
+        item.status === "OPEN"
+    );
+
+    return lead ? structuredClone(lead) : undefined;
+  }
+
   nextLead(id: string) {
     const state = this.sessions.get(id);
 
