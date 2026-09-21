@@ -9,6 +9,7 @@ export interface InvestigationState {
   updatedAt: string;
   evidence: EvidenceReference[];
   queries: string[];
+  expansions: number;
 }
 
 export class InvestigationSessions {
@@ -23,7 +24,8 @@ export class InvestigationSessions {
       createdAt: now,
       updatedAt: now,
       evidence: [],
-      queries: []
+      queries: [],
+      expansions: 0
     };
 
     this.sessions.set(state.id, state);
@@ -40,6 +42,7 @@ export class InvestigationSessions {
     update: {
       query?: string;
       evidence?: EvidenceReference[];
+      expansion?: boolean;
     }
   ): InvestigationState {
     const state = this.sessions.get(id);
@@ -66,7 +69,53 @@ export class InvestigationSessions {
       state.evidence.push(reference);
     }
 
+    if (update.expansion) {
+      state.expansions += 1;
+    }
+
     state.updatedAt = new Date().toISOString();
     return structuredClone(state);
   }
+  shouldExpand(
+    id: string,
+    options: {
+      maxExpansions?: number;
+      maxEvidence?: number;
+    } = {}
+  ) {
+    const state = this.sessions.get(id);
+
+    if (!state) {
+      throw new Error(`Unknown investigation session: ${id}`);
+    }
+
+    const maxExpansions = options.maxExpansions ?? 6;
+    const maxEvidence = options.maxEvidence ?? 100;
+
+    if (state.expansions >= maxExpansions) {
+      return {
+        expand: false,
+        reason: "EXPANSION_LIMIT_REACHED" as const,
+        expansions: state.expansions,
+        evidenceCount: state.evidence.length
+      };
+    }
+
+    if (state.evidence.length >= maxEvidence) {
+      return {
+        expand: false,
+        reason: "EVIDENCE_LIMIT_REACHED" as const,
+        expansions: state.expansions,
+        evidenceCount: state.evidence.length
+      };
+    }
+
+    return {
+      expand: true,
+      reason: "WITHIN_INVESTIGATION_LIMITS" as const,
+      expansions: state.expansions,
+      evidenceCount: state.evidence.length
+    };
+  }
+
 }
