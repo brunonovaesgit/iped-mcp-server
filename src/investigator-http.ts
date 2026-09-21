@@ -81,6 +81,7 @@ const investigatorHtml = `<!doctype html>
 </aside>
 <script>
 let activeInvestigationId;
+let selectedSourceId;
 const byId=id=>document.getElementById(id);
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 function items(target,values,render){
@@ -158,9 +159,11 @@ async function loadHome(){
     if(sources.length>1){
       byId("caseBar").classList.remove("hidden");
       const current=home.sourceId||selected;
-      byId("sourceSelect").innerHTML='<option value="">Selecione a fonte...</option>'+sources.map(s=>'<option value="'+escapeHtml(s.id)+'"'+(s.id===current?' selected':'')+'>'+escapeHtml(s.label||s.id)+'</option>').join("");
+      selectedSourceId=current||undefined;
+      byId("sourceSelect").innerHTML='<option value="">Selecione a fonte...</option>'+sources.map((s,index)=>'<option value="'+escapeHtml(s.id)+'"'+(s.id===current?' selected':'')+'>'+escapeHtml(s.label||("Fonte "+(index+1)))+'</option>').join("");
     }else{
       byId("caseBar").classList.add("hidden");
+      selectedSourceId=home.sourceId||sources[0]?.id;
     }
     byId("connection").textContent=ready?"IPED conectado":(selectionStatus==="SOURCE_SELECTION_REQUIRED"?"IPED conectado · selecione uma fonte":"IPED não disponível");
     byId("startButton").disabled=!ready;
@@ -193,7 +196,7 @@ byId("questionForm").addEventListener("submit",async event=>{
   const question=byId("question").value.trim(); if(!question)return;
   byId("startButton").disabled=true;byId("status").textContent="Investigando evidências...";
   try{
-    const response=await fetch("/api/investigations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question,sourceId:byId("sourceSelect").value||undefined})});
+    const response=await fetch("/api/investigations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question,sourceId:selectedSourceId||undefined})});
     const result=await response.json();
     if(result.workspace) renderWorkspace(result.workspace);
     else if(result.sourceSelection) byId("status").textContent="Selecione uma fonte do caso para continuar.";
