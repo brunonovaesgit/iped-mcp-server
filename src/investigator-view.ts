@@ -34,6 +34,19 @@ export function buildInvestigatorView(input: {
   }>;
   graphView: InvestigationGraphView;
   timeline?: TimelineEvent[];
+  leads?: Array<{
+    type: string;
+    value: string;
+    evidence: EvidenceReference[];
+    status: "OPEN" | "EXPLORED";
+  }>;
+  progress?: {
+    status: "CONTINUE" | "STOP";
+    reason: string;
+    evidenceCount: number;
+    openLeadCount: number;
+    expansions: number;
+  };
 }) {
   return {
     question: input.question,
@@ -44,7 +57,9 @@ export function buildInvestigatorView(input: {
         input.graphView.summary.nodesByKind.ENTITY ?? 0,
       communicationParticipantCount:
         input.graphView.summary.nodesByKind.COMMUNICATION_PARTICIPANT ?? 0,
-      timelineEventCount: input.timeline?.length ?? 0
+      timelineEventCount: input.timeline?.length ?? 0,
+      openLeadCount:
+        input.leads?.filter(lead => lead.status === "OPEN").length ?? 0
     },
     sections: {
       evidence: input.evidence.map(item => ({
@@ -61,7 +76,12 @@ export function buildInvestigatorView(input: {
         edges: input.graphView.edges,
         legend: input.graphView.legend
       },
-      timeline: input.timeline ?? []
+      timeline: input.timeline ?? [],
+      leads: (input.leads ?? []).map(lead => ({
+        ...lead,
+        action: lead.status === "OPEN" ? "EXPLORE_LEAD" : undefined
+      })),
+      progress: input.progress
     },
     actions: [
       "ASK_FOLLOW_UP",
