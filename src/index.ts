@@ -93,7 +93,7 @@ registerInvestigationTools(server, { iped, audit, investigations });
 
 registerGovernanceTools(server, { iped, audit });
 
-registerCaseTools(server, { iped, audit });
+registerCaseTools(server, { iped, audit, investigations });
 
 registerSessionTools(server, investigations, audit, iped);
 
