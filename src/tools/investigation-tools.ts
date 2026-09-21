@@ -162,6 +162,13 @@ export function registerInvestigationTools(
 
         if (investigationId && investigations) {
           const state = investigations.get(investigationId);
+
+          if (!state) {
+            throw new Error(
+              `Unknown investigation session: ${investigationId}`
+            );
+          }
+
           investigation.investigatorView = enrichInvestigatorView(
             investigation.investigatorView,
             {
