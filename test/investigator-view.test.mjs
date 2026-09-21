@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { buildInvestigatorView } from "../dist/investigator-view.js";
+import {
+  buildInvestigatorView,
+  enrichInvestigatorView
+} from "../dist/investigator-view.js";
 import {
   buildInvestigationGraph,
   buildInvestigationGraphView
@@ -78,4 +81,44 @@ test("investigator view exposes observed relationships, not conclusions", () => 
   );
   assert.equal("conclusion" in view.overview, false);
   assert.equal("risk" in view.overview, false);
+});
+
+
+test("adds evidence-backed open leads and progress to the investigator view", () => {
+  const base = buildInvestigatorView({
+    question: "Investigate Carlos",
+    evidence: [{ sourceId: "case-a", itemId: 10 }],
+    graphView: buildInvestigationGraphView(
+      buildInvestigationGraph({
+        evidence: [{ sourceId: "case-a", itemId: 10 }],
+        entities: [],
+        communicationParticipants: [],
+        duplicateEvidence: []
+      })
+    )
+  });
+
+  const view = enrichInvestigatorView(base, {
+    leads: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [{ sourceId: "case-a", itemId: 10 }],
+      status: "OPEN"
+    }],
+    progress: {
+      status: "CONTINUE",
+      reason: "OPEN_LEAD_AVAILABLE",
+      evidenceCount: 1,
+      openLeadCount: 1,
+      expansions: 0
+    }
+  });
+
+  assert.equal(view.overview.openLeadCount, 1);
+  assert.equal(view.sections.leads[0].status, "OPEN");
+  assert.equal(view.sections.leads[0].action, "EXPLORE_LEAD");
+  assert.deepEqual(view.sections.leads[0].evidence, [
+    { sourceId: "case-a", itemId: 10 }
+  ]);
+  assert.equal(view.sections.progress.status, "CONTINUE");
 });
