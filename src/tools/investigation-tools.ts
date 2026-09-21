@@ -5,7 +5,8 @@ import { toolResult } from "../tool-context.js";
 import {
   describeInvestigationGraphEdge,
   expandInvestigationGraph,
-  filterInvestigationGraph
+  filterInvestigationGraph,
+  getInvestigationGraphEvidence
 } from "../investigation-graph.js";
 
 export function registerInvestigationTools(
@@ -164,6 +165,55 @@ export function registerInvestigationTools(
           investigationId,
           query,
           sourceId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        throw error;
+      }
+    }
+  );
+
+  server.tool(
+    "get_investigation_graph_evidence",
+    "Resolve a graph node back to the IPED evidence that supports it. Evidence nodes resolve directly to themselves; entity and communication nodes resolve through their provenance-carrying graph edges.",
+    {
+      query: z.string().min(1),
+      nodeId: z.string().min(1),
+      sourceId: z.string().optional(),
+      limit: z.number().int().positive().max(100).optional(),
+      investigationId: z.string().uuid().optional()
+    },
+    async ({ query, nodeId, sourceId, limit, investigationId }) => {
+      try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
+        const investigation = await iped.investigateEvidence(
+          query,
+          effectiveSourceId,
+          limit
+        );
+
+        const result = getInvestigationGraphEvidence(
+          investigation.graph,
+          nodeId
+        );
+
+        await audit.write("get_investigation_graph_evidence", {
+          investigationId,
+          query,
+          sourceId: effectiveSourceId,
+          nodeId,
+          evidence: result.evidence
+        });
+
+        return toolResult(result);
+      } catch (error) {
+        await audit.write("get_investigation_graph_evidence_failed", {
+          investigationId,
+          query,
+          sourceId,
+          nodeId,
           error: error instanceof Error ? error.message : String(error)
         });
         throw error;
