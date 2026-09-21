@@ -219,3 +219,14 @@ test("rejects expansion into a different source than the investigation scope", (
     /outside that scope/
   );
 });
+
+
+test("allows an unscoped investigation to use the source requested by a tool", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate across a selected source");
+
+  assert.equal(
+    sessions.resolveSource(started.id, "case-selected"),
+    "case-selected"
+  );
+});
