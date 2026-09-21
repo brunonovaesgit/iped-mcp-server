@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
+import { enrichInvestigatorView } from "../investigator-view.js";
 import {
   describeInvestigationGraphEdge,
   expandInvestigationGraph,
@@ -158,6 +159,17 @@ export function registerInvestigationTools(
               error: item.textError
             }))
         });
+
+        if (investigationId && investigations) {
+          const state = investigations.get(investigationId);
+          investigation.investigatorView = enrichInvestigatorView(
+            investigation.investigatorView,
+            {
+              leads: state.leads,
+              progress: investigations.progress(investigationId)
+            }
+          );
+        }
 
         return toolResult(investigation);
       } catch (error) {
