@@ -6,6 +6,7 @@ import {
   describeInvestigationGraphEdge,
   expandInvestigationGraph,
   filterInvestigationGraph,
+  getInvestigationGraphEvidence,
   summarizeInvestigationGraph
 } from "../dist/investigation-graph.js";
 
@@ -249,4 +250,53 @@ test("rejects explanation for an unknown graph relationship", () => {
     ),
     /Unknown investigation graph edge/
   );
+});
+
+
+test("resolves entity graph nodes back to supporting evidence", () => {
+  const graph = buildInvestigationGraph({
+    evidence: [
+      { sourceId: "case-a", itemId: 10, name: "message.eml" },
+      { sourceId: "case-a", itemId: 11, name: "document.pdf" }
+    ],
+    entities: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [
+        { sourceId: "case-a", itemId: 10 },
+        { sourceId: "case-a", itemId: 11 }
+      ]
+    }],
+    communicationParticipants: [],
+    duplicateEvidence: []
+  });
+
+  const result = getInvestigationGraphEvidence(
+    graph,
+    "entity:EMAIL:person@example.test"
+  );
+
+  assert.equal(result.selectedNode.kind, "ENTITY");
+  assert.deepEqual(result.evidence, [
+    { sourceId: "case-a", itemId: 10 },
+    { sourceId: "case-a", itemId: 11 }
+  ]);
+});
+
+test("resolves an evidence graph node directly to its IPED reference", () => {
+  const graph = buildInvestigationGraph({
+    evidence: [{ sourceId: "case-a", itemId: 10, name: "message.eml" }],
+    entities: [],
+    communicationParticipants: [],
+    duplicateEvidence: []
+  });
+
+  const result = getInvestigationGraphEvidence(
+    graph,
+    "evidence:case-a:10"
+  );
+
+  assert.deepEqual(result.evidence, [
+    { sourceId: "case-a", itemId: 10 }
+  ]);
 });
