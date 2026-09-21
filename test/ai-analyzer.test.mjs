@@ -23,7 +23,7 @@ test("sends evidence as untrusted referenced data to an AI provider", async () =
     return new Response(JSON.stringify({
       choices: [{
         message: {
-          content: "Achado sustentado [case-a:10]."
+          content: "Achado sustentado hostile.txt [case-a:10]."
         }
       }]
     }), {
@@ -50,6 +50,7 @@ test("sends evidence as untrusted referenced data to an AI provider", async () =
     assert.equal(result.enabled, true);
     assert.equal(result.model, "local-forensic-model");
     assert.match(result.text, /\[case-a:10\]/);
+    assert.deepEqual(result.validation.supportWarnings, []);
     assert.equal(result.validation.accepted, true);
     assert.deepEqual(result.validation.citedReferences, ["case-a:10"]);
     assert.deepEqual(result.validation.rejectedReferences, []);
@@ -217,6 +218,41 @@ test("rejects factual sections without their own evidence citation", async () =>
         evidence: [{ sourceId: "case-a", itemId: 1, text: "evidence" }]
       }),
       /factual section without evidence reference/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("rejects a cited claim when the cited evidence does not textually support it", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: "Resumo: Carlos realizou uma transferência bancária internacional [case-a:1]."
+        }
+      }]
+    }), { status: 200, headers: { "content-type": "application/json" } });
+
+  try {
+    const analyzer = new OpenAiCompatibleAnalyzer(
+      "http://127.0.0.1:9999/v1",
+      "small-local-model"
+    );
+
+    await assert.rejects(
+      analyzer.analyze({
+        question: "Investigue Carlos",
+        evidence: [{
+          sourceId: "case-a",
+          itemId: 1,
+          name: "agenda.txt",
+          text: "Carlos participou da reunião do projeto Atlas."
+        }]
+      }),
+      /weak textual support/
     );
   } finally {
     globalThis.fetch = originalFetch;
