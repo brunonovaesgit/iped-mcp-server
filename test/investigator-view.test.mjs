@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildCaseSelection,
+  buildInvestigationResultState,
   buildInvestigatorHome,
   buildInvestigatorView,
   enrichInvestigatorView
@@ -197,4 +198,47 @@ test("rejects a requested source that is not available", () => {
 
   assert.equal(selection.status, "SOURCE_NOT_FOUND");
   assert.equal(selection.selectedSourceId, undefined);
+});
+
+
+test("guides the investigator when a search finds no evidence", () => {
+  const result = buildInvestigationResultState({
+    evidenceCount: 0,
+    openLeadCount: 0,
+    progress: {
+      status: "STOP",
+      reason: "NO_OPEN_LEADS"
+    }
+  });
+
+  assert.equal(result.status, "NO_EVIDENCE_FOUND");
+  assert.equal(result.suggestedAction, "REFINE_QUESTION");
+});
+
+test("offers evidence-backed exploration when open leads remain", () => {
+  const result = buildInvestigationResultState({
+    evidenceCount: 4,
+    openLeadCount: 2,
+    progress: {
+      status: "CONTINUE",
+      reason: "OPEN_LEAD_AVAILABLE"
+    }
+  });
+
+  assert.equal(result.status, "READY_TO_EXPLORE");
+  assert.equal(result.suggestedAction, "EXPLORE_OPEN_LEADS");
+});
+
+test("keeps found evidence reviewable when automatic expansion stops", () => {
+  const result = buildInvestigationResultState({
+    evidenceCount: 3,
+    openLeadCount: 0,
+    progress: {
+      status: "STOP",
+      reason: "NO_OPEN_LEADS"
+    }
+  });
+
+  assert.equal(result.status, "EVIDENCE_FOUND");
+  assert.equal(result.suggestedAction, "REVIEW_EVIDENCE");
 });
