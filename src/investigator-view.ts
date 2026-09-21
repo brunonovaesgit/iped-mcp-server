@@ -90,3 +90,40 @@ export function buildInvestigatorView(input: {
     ]
   };
 }
+
+
+export function enrichInvestigatorView(
+  view: ReturnType<typeof buildInvestigatorView>,
+  input: {
+    leads: Array<{
+      type: string;
+      value: string;
+      evidence: EvidenceReference[];
+      status: "OPEN" | "EXPLORED";
+    }>;
+    progress: {
+      status: "CONTINUE" | "STOP";
+      reason: string;
+      evidenceCount: number;
+      openLeadCount: number;
+      expansions: number;
+    };
+  }
+) {
+  return {
+    ...view,
+    overview: {
+      ...view.overview,
+      openLeadCount:
+        input.leads.filter(lead => lead.status === "OPEN").length
+    },
+    sections: {
+      ...view.sections,
+      leads: input.leads.map(lead => ({
+        ...lead,
+        action: lead.status === "OPEN" ? "EXPLORE_LEAD" : undefined
+      })),
+      progress: input.progress
+    }
+  };
+}
