@@ -263,6 +263,47 @@ export class InvestigatorService {
       }
     };
   }
+  private async analyzeWorkspaceEvidence(input: {
+    investigationId: string;
+    question: string;
+    evidence: Array<{
+      sourceId: string;
+      itemId: number;
+      name?: string;
+      path?: string;
+      text?: string;
+    }>;
+    phase: "begin" | "continue" | "lead_expansion";
+  }): Promise<AiAnalysis | undefined> {
+    if (!this.ai) {
+      return undefined;
+    }
+
+    const aiAnalysis: AiAnalysis = await this.ai.analyze({
+      question: input.question,
+      evidence: input.evidence
+    }).catch(error => ({
+      enabled: false,
+      reason: error instanceof Error ? error.message : String(error)
+    }));
+
+    await this.audit.write(
+      aiAnalysis.enabled
+        ? "ai_analysis_accepted"
+        : "ai_analysis_not_presented",
+      {
+        investigationId: input.investigationId,
+        phase: input.phase,
+        model: aiAnalysis.model,
+        reason: aiAnalysis.reason,
+        citedReferences: aiAnalysis.validation?.citedReferences,
+        evidenceCount: input.evidence.length
+      }
+    );
+
+    return aiAnalysis;
+  }
+
   async aiDiagnostic(investigationId: string) {
     const session = this.investigations.get(investigationId);
     if (!session) {
@@ -346,6 +387,19 @@ export class InvestigatorService {
       progress
     });
 
+    const aiAnalysis = await this.analyzeWorkspaceEvidence({
+      investigationId,
+      question,
+      evidence: investigation.matchedEvidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId,
+        name: item.name,
+        path: item.path,
+        text: item.text
+      })),
+      phase: "continue"
+    });
+
     await this.audit.write("continue_investigation", {
       investigationId,
       question,
@@ -356,14 +410,17 @@ export class InvestigatorService {
 
     return {
       status: "INVESTIGATION_UPDATED" as const,
-      workspace: buildInvestigationWorkspace({
-        investigationId,
-        question: session.question,
-        focus: session.focus,
-        sourceId: session.sourceId,
-        view,
-        resultState
-      })
+      workspace: {
+        ...buildInvestigationWorkspace({
+          investigationId,
+          question: session.question,
+          focus: session.focus,
+          sourceId: session.sourceId,
+          view,
+          resultState
+        }),
+        aiAnalysis
+      }
     };
   }
 
@@ -452,6 +509,19 @@ export class InvestigatorService {
       progress
     });
 
+    const aiAnalysis = await this.analyzeWorkspaceEvidence({
+      investigationId,
+      question: session.question,
+      evidence: investigation.matchedEvidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId,
+        name: item.name,
+        path: item.path,
+        text: item.text
+      })),
+      phase: "lead_expansion"
+    });
+
     await this.audit.write("explore_investigation_lead", {
       investigationId,
       leadType: lead.type,
@@ -463,14 +533,17 @@ export class InvestigatorService {
     return {
       status: "LEAD_EXPLORED" as const,
       exploredLead: lead,
-      workspace: buildInvestigationWorkspace({
-        investigationId,
-        question: session.question,
-        focus: session.focus,
-        sourceId: session.sourceId,
-        view,
-        resultState
-      })
+      workspace: {
+        ...buildInvestigationWorkspace({
+          investigationId,
+          question: session.question,
+          focus: session.focus,
+          sourceId: session.sourceId,
+          view,
+          resultState
+        }),
+        aiAnalysis
+      }
     };
   }
 
