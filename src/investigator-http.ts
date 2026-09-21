@@ -152,8 +152,9 @@ async function loadHome(){
     const selected=byId("sourceSelect").value;
     const response=await fetch("/api/home"+(selected?"?sourceId="+encodeURIComponent(selected):""));
     const home=await response.json();
-    const ready=home.status==="READY";
     const sources=home.sourceSelection?.sources||home.sources||[];
+    const selectionStatus=home.sourceSelection?.status;
+    const ready=home.status==="READY"&&selectionStatus!=="SOURCE_SELECTION_REQUIRED"&&selectionStatus!=="NO_SOURCES";
     if(sources.length>1){
       byId("caseBar").classList.remove("hidden");
       const current=home.sourceId||selected;
@@ -161,9 +162,9 @@ async function loadHome(){
     }else{
       byId("caseBar").classList.add("hidden");
     }
-    byId("connection").textContent=ready?"IPED conectado":"IPED conectado · selecione uma fonte";
+    byId("connection").textContent=ready?"IPED conectado":(selectionStatus==="SOURCE_SELECTION_REQUIRED"?"IPED conectado · selecione uma fonte":"IPED não disponível");
     byId("startButton").disabled=!ready;
-    if(!ready) byId("status").textContent=home.status==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Abra o IPED com o caso processado e mantenha a Web API disponível.";
+    if(!ready) byId("status").textContent=selectionStatus==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Abra o IPED com o caso processado e mantenha a Web API disponível.";
     else byId("status").textContent="";
   }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true;byId("status").textContent="Abra o IPED com o caso processado e mantenha a Web API disponível."}
 }
