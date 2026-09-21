@@ -129,7 +129,9 @@ function renderGraph(graph){
     const label=String(node.label||"").slice(0,24);
     return '<g class="node '+kind+'" data-node="'+escapeHtml(node.id)+'" transform="translate('+p.x+' '+p.y+')"><circle r="15"></circle><text x="20" y="4">'+escapeHtml(label)+'</text></g>';
   }).join("");
-  target.innerHTML='<div class="meta">'+escapeHtml(graph.summary?.nodeCount??graph.nodes.length)+' nós · '+escapeHtml(graph.summary?.edgeCount??graph.edges?.length??0)+' relações observadas</div><div class="graph"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'">'+edges+nodes+'</svg></div>';
+  const nodeCount=graph.summary?.nodeCount ?? graph.nodes.length;
+  const edgeCount=graph.summary?.edgeCount ?? (graph.edges?.length ?? 0);
+  target.innerHTML='<div class="meta">'+escapeHtml(nodeCount)+' nós · '+escapeHtml(edgeCount)+' relações observadas</div><div class="graph"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'">'+edges+nodes+'</svg></div>';
   target.querySelectorAll(".node").forEach(el=>el.addEventListener("click",()=>{
     const node=graph.nodes.find(n=>n.id===el.dataset.node);if(!node)return;
     const supporting=(graph.edges||[]).filter(e=>e.from===node.id||e.to===node.id).flatMap(e=>e.evidence||[]);
