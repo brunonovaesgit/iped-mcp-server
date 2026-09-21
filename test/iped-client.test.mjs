@@ -826,6 +826,9 @@ test("keeps a shared hostile identifier as an evidence-backed lead", async () =>
     sourceId: "case-test",
     itemId: 14
   });
+  assert.equal(link.relationship, "SHARED_INDEXED_VALUE");
+  assert.match(link.interpretation, /investigative lead/i);
+  assert.match(link.interpretation, /not proof/i);
   assert.equal(link.via.kind, "INDEXED_ENTITY");
   assert.equal(link.via.type, "EMAIL");
   assert.equal(link.via.value, "person@example.test");
