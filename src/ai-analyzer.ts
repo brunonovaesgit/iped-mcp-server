@@ -96,6 +96,7 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
         body: JSON.stringify({
           model: this.model,
           temperature: 0,
+          max_tokens: 700,
           messages: [
             { role: "system", content: instructions },
             {
