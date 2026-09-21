@@ -51,6 +51,49 @@ export type InvestigationGraphEdge = {
   interpretation: string;
 };
 
+export function filterInvestigationGraph(input: {
+  graph: {
+    nodes: InvestigationGraphNode[];
+    edges: InvestigationGraphEdge[];
+  };
+  kinds?: InvestigationGraphNode["kind"][];
+  relationships?: InvestigationGraphEdge["relationship"][];
+}) {
+  const allowedKinds = input.kinds
+    ? new Set(input.kinds)
+    : undefined;
+  const allowedRelationships = input.relationships
+    ? new Set(input.relationships)
+    : undefined;
+
+  const nodes = allowedKinds
+    ? input.graph.nodes.filter(node => allowedKinds.has(node.kind))
+    : input.graph.nodes;
+
+  const nodeIds = new Set(nodes.map(node => node.id));
+  const edges = input.graph.edges.filter(edge =>
+    nodeIds.has(edge.from) &&
+    nodeIds.has(edge.to) &&
+    (!allowedRelationships ||
+      allowedRelationships.has(edge.relationship))
+  );
+
+  const connectedNodeIds = new Set<string>();
+
+  for (const edge of edges) {
+    connectedNodeIds.add(edge.from);
+    connectedNodeIds.add(edge.to);
+  }
+
+  return {
+    nodes: nodes.filter(node =>
+      connectedNodeIds.has(node.id) ||
+      (!allowedRelationships && edges.length === 0)
+    ),
+    edges
+  };
+}
+
 export function expandInvestigationGraph(input: {
   graph: {
     nodes: InvestigationGraphNode[];
