@@ -82,9 +82,13 @@ export function registerCommunicationTools(
     },
     async ({ query, sourceId, limit, investigationId }) => {
       try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
         const investigation = await iped.investigateCommunications(
           query,
-          sourceId,
+          effectiveSourceId,
           limit
         );
 
@@ -104,7 +108,7 @@ export function registerCommunicationTools(
         await audit.write("investigate_communications", {
           investigationId,
           query,
-          sourceId,
+          sourceId: effectiveSourceId,
           matchedEvidence: investigation.matchedEvidence,
           matchedEvidenceTruncated:
             investigation.matchedEvidenceTruncated,
