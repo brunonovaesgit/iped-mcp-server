@@ -18,6 +18,7 @@ export type AiAnalysis = {
     accepted: boolean;
     citedReferences: string[];
     rejectedReferences: string[];
+    supportWarnings: string[];
   };
 };
 
@@ -74,6 +75,49 @@ function citedReferences(text: string): string[] {
     .map(match => `${match[1]}:${match[2]}`);
 }
 
+function normalizeTerms(value: string): string[] {
+  const stop = new Set([
+    "para", "como", "com", "uma", "das", "dos", "que", "por", "foi",
+    "sao", "ser", "seu", "sua", "entre", "sobre", "este", "esta", "mais"
+  ]);
+
+  return (value.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}][\p{L}\p{N}._@-]*/gu) ?? [])
+    .filter(term => term.length >= 4 && !stop.has(term));
+}
+
+function supportWarnings(text: string, input: AiAnalysisInput): string[] {
+  const evidence = new Map(
+    input.evidence.map(item => [
+      `${item.sourceId}:${item.itemId}`,
+      `${item.name ?? ""} ${item.path ?? ""} ${item.text ?? ""}`.toLocaleLowerCase("pt-BR")
+    ])
+  );
+  const warnings: string[] = [];
+
+  for (const line of text.split("\n")) {
+    const refs = citedReferences(line);
+    if (refs.length === 0) continue;
+
+    const claim = line.replace(/\[[^\]]+\]/g, " ");
+    const terms = [...new Set(normalizeTerms(claim))];
+    if (terms.length === 0) continue;
+
+    const combined = refs
+      .map(reference => evidence.get(reference) ?? "")
+      .join(" ");
+    const matched = terms.filter(term => combined.includes(term));
+    const required = Math.min(2, terms.length);
+
+    if (matched.length < required) {
+      warnings.push(
+        `Baixo suporte textual para: ${claim.trim().slice(0, 180)}`
+      );
+    }
+  }
+
+  return warnings;
+}
+
 function validateAnalysis(text: string, input: AiAnalysisInput) {
   const allowed = evidenceReferences(input);
   const cited = [...new Set(citedReferences(text))];
@@ -112,7 +156,8 @@ function validateAnalysis(text: string, input: AiAnalysisInput) {
   return {
     accepted: true,
     citedReferences: cited,
-    rejectedReferences: rejected
+    rejectedReferences: rejected,
+    supportWarnings: supportWarnings(text, input)
   };
 }
 
@@ -134,6 +179,8 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       "Distinguish observed facts from inference and unconfirmed hypothesis.",
       "Do not infer guilt, intent, authorship, identity, or legal relevance without evidence.",
       "Every factual statement must cite one or more evidence references exactly as [sourceId:itemId].",
+      "Place the citation on the same line as the factual statement it supports.",
+      "Do not cite an item merely because it is related; its supplied text must support the statement.",
       "Duplicate or repeated content is not independent corroboration.",
       "If an evidence excerpt is truncated, do not assume what the omitted content says.",
       "If the evidence is insufficient, say so explicitly.",
