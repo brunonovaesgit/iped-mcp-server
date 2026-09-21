@@ -10,6 +10,10 @@ export interface InvestigationState {
   evidence: EvidenceReference[];
   queries: string[];
   expansions: number;
+  lastExpansion?: {
+    query: string;
+    newEvidence: number;
+  };
 }
 
 export class InvestigationSessions {
@@ -43,6 +47,7 @@ export class InvestigationSessions {
       query?: string;
       evidence?: EvidenceReference[];
       expansion?: boolean;
+      expansionQuery?: string;
     }
   ): InvestigationState {
     const state = this.sessions.get(id);
@@ -54,6 +59,8 @@ export class InvestigationSessions {
     if (update.query && !state.queries.includes(update.query)) {
       state.queries.push(update.query);
     }
+
+    const evidenceCountBeforeUpdate = state.evidence.length;
 
     for (const reference of update.evidence ?? []) {
       if (
@@ -71,6 +78,13 @@ export class InvestigationSessions {
 
     if (update.expansion) {
       state.expansions += 1;
+      state.lastExpansion = {
+        query: update.expansionQuery ?? update.query ?? "",
+        newEvidence: Math.max(
+          0,
+          state.evidence.length - evidenceCountBeforeUpdate
+        )
+      };
     }
 
     state.updatedAt = new Date().toISOString();
@@ -91,6 +105,18 @@ export class InvestigationSessions {
 
     const maxExpansions = options.maxExpansions ?? 6;
     const maxEvidence = options.maxEvidence ?? 100;
+
+    if (
+      state.lastExpansion &&
+      state.lastExpansion.newEvidence === 0
+    ) {
+      return {
+        expand: false,
+        reason: "NO_NEW_EVIDENCE" as const,
+        expansions: state.expansions,
+        evidenceCount: state.evidence.length
+      };
+    }
 
     if (state.expansions >= maxExpansions) {
       return {
