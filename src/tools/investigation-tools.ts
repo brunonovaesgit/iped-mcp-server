@@ -14,9 +14,10 @@ export function registerInvestigationTools(
       leftQuery: z.string().min(1),
       rightQuery: z.string().min(1),
       sourceId: z.string().optional(),
-      limit: z.number().int().positive().max(100).optional()
+      limit: z.number().int().positive().max(100).optional(),
+      investigationId: z.string().uuid().optional()
     },
-    async ({ leftQuery, rightQuery, sourceId, limit }) => {
+    async ({ leftQuery, rightQuery, sourceId, limit, investigationId }) => {
       try {
         const investigation = await iped.investigateRelationship(
           leftQuery,
@@ -25,7 +26,22 @@ export function registerInvestigationTools(
           limit
         );
 
+        if (investigationId) {
+          if (!investigations) {
+            throw new Error("Investigation context is not available");
+          }
+
+          investigations.record(investigationId, {
+            query: `${leftQuery} <-> ${rightQuery}`,
+            evidence: [
+              ...investigation.left.evidence,
+              ...investigation.right.evidence
+            ]
+          });
+        }
+
         await audit.write("investigate_relationship", {
+          investigationId,
           leftQuery,
           rightQuery,
           sourceId,
@@ -40,6 +56,7 @@ export function registerInvestigationTools(
         return toolResult(investigation);
       } catch (error) {
         await audit.write("investigate_relationship_failed", {
+          investigationId,
           leftQuery,
           rightQuery,
           sourceId,
@@ -190,9 +207,10 @@ export function registerInvestigationTools(
       query: z.string().min(1),
       sourceId: z.string().optional(),
       depth: z.number().int().min(1).max(3).optional(),
-      limit: z.number().int().positive().max(100).optional()
+      limit: z.number().int().positive().max(100).optional(),
+      investigationId: z.string().uuid().optional()
     },
-    async ({ query, sourceId, depth, limit }) => {
+    async ({ query, sourceId, depth, limit, investigationId }) => {
       try {
         const paths = await iped.traceEntityPaths(
           query,
@@ -201,7 +219,26 @@ export function registerInvestigationTools(
           limit
         );
 
+        if (investigationId) {
+          if (!investigations) {
+            throw new Error("Investigation context is not available");
+          }
+
+          const evidence = [
+            ...paths.initialEvidence,
+            ...paths.paths.flatMap(path =>
+              path.steps.flatMap(step => [step.from, step.to])
+            )
+          ];
+
+          investigations.record(investigationId, {
+            query,
+            evidence
+          });
+        }
+
         await audit.write("trace_entity_paths", {
+          investigationId,
           query,
           sourceId,
           depth: paths.depth,
@@ -213,6 +250,7 @@ export function registerInvestigationTools(
         return toolResult(paths);
       } catch (error) {
         await audit.write("trace_entity_paths_failed", {
+          investigationId,
           query,
           sourceId,
           depth,
