@@ -223,19 +223,26 @@ export function registerSessionTools(
         evidenceCount: session.evidence.length
       });
 
+      const resultState = buildInvestigationResultState({
+        evidenceCount: investigation.matchedEvidence.length,
+        openLeadCount: session.leads.filter(
+          item => item.status === "OPEN"
+        ).length,
+        progress
+      });
+
       return toolResult({
         status: "LEAD_EXPLORED",
-        investigationId,
         exploredLead: lead,
-        resultState: buildInvestigationResultState({
-          evidenceCount: investigation.matchedEvidence.length,
-          openLeadCount: session.leads.filter(
-            item => item.status === "OPEN"
-          ).length,
-          progress
-        }),
-        investigatorView
-      });
+        workspace: buildInvestigationWorkspace({
+          investigationId,
+          question: session.question,
+          focus: session.focus,
+          sourceId: session.sourceId,
+          view: investigatorView,
+          resultState
+        })
+      });;
     }
   );
 
@@ -330,19 +337,26 @@ export function registerSessionTools(
         progressReason: progress.reason
       });
 
+      const resultState = buildInvestigationResultState({
+        evidenceCount: investigation.matchedEvidence.length,
+        openLeadCount: session.leads.filter(
+          item => item.status === "OPEN"
+        ).length,
+        progress
+      });
+
       return toolResult({
         status: "LEAD_EXPLORED",
-        investigationId,
         exploredLead: lead,
-        resultState: buildInvestigationResultState({
-          evidenceCount: investigation.matchedEvidence.length,
-          openLeadCount: session.leads.filter(
-            item => item.status === "OPEN"
-          ).length,
-          progress
-        }),
-        investigatorView
-      });
+        workspace: buildInvestigationWorkspace({
+          investigationId,
+          question: session.question,
+          focus: session.focus,
+          sourceId: session.sourceId,
+          view: investigatorView,
+          resultState
+        })
+      });;
     }
   );
 
