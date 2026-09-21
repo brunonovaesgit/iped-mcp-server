@@ -1,4 +1,5 @@
 import type { Config } from "./config.js";
+import { buildInvestigatorView } from "./investigator-view.js";
 import {
   buildInvestigationGraph,
   buildInvestigationGraphView,
@@ -1103,6 +1104,12 @@ export class IpedClient {
       duplicateEvidence
     });
 
+    const investigatorView = buildInvestigatorView({
+      question: query,
+      evidence,
+      graphView: buildInvestigationGraphView(graph)
+    });
+
     return {
       query,
       sourceId,
@@ -1119,6 +1126,7 @@ export class IpedClient {
       graph,
       graphSummary: summarizeInvestigationGraph(graph),
       graphView: buildInvestigationGraphView(graph),
+      investigatorView,
       investigationLeads: {
         recurringEntities,
         recurringCommunicationParticipants,
