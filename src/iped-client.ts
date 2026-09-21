@@ -1,4 +1,5 @@
 import type { Config } from "./config.js";
+import { buildInvestigationGraph } from "./investigation-graph.js";
 
 interface SearchResponse { data?: Array<{ source: string; ids: number[] }>; }
 export interface EvidenceReference { sourceId: string; itemId: number; }
@@ -1103,6 +1104,13 @@ export class IpedClient {
       recurringCommunicationParticipants,
       crossEvidenceLinks,
       duplicateEvidence,
+      graph: buildInvestigationGraph({
+        evidence,
+        entities: [...entities.values()],
+        communicationParticipants:
+          [...communicationParticipants.values()],
+        duplicateEvidence
+      }),
       investigationLeads: {
         recurringEntities,
         recurringCommunicationParticipants,
