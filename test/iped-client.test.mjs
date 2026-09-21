@@ -46,6 +46,30 @@ const items = {
     bookmarks: [],
     selected: false
   },
+  16: {
+    source: "case-test",
+    id: 16,
+    luceneId: 116,
+    properties: {
+      name: ["declared-value-a.txt"],
+      hash: ["HASH-CONFLICT-A"],
+      "Regex:MONEY": ["10.000,00"]
+    },
+    bookmarks: [],
+    selected: false
+  },
+  17: {
+    source: "case-test",
+    id: 17,
+    luceneId: 117,
+    properties: {
+      name: ["declared-value-b.txt"],
+      hash: ["HASH-CONFLICT-B"],
+      "Regex:MONEY": ["25.000,00"]
+    },
+    bookmarks: [],
+    selected: false
+  },
   14: {
     source: "case-test",
     id: 14,
@@ -114,7 +138,7 @@ before(async () => {
         "anything": [10, 11, 12],
         "mixed-text": [10, 12],
         "poisoned-link": [10, 14],
-        "duplicate-set": [10, 12, 15],
+        "duplicate-set": [10, 12, 15],\n        "conflicting-values": [16, 17],
         "Person Test": [10],
         "parentId:10": [],
         "hash:HASH-A": [10, 12],
@@ -832,6 +856,29 @@ test("keeps a shared hostile identifier as an evidence-backed lead", async () =>
   assert.equal(link.via.kind, "INDEXED_ENTITY");
   assert.equal(link.via.type, "EMAIL");
   assert.equal(link.via.value, "person@example.test");
+});
+
+test("preserves conflicting indexed values without selecting a preferred version", async () => {
+  const iped = client();
+
+  const result = await iped.investigateEvidence(
+    "conflicting-values",
+    "case-test"
+  );
+
+  const observedValues = result.matchedEvidence.map(item => ({
+    itemId: item.itemId,
+    values: item.entities
+      .filter(entity => entity.type === "MONEY")
+      .map(entity => entity.value)
+  }));
+
+  assert.deepEqual(observedValues, [
+    { itemId: 16, values: ["10.000,00"] },
+    { itemId: 17, values: ["25.000,00"] }
+  ]);
+  assert.equal(result.recurringEntities.length, 0);
+  assert.equal(result.crossEvidenceLinks.length, 0);
 });
 
 test("groups all same-hash items instead of treating copies as independent", async () => {
