@@ -277,7 +277,7 @@ export function registerInvestigationTools(
         await audit.write("trace_entity_paths_failed", {
           investigationId,
           query,
-          sourceId: effectiveSourceId,
+          sourceId,
           depth,
           error: error instanceof Error ? error.message : String(error)
         });
