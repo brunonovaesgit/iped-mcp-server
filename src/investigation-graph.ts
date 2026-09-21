@@ -51,6 +51,56 @@ export type InvestigationGraphEdge = {
   interpretation: string;
 };
 
+export function summarizeInvestigationGraph(graph: {
+  nodes: InvestigationGraphNode[];
+  edges: InvestigationGraphEdge[];
+}) {
+  const nodesByKind = graph.nodes.reduce<Record<string, number>>(
+    (counts, node) => {
+      counts[node.kind] = (counts[node.kind] ?? 0) + 1;
+      return counts;
+    },
+    {}
+  );
+
+  const edgesByRelationship = graph.edges.reduce<Record<string, number>>(
+    (counts, edge) => {
+      counts[edge.relationship] =
+        (counts[edge.relationship] ?? 0) + 1;
+      return counts;
+    },
+    {}
+  );
+
+  const degree = new Map<string, number>();
+
+  for (const edge of graph.edges) {
+    degree.set(edge.from, (degree.get(edge.from) ?? 0) + 1);
+    degree.set(edge.to, (degree.get(edge.to) ?? 0) + 1);
+  }
+
+  const connectedNodes = graph.nodes
+    .map(node => ({
+      id: node.id,
+      kind: node.kind,
+      label: node.label,
+      connections: degree.get(node.id) ?? 0
+    }))
+    .filter(node => node.connections > 0)
+    .sort((left, right) =>
+      right.connections - left.connections ||
+      left.label.localeCompare(right.label)
+    );
+
+  return {
+    nodeCount: graph.nodes.length,
+    edgeCount: graph.edges.length,
+    nodesByKind,
+    edgesByRelationship,
+    connectedNodes
+  };
+}
+
 export function filterInvestigationGraph(input: {
   graph: {
     nodes: InvestigationGraphNode[];
