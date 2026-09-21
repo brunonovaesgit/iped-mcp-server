@@ -163,7 +163,7 @@ test("rejects structured findings without evidence references", async () => {
         question: "Investigue Carlos",
         evidence: [{ sourceId: "case-a", itemId: 1, text: "Carlos" }]
       }),
-      /no valid evidence-backed findings/
+      /findings contained no evidence references/
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -188,7 +188,7 @@ test("rejects structured findings that cite evidence not supplied to the model",
         question: "Investigue",
         evidence: [{ sourceId: "case-a", itemId: 1, text: "evidence" }]
       }),
-      /no valid evidence-backed findings/
+      /unknown evidence reference.*case-a:999/
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -283,6 +283,34 @@ test("rejects legacy free-form output instead of bypassing structured findings",
       }),
       /not valid structured JSON/
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("normalizes bracketed evidence references from small local models", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => providerResponse(structured([{
+    statement: "Carlos participou da reunião do projeto Atlas.",
+    kind: "FACT",
+    evidence: ["[case-a:1]"]
+  }]));
+
+  try {
+    const analyzer = new OpenAiCompatibleAnalyzer(
+      "http://127.0.0.1:9999/v1",
+      "small-local-model"
+    );
+    const result = await analyzer.analyze({
+      question: "Investigue Carlos",
+      evidence: [{
+        sourceId: "case-a",
+        itemId: 1,
+        text: "Carlos participou da reunião do projeto Atlas."
+      }]
+    });
+    assert.deepEqual(result.findings[0].evidence, ["case-a:1"]);
   } finally {
     globalThis.fetch = originalFetch;
   }
