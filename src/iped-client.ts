@@ -1110,20 +1110,31 @@ export class IpedClient {
       duplicateEvidence
     });
 
-    const timelineEvents = evidence.flatMap(item =>
-      Object.entries(item.timelineProperties)
-        .filter((entry): entry is [string, string] =>
-          typeof entry[1] === "string" && entry[1].length > 0
-        )
-        .map(([event, timestamp]) => ({
+    const timelineEvents: Array<{
+      sourceId: string;
+      itemId: number;
+      name?: string;
+      path?: string;
+      event: string;
+      timestamp: string;
+    }> = [];
+
+    for (const item of evidence) {
+      for (const [event, timestamp] of Object.entries(
+        item.timelineProperties
+      )) {
+        if (!timestamp) continue;
+
+        timelineEvents.push({
           sourceId: item.sourceId,
           itemId: item.itemId,
           name: item.name,
           path: item.path,
           event,
           timestamp
-        }))
-    );
+        });
+      }
+    }
 
     timelineEvents.sort((left, right) => {
       const leftTime = Date.parse(left.timestamp);
