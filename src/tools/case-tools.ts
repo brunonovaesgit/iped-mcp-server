@@ -106,6 +106,18 @@ export function registerCaseTools(
 
         return toolResult(home);
       } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.startsWith("Unknown investigation session:")
+        ) {
+          await audit.write("get_investigator_home_failed", {
+            investigationId,
+            sourceId,
+            error: error.message
+          });
+          throw error;
+        }
+
         const home = buildInvestigatorHome({
           caseAvailable: false,
           sourceId
