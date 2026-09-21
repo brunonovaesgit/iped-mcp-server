@@ -4,16 +4,19 @@ import { z } from "zod";
 import { AuditLog } from "./audit-log.js";
 import { getConfig } from "./config.js";
 import { IpedClient } from "./iped-client.js";
+import { InvestigationSessions } from "./investigation-sessions.js";
 import { registerCoreTools } from "./tools/core-tools.js";
 import { registerCommunicationTools } from "./tools/communication-tools.js";
 import { registerCaseTools } from "./tools/case-tools.js";
 import { registerEvidenceTools } from "./tools/evidence-tools.js";
 import { registerInvestigationTools } from "./tools/investigation-tools.js";
 import { registerGovernanceTools } from "./tools/governance-tools.js";
+import { registerSessionTools } from "./tools/session-tools.js";
 
 const config = getConfig();
 const iped = new IpedClient(config);
 const audit = new AuditLog(config.auditLog);
+const investigations = new InvestigationSessions();
 const server = new McpServer(
   {
     name: "iped-mcp-server",
@@ -90,6 +93,8 @@ registerInvestigationTools(server, { iped, audit });
 registerGovernanceTools(server, { iped, audit });
 
 registerCaseTools(server, { iped, audit });
+
+registerSessionTools(server, investigations, audit);
 
 server.registerPrompt(
   "investigate_evidence",
