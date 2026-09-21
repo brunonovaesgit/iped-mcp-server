@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   buildCaseSelection,
   buildInvestigationResultState,
+  buildInvestigationWorkspace,
   buildInvestigatorHome,
   buildInvestigatorView,
   enrichInvestigatorView
@@ -241,4 +242,67 @@ test("keeps found evidence reviewable when automatic expansion stops", () => {
 
   assert.equal(result.status, "EVIDENCE_FOUND");
   assert.equal(result.suggestedAction, "REVIEW_EVIDENCE");
+});
+
+
+test("builds one workspace contract for the investigator interface", () => {
+  const evidence = [{
+    sourceId: "case-a",
+    itemId: 10,
+    name: "message.eml",
+    textAvailable: true
+  }];
+  const base = buildInvestigatorView({
+    question: "Investigate Carlos",
+    evidence,
+    graphView: buildInvestigationGraphView(
+      buildInvestigationGraph({
+        evidence,
+        entities: [],
+        communicationParticipants: [],
+        duplicateEvidence: []
+      })
+    )
+  });
+  const view = enrichInvestigatorView(base, {
+    leads: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [{ sourceId: "case-a", itemId: 10 }],
+      status: "OPEN"
+    }],
+    progress: {
+      status: "CONTINUE",
+      reason: "OPEN_LEAD_AVAILABLE",
+      evidenceCount: 1,
+      openLeadCount: 1,
+      expansions: 0
+    }
+  });
+  const resultState = buildInvestigationResultState({
+    evidenceCount: 1,
+    openLeadCount: 1,
+    progress: view.sections.progress
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "investigation-1",
+    question: "Investigate Carlos",
+    sourceId: "case-a",
+    view,
+    resultState
+  });
+
+  assert.equal(workspace.title, "Investigate Carlos");
+  assert.equal(workspace.summary.evidenceCount, 1);
+  assert.equal(workspace.panels.leads.length, 1);
+  assert.equal(workspace.controls.question.action, "ASK_FOLLOW_UP");
+  assert.equal(workspace.controls.exploreNextLead.enabled, true);
+  assert.equal("tool" in workspace, false);
+  assert.deepEqual(
+    workspace.panels.evidence.map(item => ({
+      sourceId: item.sourceId,
+      itemId: item.itemId
+    })),
+    [{ sourceId: "case-a", itemId: 10 }]
+  );
 });
