@@ -84,6 +84,8 @@ function parseStructuredAnalysis(text: string): {
   try {
     const parsed = JSON.parse(candidate) as {
       findings?: unknown;
+      limitations?: unknown;
+      nextSteps?: unknown;
     };
     if (!Array.isArray(parsed.findings)) return undefined;
 
