@@ -18,7 +18,15 @@ export class InvestigatorService {
 
   private async sources(sourceId?: string) {
     const context = await this.iped.getCaseContext(sourceId);
-    const sources = Array.isArray(context.sources) ? context.sources : [];
+    const rawSources = context.sources;
+    const sources = Array.isArray(rawSources)
+      ? rawSources
+      : rawSources &&
+          typeof rawSources === "object" &&
+          "data" in rawSources &&
+          Array.isArray(rawSources.data)
+        ? rawSources.data
+        : [];
 
     return sources.flatMap(source => {
       if (
