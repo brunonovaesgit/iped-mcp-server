@@ -344,3 +344,51 @@ test("selects only open leads for progressive investigation", () => {
     reason: "NO_OPEN_LEADS"
   });
 });
+
+
+test("continues while an open lead can still add investigative value", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate Carlos", "case-test");
+
+  sessions.record(started.id, {
+    evidence: [{ sourceId: "case-test", itemId: 10 }],
+    leads: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [{ sourceId: "case-test", itemId: 10 }]
+    }]
+  });
+
+  const progress = sessions.progress(started.id);
+
+  assert.equal(progress.status, "CONTINUE");
+  assert.equal(progress.reason, "OPEN_LEAD_AVAILABLE");
+  assert.equal(progress.openLeadCount, 1);
+  assert.equal(progress.nextLead.value, "person@example.test");
+});
+
+test("stops when all evidence-backed leads have been explored", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate Carlos", "case-test");
+
+  sessions.record(started.id, {
+    leads: [{
+      type: "EMAIL",
+      value: "person@example.test"
+    }]
+  });
+  sessions.record(started.id, {
+    exploredLead: {
+      type: "EMAIL",
+      value: "person@example.test"
+    }
+  });
+
+  assert.deepEqual(sessions.progress(started.id), {
+    status: "STOP",
+    reason: "NO_OPEN_LEADS",
+    evidenceCount: 0,
+    openLeadCount: 0,
+    expansions: 0
+  });
+});
