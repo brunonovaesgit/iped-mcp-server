@@ -3,7 +3,8 @@ import { test } from "node:test";
 
 import {
   buildInvestigationGraph,
-  expandInvestigationGraph
+  expandInvestigationGraph,
+  filterInvestigationGraph
 } from "../dist/investigation-graph.js";
 
 test("builds a provenance-first graph from evidence and indexed values", () => {
@@ -121,5 +122,56 @@ test("rejects expansion of a node that is not present in the graph", () => {
       nodeId: "entity:EMAIL:missing@example.test"
     }),
     /Unknown investigation graph node/
+  );
+});
+
+
+test("filters graph views without losing edge provenance", () => {
+  const graph = buildInvestigationGraph({
+    evidence: [
+      { sourceId: "case-a", itemId: 10, name: "message.eml" },
+      { sourceId: "case-a", itemId: 11, name: "copy.eml" }
+    ],
+    entities: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [{ sourceId: "case-a", itemId: 10 }]
+    }],
+    communicationParticipants: [{
+      value: "+5511999999999",
+      evidence: [{ sourceId: "case-a", itemId: 10 }]
+    }],
+    duplicateEvidence: [{
+      hash: "HASH-A",
+      evidence: [
+        { sourceId: "case-a", itemId: 10 },
+        { sourceId: "case-a", itemId: 11 }
+      ]
+    }]
+  });
+
+  const duplicateView = filterInvestigationGraph({
+    graph,
+    relationships: ["DUPLICATE_CONTENT"]
+  });
+
+  assert.equal(duplicateView.edges.length, 1);
+  assert.equal(duplicateView.edges[0].relationship, "DUPLICATE_CONTENT");
+  assert.equal(duplicateView.edges[0].evidence.length, 2);
+
+  const communicationView = filterInvestigationGraph({
+    graph,
+    kinds: ["EVIDENCE", "COMMUNICATION_PARTICIPANT"],
+    relationships: ["OBSERVED_IN_COMMUNICATION"]
+  });
+
+  assert.equal(communicationView.edges.length, 1);
+  assert.ok(
+    communicationView.nodes.some(node =>
+      node.kind === "COMMUNICATION_PARTICIPANT"
+    )
+  );
+  assert.ok(
+    communicationView.edges.every(edge => edge.evidence.length > 0)
   );
 });
