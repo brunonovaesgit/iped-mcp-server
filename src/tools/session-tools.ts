@@ -30,6 +30,29 @@ export function registerSessionTools(
   );
 
   server.tool(
+    "check_investigation_expansion",
+    "Check whether an investigation should continue expanding automatically. This guards against unbounded traversal while preserving the investigator's ability to explicitly deepen a relevant lead.",
+    {
+      investigationId: z.string().uuid(),
+      maxExpansions: z.number().int().positive().max(50).optional(),
+      maxEvidence: z.number().int().positive().max(1000).optional()
+    },
+    async ({ investigationId, maxExpansions, maxEvidence }) => {
+      const decision = sessions.shouldExpand(investigationId, {
+        maxExpansions,
+        maxEvidence
+      });
+
+      await audit.write("check_investigation_expansion", {
+        investigationId,
+        ...decision
+      });
+
+      return toolResult(decision);
+    }
+  );
+
+  server.tool(
     "get_investigation_context",
     "Read the current context of an investigation, including its original question, source scope, searches and evidence references already collected.",
     {
