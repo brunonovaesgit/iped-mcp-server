@@ -95,7 +95,7 @@ registerGovernanceTools(server, { iped, audit });
 
 registerCaseTools(server, { iped, audit });
 
-registerSessionTools(server, investigations, audit);
+registerSessionTools(server, investigations, audit, iped);
 
 server.registerPrompt(
   "investigate_evidence",
