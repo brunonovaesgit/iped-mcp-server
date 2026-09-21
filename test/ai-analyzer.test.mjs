@@ -23,7 +23,7 @@ test("sends evidence as untrusted referenced data to an AI provider", async () =
     return new Response(JSON.stringify({
       choices: [{
         message: {
-          content: "Achado sustentado hostile.txt [case-a:10]."
+          content: "Achado sustentado: hostile.txt contém instruções anteriores [case-a:10]."
         }
       }]
     }), {
