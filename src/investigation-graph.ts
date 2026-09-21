@@ -51,6 +51,39 @@ export type InvestigationGraphEdge = {
   interpretation: string;
 };
 
+export function expandInvestigationGraph(input: {
+  graph: {
+    nodes: InvestigationGraphNode[];
+    edges: InvestigationGraphEdge[];
+  };
+  nodeId: string;
+}) {
+  const node = input.graph.nodes.find(item => item.id === input.nodeId);
+
+  if (!node) {
+    throw new Error(`Unknown investigation graph node: ${input.nodeId}`);
+  }
+
+  const edges = input.graph.edges.filter(
+    edge => edge.from === node.id || edge.to === node.id
+  );
+
+  const connectedNodeIds = new Set<string>([node.id]);
+
+  for (const edge of edges) {
+    connectedNodeIds.add(edge.from);
+    connectedNodeIds.add(edge.to);
+  }
+
+  return {
+    selectedNode: node,
+    nodes: input.graph.nodes.filter(item =>
+      connectedNodeIds.has(item.id)
+    ),
+    edges
+  };
+}
+
 export function buildInvestigationGraph(input: {
   evidence: InvestigationEvidence[];
   entities: IndexedEntity[];
