@@ -98,6 +98,53 @@ export function buildInvestigatorView(input: {
 }
 
 
+function buildGroundedSummary(input: {
+  evidenceCount: number;
+  entityCount: number;
+  relationshipCount: number;
+  communicationParticipantCount: number;
+  leads: Array<{
+    type: string;
+    value: string;
+    evidence: EvidenceReference[];
+    status: "OPEN" | "EXPLORED";
+  }>;
+}) {
+  if (input.evidenceCount === 0) {
+    return {
+      headline: "Nenhuma evidência correspondente foi encontrada.",
+      observations: [],
+      limitation:
+        "A ausência de resultados nesta busca não demonstra que o fato investigado não ocorreu."
+    };
+  }
+
+  const observations = input.leads
+    .filter(lead => lead.evidence.length > 0)
+    .slice(0, 5)
+    .map(lead => ({
+      text:
+        lead.type === "MONEY"
+          ? `O valor ${lead.value} foi observado em ${lead.evidence.length} evidência(s) recuperada(s).`
+          : `${lead.value} (${lead.type}) foi observado em ${lead.evidence.length} evidência(s) recuperada(s).`,
+      evidence: lead.evidence
+    }));
+
+  return {
+    headline:
+      `A busca recuperou ${input.evidenceCount} evidência(s), ` +
+      `${input.entityCount} entidade(s) indexada(s) e ` +
+      `${input.relationshipCount} relação(ões) observada(s).`,
+    observations,
+    communication:
+      input.communicationParticipantCount > 0
+        ? `${input.communicationParticipantCount} participante(s) de comunicação foram observados nos resultados.`
+        : "Nenhum participante de comunicação recorrente foi identificado nesta busca.",
+    limitation:
+      "Estes são achados observados nos dados recuperados. Relações, autoria, intenção e relevância jurídica exigem validação do perito e não são inferidas automaticamente."
+  };
+}
+
 export function buildInvestigationWorkspace(input: {
   investigationId: string;
   question: string;
@@ -119,6 +166,14 @@ export function buildInvestigationWorkspace(input: {
     },
     summary: input.view.overview,
     status: input.resultState,
+    analysis: buildGroundedSummary({
+      evidenceCount: input.view.overview.evidenceCount,
+      entityCount: input.view.overview.entityCount,
+      relationshipCount: input.view.overview.relationshipCount,
+      communicationParticipantCount:
+        input.view.overview.communicationParticipantCount,
+      leads: input.view.sections.leads
+    }),
     panels: {
       findings: input.view.sections.leads
         .filter(lead => lead.evidence.length > 0)
