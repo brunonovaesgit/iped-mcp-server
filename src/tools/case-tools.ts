@@ -5,6 +5,7 @@ import { toolResult } from "../tool-context.js";
 import {
   buildCaseSelection,
   buildInvestigationResultState,
+  buildInvestigationWorkspace,
   buildInvestigatorHome
 } from "../investigator-view.js";
 
@@ -157,32 +158,38 @@ export function registerCaseTools(
         ).length
       });
 
-      return toolResult({
-        status: "INVESTIGATION_READY",
+      const investigatorView = {
+        ...investigation.investigatorView,
+        overview: {
+          ...investigation.investigatorView.overview,
+          openLeadCount: state.leads.filter(
+            lead => lead.status === "OPEN"
+          ).length
+        },
+        sections: {
+          ...investigation.investigatorView.sections,
+          leads: state.leads.map(lead => ({
+            ...lead,
+            action:
+              lead.status === "OPEN"
+                ? "EXPLORE_LEAD"
+                : undefined
+          })),
+          progress
+        }
+      };
+      const workspace = buildInvestigationWorkspace({
         investigationId: session.id,
         question: session.question,
+        focus: state.focus,
         sourceId: session.sourceId,
-        resultState,
-        investigatorView: {
-          ...investigation.investigatorView,
-          overview: {
-            ...investigation.investigatorView.overview,
-            openLeadCount: state.leads.filter(
-              lead => lead.status === "OPEN"
-            ).length
-          },
-          sections: {
-            ...investigation.investigatorView.sections,
-            leads: state.leads.map(lead => ({
-              ...lead,
-              action:
-                lead.status === "OPEN"
-                  ? "EXPLORE_LEAD"
-                  : undefined
-            })),
-            progress
-          }
-        }
+        view: investigatorView,
+        resultState
+      });
+
+      return toolResult({
+        status: "INVESTIGATION_READY",
+        workspace
       });
     }
   );
