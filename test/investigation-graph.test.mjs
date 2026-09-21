@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildInvestigationGraph,
+  buildInvestigationGraphView,
   describeInvestigationGraphEdge,
   expandInvestigationGraph,
   filterInvestigationGraph,
@@ -299,4 +300,46 @@ test("resolves an evidence graph node directly to its IPED reference", () => {
   assert.deepEqual(result.evidence, [
     { sourceId: "case-a", itemId: 10 }
   ]);
+});
+
+
+test("builds a UI-ready graph view without adding inferred relationships", () => {
+  const graph = buildInvestigationGraph({
+    evidence: [{ sourceId: "case-a", itemId: 10, name: "message.eml" }],
+    entities: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [{ sourceId: "case-a", itemId: 10 }]
+    }],
+    communicationParticipants: [],
+    duplicateEvidence: []
+  });
+
+  const view = buildInvestigationGraphView(graph);
+
+  assert.equal(view.summary.nodeCount, graph.nodes.length);
+  assert.equal(view.summary.edgeCount, graph.edges.length);
+  assert.equal(view.edges.length, graph.edges.length);
+  assert.deepEqual(
+    view.edges.map(edge => ({
+      id: edge.id,
+      relationship: edge.relationship,
+      evidence: edge.evidence
+    })),
+    graph.edges.map(edge => ({
+      id: edge.id,
+      relationship: edge.relationship,
+      evidence: edge.evidence
+    }))
+  );
+  assert.ok(
+    view.nodes.every(node =>
+      node.actions.includes("SHOW_SUPPORTING_EVIDENCE")
+    )
+  );
+  assert.ok(
+    view.edges.every(edge =>
+      edge.actions.includes("EXPLAIN_RELATIONSHIP")
+    )
+  );
 });
