@@ -14,6 +14,8 @@ export interface InvestigationState {
     query: string;
     newEvidence: number;
   };
+  focus?: string;
+  followUps: string[];
 }
 
 export class InvestigationSessions {
@@ -29,7 +31,8 @@ export class InvestigationSessions {
       updatedAt: now,
       evidence: [],
       queries: [],
-      expansions: 0
+      expansions: 0,
+      followUps: []
     };
 
     this.sessions.set(state.id, state);
@@ -48,6 +51,8 @@ export class InvestigationSessions {
       evidence?: EvidenceReference[];
       expansion?: boolean;
       expansionQuery?: string;
+      focus?: string;
+      followUp?: string;
     }
   ): InvestigationState {
     const state = this.sessions.get(id);
@@ -58,6 +63,14 @@ export class InvestigationSessions {
 
     if (update.query && !state.queries.includes(update.query)) {
       state.queries.push(update.query);
+    }
+
+    if (update.focus) {
+      state.focus = update.focus;
+    }
+
+    if (update.followUp && !state.followUps.includes(update.followUp)) {
+      state.followUps.push(update.followUp);
     }
 
     const evidenceCountBeforeUpdate = state.evidence.length;
