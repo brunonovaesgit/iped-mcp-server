@@ -295,6 +295,14 @@ test("builds one workspace contract for the investigator interface", () => {
   assert.equal(workspace.title, "Investigate Carlos");
   assert.equal(workspace.summary.evidenceCount, 1);
   assert.equal(workspace.panels.leads.length, 1);
+  assert.equal(workspace.panels.findings.length, 1);
+  assert.deepEqual(workspace.panels.findings[0], {
+    classification: "OBSERVATION",
+    type: "EMAIL",
+    value: "person@example.test",
+    evidenceCount: 1,
+    evidence: [{ sourceId: "case-a", itemId: 10 }]
+  });
   assert.equal(workspace.controls.question.action, "ASK_FOLLOW_UP");
   assert.equal(workspace.controls.exploreNextLead.enabled, true);
   assert.equal("tool" in workspace, false);
