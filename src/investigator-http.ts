@@ -108,7 +108,7 @@ function renderWorkspace(workspace){
   byId("workspace").classList.remove("hidden");
   const aiAnalysis=workspace.aiAnalysis;
   const aiTarget=byId("aiAnalysis");
-  if(aiAnalysis?.enabled&&aiAnalysis.text){
+  if(aiAnalysis?.enabled){
     aiTarget.classList.remove("hidden");
     const findings=(aiAnalysis.findings||[]).map(finding=>{
       const refs=(finding.evidence||[]).map(reference=>'<span class="meta">['+escapeHtml(reference)+']</span>').join(" ");
@@ -117,7 +117,7 @@ function renderWorkspace(workspace){
     const limitations=(aiAnalysis.limitations||[]).map(item=>'<li>'+escapeHtml(item)+'</li>').join("");
     const nextSteps=(aiAnalysis.nextSteps||[]).map(item=>'<li>'+escapeHtml(item)+'</li>').join("");
     aiTarget.innerHTML='<h2>Análise assistida por IA</h2>'
-      +(findings?'<h3>Achados</h3>'+findings:'<div class="evidenceText">'+escapeHtml(aiAnalysis.text)+'</div>')
+      +(findings?'<h3>Achados</h3>'+findings:(aiAnalysis.text?'<div class="evidenceText">'+escapeHtml(aiAnalysis.text)+'</div>':'<p class="meta">Nenhum achado adicional sustentado pelas evidências foi produzido pela IA.</p>'))
       +(limitations?'<h3>Limitações</h3><ul>'+limitations+'</ul>':'')
       +(nextSteps?'<h3>Próximos passos</h3><ul>'+nextSteps+'</ul>':'')
       +'<p class="meta">Análise derivada · modelo '+escapeHtml(aiAnalysis.model||"configurado")+' · cada achado deve ser validado nas evidências citadas.</p>';
