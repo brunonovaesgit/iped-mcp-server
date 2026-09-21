@@ -140,6 +140,7 @@ function normalizeTerms(value: string): string[] {
   ]);
 
   return (value.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}][\p{L}\p{N}._@-]*/gu) ?? [])
+    .map(term => term.replace(/^[._@-]+|[._@-]+$/g, ""))
     .filter(term => term.length >= 4 && !stop.has(term));
 }
 
