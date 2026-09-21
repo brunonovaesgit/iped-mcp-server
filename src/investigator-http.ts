@@ -110,7 +110,17 @@ function renderWorkspace(workspace){
   const aiTarget=byId("aiAnalysis");
   if(aiAnalysis?.enabled&&aiAnalysis.text){
     aiTarget.classList.remove("hidden");
-    aiTarget.innerHTML='<h2>Análise assistida por IA</h2><div class="evidenceText">'+escapeHtml(aiAnalysis.text)+'</div><p class="meta">Análise derivada · modelo '+escapeHtml(aiAnalysis.model||"configurado")+' · valide os achados nas evidências abaixo.</p>';
+    const findings=(aiAnalysis.findings||[]).map(finding=>{
+      const refs=(finding.evidence||[]).map(reference=>'<span class="meta">['+escapeHtml(reference)+']</span>').join(" ");
+      return '<div class="observation"><strong>'+escapeHtml(finding.kind)+'</strong> · '+escapeHtml(finding.statement)+'<div>'+refs+'</div></div>';
+    }).join("");
+    const limitations=(aiAnalysis.limitations||[]).map(item=>'<li>'+escapeHtml(item)+'</li>').join("");
+    const nextSteps=(aiAnalysis.nextSteps||[]).map(item=>'<li>'+escapeHtml(item)+'</li>').join("");
+    aiTarget.innerHTML='<h2>Análise assistida por IA</h2>'
+      +(findings?'<h3>Achados</h3>'+findings:'<div class="evidenceText">'+escapeHtml(aiAnalysis.text)+'</div>')
+      +(limitations?'<h3>Limitações</h3><ul>'+limitations+'</ul>':'')
+      +(nextSteps?'<h3>Próximos passos</h3><ul>'+nextSteps+'</ul>':'')
+      +'<p class="meta">Análise derivada · modelo '+escapeHtml(aiAnalysis.model||"configurado")+' · cada achado deve ser validado nas evidências citadas.</p>';
   }else if(aiAnalysis?.reason&&aiAnalysis.reason!=="AI analysis is not configured."){
     aiTarget.classList.remove("hidden");
     aiTarget.innerHTML='<h2>Análise assistida por IA não apresentada</h2><p>A resposta produzida pelo modelo não atingiu os critérios de rastreabilidade e sustentação nas evidências.</p><p class="meta">Os achados objetivos do IPED permanecem disponíveis abaixo. A resposta rejeitada não é exibida.</p>';
