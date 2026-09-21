@@ -263,6 +263,36 @@ export class InvestigatorService {
       }
     };
   }
+  async aiDiagnostic(investigationId: string) {
+    const session = this.investigations.get(investigationId);
+    if (!session) {
+      throw new Error(`Unknown investigation session: ${investigationId}`);
+    }
+
+    const events = this.audit.entries?.() ?? [];
+    const event = [...events].reverse().find(entry =>
+      entry.investigationId === investigationId &&
+      (entry.action === "ai_analysis_accepted" ||
+       entry.action === "ai_analysis_not_presented")
+    );
+
+    if (!event) {
+      return {
+        status: "NO_AI_DIAGNOSTIC" as const,
+        message: "Nenhum diagnóstico de IA foi registrado para esta investigação."
+      };
+    }
+
+    return {
+      status: event.action === "ai_analysis_accepted"
+        ? "AI_ACCEPTED" as const
+        : "AI_REJECTED" as const,
+      reason: typeof event.reason === "string" ? event.reason : undefined,
+      model: typeof event.model === "string" ? event.model : undefined,
+      evidenceCount: event.evidenceCount
+    };
+  }
+
   async continue(
     investigationId: string,
     question: string,
