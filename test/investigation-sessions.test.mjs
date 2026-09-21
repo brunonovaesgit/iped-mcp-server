@@ -392,3 +392,48 @@ test("stops when all evidence-backed leads have been explored", () => {
     expansions: 0
   });
 });
+
+
+test("resolves only open evidence-backed leads selected by the investigator", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate relationships");
+
+  sessions.record(started.id, {
+    leads: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [{ sourceId: "case-test", itemId: 7 }]
+    }]
+  });
+
+  const lead = sessions.lead(
+    started.id,
+    "EMAIL",
+    "person@example.test"
+  );
+
+  assert.ok(lead);
+  assert.deepEqual(lead.evidence, [
+    { sourceId: "case-test", itemId: 7 }
+  ]);
+
+  sessions.record(started.id, {
+    exploredLead: {
+      type: "EMAIL",
+      value: "person@example.test"
+    }
+  });
+
+  assert.equal(
+    sessions.lead(
+      started.id,
+      "EMAIL",
+      "person@example.test"
+    ),
+    undefined
+  );
+  assert.equal(
+    sessions.lead(started.id, "EMAIL", "invented@example.test"),
+    undefined
+  );
+});
