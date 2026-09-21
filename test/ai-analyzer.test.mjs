@@ -258,3 +258,46 @@ test("rejects a cited claim when the cited evidence does not textually support i
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("accepts structured atomic findings and preserves evidence references", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            findings: [{
+              statement: "Carlos participou da reunião do projeto Atlas.",
+              kind: "FACT",
+              evidence: ["case-a:1"]
+            }],
+            limitations: [],
+            nextSteps: []
+          })
+        }
+      }]
+    }), { status: 200, headers: { "content-type": "application/json" } });
+
+  try {
+    const analyzer = new OpenAiCompatibleAnalyzer(
+      "http://127.0.0.1:9999/v1",
+      "small-local-model"
+    );
+    const result = await analyzer.analyze({
+      question: "Investigue Carlos",
+      evidence: [{
+        sourceId: "case-a",
+        itemId: 1,
+        text: "Carlos participou da reunião do projeto Atlas."
+      }]
+    });
+
+    assert.equal(result.findings.length, 1);
+    assert.equal(result.findings[0].kind, "FACT");
+    assert.deepEqual(result.findings[0].evidence, ["case-a:1"]);
+    assert.match(result.text, /\[case-a:1\]/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
