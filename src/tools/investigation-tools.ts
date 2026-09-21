@@ -36,7 +36,9 @@ export function registerInvestigationTools(
             evidence: [
               ...investigation.left.evidence,
               ...investigation.right.evidence
-            ]
+            ],
+            expansion: true,
+            expansionQuery: `${leftQuery} <-> ${rightQuery}`
           });
         }
 
@@ -169,7 +171,9 @@ export function registerInvestigationTools(
             evidence: investigation.initialEvidence.map(item => ({
               sourceId: item.sourceId,
               itemId: item.itemId
-            }))
+            })),
+            expansion: true,
+            expansionQuery: query
           });
         }
 
@@ -236,7 +240,9 @@ export function registerInvestigationTools(
 
           investigations.record(investigationId, {
             query,
-            evidence
+            evidence,
+            expansion: true,
+            expansionQuery: query
           });
         }
 
