@@ -301,14 +301,31 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
     }
 
     const allowed = evidenceReferences(input);
-    const findings = structured.findings.filter(finding =>
+    const normalizeReference = (reference: string) =>
+      reference.trim().replace(/^\[|\]$/g, "");
+    const normalizedFindings = structured.findings.map(finding => ({
+      ...finding,
+      evidence: finding.evidence.map(normalizeReference)
+    }));
+    const findings = normalizedFindings.filter(finding =>
       finding.statement.length > 0 &&
       finding.evidence.length > 0 &&
       finding.evidence.every(reference => allowed.has(reference))
     );
 
     if (findings.length === 0) {
-      throw new Error("AI analysis rejected: no valid evidence-backed findings");
+      const references = [...new Set(
+        normalizedFindings.flatMap(finding => finding.evidence)
+      )];
+      const unknown = references.filter(reference => !allowed.has(reference));
+      const reason = structured.findings.length === 0
+        ? "model returned no findings"
+        : references.length === 0
+          ? "findings contained no evidence references"
+          : unknown.length > 0
+            ? `unknown evidence reference(s): ${unknown.join(", ")}`
+            : "no valid evidence-backed findings";
+      throw new Error(`AI analysis rejected: ${reason}`);
     }
 
     const renderedText = findings.map(finding =>
