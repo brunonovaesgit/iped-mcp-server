@@ -2,7 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
-import { expandInvestigationGraph } from "../investigation-graph.js";
+import {
+  expandInvestigationGraph,
+  filterInvestigationGraph
+} from "../investigation-graph.js";
 
 export function registerInvestigationTools(
   server: McpServer,
@@ -160,6 +163,75 @@ export function registerInvestigationTools(
           investigationId,
           query,
           sourceId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        throw error;
+      }
+    }
+  );
+
+  server.tool(
+    "filter_investigation_graph",
+    "Build a focused view of an evidence-backed investigation graph by node kind or relationship type. Filtering only changes the view; it never creates relationships or removes provenance from returned edges.",
+    {
+      query: z.string().min(1),
+      sourceId: z.string().optional(),
+      limit: z.number().int().positive().max(100).optional(),
+      kinds: z.array(
+        z.enum(["EVIDENCE", "ENTITY", "COMMUNICATION_PARTICIPANT"])
+      ).min(1).optional(),
+      relationships: z.array(
+        z.enum([
+          "OBSERVED_IN_EVIDENCE",
+          "OBSERVED_IN_COMMUNICATION",
+          "DUPLICATE_CONTENT"
+        ])
+      ).min(1).optional(),
+      investigationId: z.string().uuid().optional()
+    },
+    async ({
+      query,
+      sourceId,
+      limit,
+      kinds,
+      relationships,
+      investigationId
+    }) => {
+      try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
+        const investigation = await iped.investigateEvidence(
+          query,
+          effectiveSourceId,
+          limit
+        );
+
+        const graph = filterInvestigationGraph({
+          graph: investigation.graph,
+          kinds,
+          relationships
+        });
+
+        await audit.write("filter_investigation_graph", {
+          investigationId,
+          query,
+          sourceId: effectiveSourceId,
+          kinds,
+          relationships,
+          nodeCount: graph.nodes.length,
+          edgeCount: graph.edges.length
+        });
+
+        return toolResult(graph);
+      } catch (error) {
+        await audit.write("filter_investigation_graph_failed", {
+          investigationId,
+          query,
+          sourceId,
+          kinds,
+          relationships,
           error: error instanceof Error ? error.message : String(error)
         });
         throw error;
