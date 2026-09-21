@@ -1,3 +1,4 @@
+import type { AiAnalyzer } from "./ai-analyzer.js";
 import type { AuditLog } from "./audit-log.js";
 import type { IpedClient } from "./iped-client.js";
 import type { InvestigationSessions } from "./investigation-sessions.js";
@@ -13,7 +14,8 @@ export class InvestigatorService {
   constructor(
     private readonly iped: IpedClient,
     private readonly investigations: InvestigationSessions,
-    private readonly audit: AuditLog
+    private readonly audit: AuditLog,
+    private readonly ai?: AiAnalyzer
   ) {}
 
   private async sources(sourceId?: string) {
@@ -205,6 +207,22 @@ export class InvestigatorService {
       }
     };
 
+    const aiAnalysis = this.ai
+      ? await this.ai.analyze({
+          question,
+          evidence: investigation.matchedEvidence.map(item => ({
+            sourceId: item.sourceId,
+            itemId: item.itemId,
+            name: item.name,
+            path: item.path,
+            text: item.text
+          }))
+        }).catch(error => ({
+          enabled: false,
+          reason: error instanceof Error ? error.message : String(error)
+        }))
+      : undefined;
+
     await this.audit.write("begin_investigation", {
       investigationId: session.id,
       question,
@@ -217,14 +235,17 @@ export class InvestigatorService {
 
     return {
       status: "INVESTIGATION_READY" as const,
-      workspace: buildInvestigationWorkspace({
-        investigationId: session.id,
-        question: session.question,
-        focus: state.focus,
-        sourceId: session.sourceId,
-        view: investigatorView,
-        resultState
-      })
+      workspace: {
+        ...buildInvestigationWorkspace({
+          investigationId: session.id,
+          question: session.question,
+          focus: state.focus,
+          sourceId: session.sourceId,
+          view: investigatorView,
+          resultState
+        }),
+        aiAnalysis
+      }
     };
   }
   async continue(
