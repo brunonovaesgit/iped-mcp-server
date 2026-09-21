@@ -56,6 +56,31 @@ export function registerSessionTools(
   );
 
   server.tool(
+    "get_next_investigation_lead",
+    "Return the next evidence-backed lead that has not yet been explored in an investigation. The lead remains an investigative direction, not a factual conclusion.",
+    {
+      investigationId: z.string().uuid()
+    },
+    async ({ investigationId }) => {
+      const next = sessions.nextLead(investigationId);
+
+      await audit.write("get_next_investigation_lead", {
+        investigationId,
+        available: next.available,
+        ...(next.available
+          ? {
+              leadType: next.lead.type,
+              leadValue: next.lead.value,
+              evidenceCount: next.lead.evidence.length
+            }
+          : { reason: next.reason })
+      });
+
+      return toolResult(next);
+    }
+  );
+
+  server.tool(
     "check_investigation_expansion",
     "Check whether an investigation should continue expanding automatically. This guards against unbounded traversal while preserving the investigator's ability to explicitly deepen a relevant lead.",
     {
