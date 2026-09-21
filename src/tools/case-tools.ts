@@ -2,12 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
-import {
-  buildCaseSelection,
-  buildInvestigationResultState,
-  buildInvestigationWorkspace,
-  buildInvestigatorHome
-} from "../investigator-view.js";
+import { InvestigatorService } from "../investigator-service.js";
 
 export function registerCaseTools(
   server: McpServer,
@@ -53,6 +48,16 @@ export function registerCaseTools(
     }
   );
 
+  if (!investigations) {
+    throw new Error("Investigation sessions are not available");
+  }
+
+  const investigator = new InvestigatorService(
+    iped,
+    investigations,
+    audit
+  );
+
   server.tool(
     "begin_investigation",
     "Start a forensic investigation from a natural-language question. When IPED exposes one source it is selected automatically; when several sources exist the client receives a simple selection state instead of requiring a sourceId.",
@@ -61,136 +66,7 @@ export function registerCaseTools(
       sourceId: z.string().optional()
     },
     async ({ question, sourceId }) => {
-      if (!investigations) {
-        throw new Error("Investigation sessions are not available");
-      }
-
-      const context = await iped.getCaseContext(sourceId);
-      const sources = Array.isArray(context.sources)
-        ? context.sources
-        : [];
-      const availableSources = sources.flatMap(source => {
-        if (
-          !source ||
-          typeof source !== "object" ||
-          !("id" in source) ||
-          typeof source.id !== "string"
-        ) {
-          return [];
-        }
-
-        const label =
-          "name" in source && typeof source.name === "string"
-            ? source.name
-            : undefined;
-
-        return [{
-          id: source.id,
-          ...(label ? { label } : {})
-        }];
-      });
-      const selection = buildCaseSelection({
-        sources: availableSources,
-        requestedSourceId: sourceId
-      });
-
-      if (selection.status !== "SOURCE_SELECTED") {
-        await audit.write("begin_investigation_needs_source", {
-          question,
-          requestedSourceId: sourceId,
-          sourceSelectionStatus: selection.status,
-          sourceCount: availableSources.length
-        });
-
-        return toolResult({
-          status: "SOURCE_SELECTION_REQUIRED",
-          question,
-          sourceSelection: selection
-        });
-      }
-
-      const session = investigations.start(
-        question,
-        selection.selectedSourceId
-      );
-      const investigation = await iped.investigateEvidence(
-        question,
-        selection.selectedSourceId
-      );
-
-      const state = investigations.record(session.id, {
-        query: question,
-        evidence: investigation.matchedEvidence.map(item => ({
-          sourceId: item.sourceId,
-          itemId: item.itemId
-        })),
-        leads: [
-          ...investigation.recurringEntities.map(entity => ({
-            type: entity.type,
-            value: entity.value,
-            evidence: entity.evidence
-          })),
-          ...investigation.recurringCommunicationParticipants.map(
-            participant => ({
-              type: "COMMUNICATION_PARTICIPANT",
-              value: participant.value,
-              evidence: participant.evidence
-            })
-          )
-        ]
-      });
-      const progress = investigations.progress(session.id);
-      const resultState = buildInvestigationResultState({
-        evidenceCount: state.evidence.length,
-        openLeadCount: state.leads.filter(
-          lead => lead.status === "OPEN"
-        ).length,
-        progress
-      });
-
-      await audit.write("begin_investigation", {
-        investigationId: session.id,
-        question,
-        sourceId: session.sourceId,
-        evidenceCount: state.evidence.length,
-        openLeadCount: state.leads.filter(
-          lead => lead.status === "OPEN"
-        ).length
-      });
-
-      const investigatorView = {
-        ...investigation.investigatorView,
-        overview: {
-          ...investigation.investigatorView.overview,
-          openLeadCount: state.leads.filter(
-            lead => lead.status === "OPEN"
-          ).length
-        },
-        sections: {
-          ...investigation.investigatorView.sections,
-          leads: state.leads.map(lead => ({
-            ...lead,
-            action:
-              lead.status === "OPEN"
-                ? "EXPLORE_LEAD"
-                : undefined
-          })),
-          progress
-        }
-      };
-      const workspace = buildInvestigationWorkspace({
-        investigationId: session.id,
-        question: session.question,
-        focus: state.focus,
-        sourceId: session.sourceId,
-        view: investigatorView,
-        resultState
-      });
-
-      return toolResult({
-        status: "INVESTIGATION_READY",
-        workspace
-      });
+      return toolResult(await investigator.begin(question, sourceId));
     }
   );
 
@@ -202,108 +78,9 @@ export function registerCaseTools(
       investigationId: z.string().uuid().optional()
     },
     async ({ sourceId, investigationId }) => {
-      try {
-        const context = await iped.getCaseContext(sourceId);
-        const sources = Array.isArray(context.sources)
-          ? context.sources
-          : [];
-        const availableSources = sources.flatMap(source => {
-          if (
-            !source ||
-            typeof source !== "object" ||
-            !("id" in source) ||
-            typeof source.id !== "string"
-          ) {
-            return [];
-          }
-
-          const label =
-            "name" in source && typeof source.name === "string"
-              ? source.name
-              : undefined;
-
-          return [{
-            id: source.id,
-            ...(label ? { label } : {})
-          }];
-        });
-        const selection = buildCaseSelection({
-          sources: availableSources,
-          requestedSourceId: sourceId
-        });
-        const session =
-          investigationId && investigations
-            ? investigations.get(investigationId)
-            : undefined;
-
-        if (investigationId && investigations && !session) {
-          throw new Error(
-            `Unknown investigation session: ${investigationId}`
-          );
-        }
-
-        const progress =
-          session && investigations
-            ? investigations.progress(session.id)
-            : undefined;
-
-        const home = {
-          ...buildInvestigatorHome({
-          caseAvailable: availableSources.length > 0,
-          sourceId: selection.selectedSourceId,
-          activeInvestigation:
-            session && progress
-              ? {
-                  id: session.id,
-                  question: session.question,
-                  focus: session.focus,
-                  evidenceCount: session.evidence.length,
-                  openLeadCount: session.leads.filter(
-                    lead => lead.status === "OPEN"
-                  ).length,
-                  status: progress.status
-                }
-              : undefined
-        }),
-          sourceSelection: selection
-        };
-
-        await audit.write("get_investigator_home", {
-          investigationId,
-          sourceId,
-          status: home.status,
-          sourceCount: availableSources.length,
-          sourceSelectionStatus: selection.status,
-          activeInvestigation: Boolean(session)
-        });
-
-        return toolResult(home);
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.startsWith("Unknown investigation session:")
-        ) {
-          await audit.write("get_investigator_home_failed", {
-            investigationId,
-            sourceId,
-            error: error.message
-          });
-          throw error;
-        }
-
-        const home = buildInvestigatorHome({
-          caseAvailable: false,
-          sourceId
-        });
-
-        await audit.write("get_investigator_home_unavailable", {
-          investigationId,
-          sourceId,
-          error: error instanceof Error ? error.message : String(error)
-        });
-
-        return toolResult(home);
-      }
+      return toolResult(
+        await investigator.home(sourceId, investigationId)
+      );
     }
   );
 
