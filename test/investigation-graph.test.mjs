@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildInvestigationGraph,
+  describeInvestigationGraphEdge,
   expandInvestigationGraph,
   filterInvestigationGraph,
   summarizeInvestigationGraph
@@ -213,4 +214,39 @@ test("summarizes graph structure without inferring importance", () => {
   assert.equal(summary.connectedNodes[0].connections, 2);
   assert.equal("importance" in summary.connectedNodes[0], false);
   assert.equal("risk" in summary.connectedNodes[0], false);
+});
+
+
+test("explains a graph relationship with its exact forensic provenance", () => {
+  const graph = buildInvestigationGraph({
+    evidence: [{ sourceId: "case-a", itemId: 10, name: "message.eml" }],
+    entities: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [{ sourceId: "case-a", itemId: 10 }]
+    }],
+    communicationParticipants: [],
+    duplicateEvidence: []
+  });
+
+  const edge = graph.edges[0];
+  const explanation = describeInvestigationGraphEdge(graph, edge.id);
+
+  assert.equal(explanation.edge.relationship, "OBSERVED_IN_EVIDENCE");
+  assert.equal(explanation.from.kind, "ENTITY");
+  assert.equal(explanation.to.kind, "EVIDENCE");
+  assert.deepEqual(explanation.provenance, [
+    { sourceId: "case-a", itemId: 10 }
+  ]);
+  assert.match(explanation.interpretation, /does not by itself establish/);
+});
+
+test("rejects explanation for an unknown graph relationship", () => {
+  assert.throws(
+    () => describeInvestigationGraphEdge(
+      { nodes: [], edges: [] },
+      "missing-edge"
+    ),
+    /Unknown investigation graph edge/
+  );
 });
