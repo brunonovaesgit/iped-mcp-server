@@ -109,3 +109,48 @@ test("stops automatic expansion when the evidence context grows too large", () =
     }
   );
 });
+
+
+test("stops automatic expansion when the last step found no new evidence", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Follow Carlos Almeida");
+
+  sessions.record(started.id, {
+    query: "Carlos Almeida",
+    evidence: [{ sourceId: "case-test", itemId: 10 }]
+  });
+
+  sessions.record(started.id, {
+    query: "person@example.test",
+    evidence: [{ sourceId: "case-test", itemId: 10 }],
+    expansion: true,
+    expansionQuery: "person@example.test"
+  });
+
+  assert.deepEqual(sessions.shouldExpand(started.id), {
+    expand: false,
+    reason: "NO_NEW_EVIDENCE",
+    expansions: 1,
+    evidenceCount: 1
+  });
+});
+
+test("allows another expansion when the last step discovered new evidence", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Follow Carlos Almeida");
+
+  sessions.record(started.id, {
+    evidence: [{ sourceId: "case-test", itemId: 10 }]
+  });
+
+  sessions.record(started.id, {
+    query: "person@example.test",
+    evidence: [
+      { sourceId: "case-test", itemId: 10 },
+      { sourceId: "case-test", itemId: 11 }
+    ],
+    expansion: true
+  });
+
+  assert.equal(sessions.shouldExpand(started.id).expand, true);
+});
