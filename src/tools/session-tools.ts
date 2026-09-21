@@ -124,6 +124,113 @@ export function registerSessionTools(
   );
 
   server.tool(
+    "explore_next_lead",
+    "Explore the next evidence-backed lead in the active investigation. This is a high-level continuation action for investigator interfaces: it respects expansion limits, searches only the investigation source, preserves provenance and marks the selected lead as explored.",
+    {
+      investigationId: z.string().uuid()
+    },
+    async ({ investigationId }) => {
+      if (!iped) {
+        throw new Error("IPED evidence access is not available");
+      }
+
+      const decision = sessions.shouldExpand(investigationId);
+
+      if (!decision.expand) {
+        return toolResult({
+          status: "INVESTIGATION_STOPPED",
+          reason: decision.reason,
+          progress: sessions.progress(investigationId)
+        });
+      }
+
+      const current = sessions.get(investigationId);
+
+      if (!current) {
+        throw new Error(
+          `Unknown investigation session: ${investigationId}`
+        );
+      }
+
+      const next = sessions.nextLead(investigationId);
+
+      if (!next.available) {
+        return toolResult({
+          status: "NO_OPEN_LEADS",
+          reason: next.reason,
+          progress: sessions.progress(investigationId)
+        });
+      }
+
+      const lead = next.lead;
+      const investigation = await iped.investigateEvidence(
+        lead.value,
+        current.sourceId
+      );
+      const session = sessions.record(investigationId, {
+        query: lead.value,
+        expansion: true,
+        expansionQuery: lead.value,
+        evidence: investigation.matchedEvidence.map(item => ({
+          sourceId: item.sourceId,
+          itemId: item.itemId
+        })),
+        leads: [
+          ...investigation.recurringEntities.map(entity => ({
+            type: entity.type,
+            value: entity.value,
+            evidence: entity.evidence
+          })),
+          ...investigation.recurringCommunicationParticipants.map(
+            participant => ({
+              type: "COMMUNICATION_PARTICIPANT",
+              value: participant.value,
+              evidence: participant.evidence
+            })
+          )
+        ],
+        exploredLead: {
+          type: lead.type,
+          value: lead.value
+        }
+      });
+      const progress = sessions.progress(investigationId);
+      const investigatorView = enrichInvestigatorView(
+        investigation.investigatorView,
+        {
+          leads: session.leads,
+          progress
+        }
+      );
+
+      await audit.write("explore_next_lead", {
+        investigationId,
+        leadType: lead.type,
+        leadValue: lead.value,
+        sourceId: current.sourceId,
+        matchedEvidenceCount: investigation.matchedEvidence.length,
+        evidenceCount: session.evidence.length,
+        progressStatus: progress.status,
+        progressReason: progress.reason
+      });
+
+      return toolResult({
+        status: "LEAD_EXPLORED",
+        investigationId,
+        exploredLead: lead,
+        resultState: buildInvestigationResultState({
+          evidenceCount: investigation.matchedEvidence.length,
+          openLeadCount: session.leads.filter(
+            item => item.status === "OPEN"
+          ).length,
+          progress
+        }),
+        investigatorView
+      });
+    }
+  );
+
+  server.tool(
     "get_investigation_progress",
     "Summarize whether an investigation should continue automatically or stop, based on evidence growth, expansion boundaries and remaining evidence-backed leads.",
     {
