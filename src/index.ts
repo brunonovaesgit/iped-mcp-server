@@ -46,6 +46,7 @@ const server = new McpServer(
       "- A discovered path between evidence items is an investigative connection. Do not present it as proof that the investigated entities have a real-world relationship.",
       "- Keep evidence paths explicit. A path shows how indexed values connect evidence items; it does not establish that the connected records represent the same real-world person, organization or event.",
       "- Prefer shallow relationship traversal first. Expand deeper only when the additional path is relevant to the investigative question.",
+      "- For an active investigation context, check whether automatic expansion should continue before following another lead. Stop automatic traversal when no new evidence is being found or an investigation boundary has been reached; the investigator may still explicitly request a deeper path.",
       "- Examine additional evidence before treating repeated names, identifiers, values or other matches as meaningful relationships.",
       "- Use timelines and structural relationships when they add investigative value.",
       "",
