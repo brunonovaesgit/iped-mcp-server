@@ -14,6 +14,11 @@ export type AiAnalysis = {
   text?: string;
   model?: string;
   reason?: string;
+  validation?: {
+    accepted: boolean;
+    citedReferences: string[];
+    rejectedReferences: string[];
+  };
 };
 
 export interface AiAnalyzer {
@@ -56,6 +61,59 @@ function fitEvidenceToContext(input: AiAnalysisInput) {
       textTruncated: Boolean(text && excerpt && excerpt.length < text.length)
     };
   });
+}
+
+function evidenceReferences(input: AiAnalysisInput): Set<string> {
+  return new Set(
+    input.evidence.map(item => `${item.sourceId}:${item.itemId}`)
+  );
+}
+
+function citedReferences(text: string): string[] {
+  return [...text.matchAll(/\[([^\[\]\s:]+):(\d+)\]/g)]
+    .map(match => `${match[1]}:${match[2]}`);
+}
+
+function validateAnalysis(text: string, input: AiAnalysisInput) {
+  const allowed = evidenceReferences(input);
+  const cited = [...new Set(citedReferences(text))];
+  const rejected = cited.filter(reference => !allowed.has(reference));
+
+  if (cited.length === 0) {
+    throw new Error(
+      "AI analysis rejected: no evidence references were cited"
+    );
+  }
+
+  if (rejected.length > 0) {
+    throw new Error(
+      `AI analysis rejected: unknown evidence reference(s): ${rejected.join(", ")}`
+    );
+  }
+
+  const factualSections = text
+    .split(/\n(?=(?:Resumo|Achados sustentados|Relações relevantes):)/i)
+    .filter(section =>
+      /^(?:Resumo|Achados sustentados|Relações relevantes):/i.test(
+        section.trim()
+      )
+    );
+
+  const unsupported = factualSections.filter(section =>
+    !/\[[^\[\]\s:]+:\d+\]/.test(section)
+  );
+
+  if (unsupported.length > 0) {
+    throw new Error(
+      "AI analysis rejected: factual section without evidence reference"
+    );
+  }
+
+  return {
+    accepted: true,
+    citedReferences: cited,
+    rejectedReferences: rejected
+  };
 }
 
 export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
@@ -128,10 +186,13 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       throw new Error("AI provider returned no analysis text");
     }
 
+    const validation = validateAnalysis(text, input);
+
     return {
       enabled: true,
       text,
-      model: this.model
+      model: this.model,
+      validation
     };
   }
 }
