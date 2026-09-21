@@ -98,6 +98,48 @@ export function buildInvestigatorView(input: {
 }
 
 
+export function buildCaseSelection(input: {
+  sources: Array<{ id: string; label?: string }>;
+  requestedSourceId?: string;
+}) {
+  if (input.requestedSourceId) {
+    const selected = input.sources.find(
+      source => source.id === input.requestedSourceId
+    );
+
+    if (!selected) {
+      return {
+        status: "SOURCE_NOT_FOUND" as const,
+        selectedSourceId: undefined,
+        sources: input.sources
+      };
+    }
+
+    return {
+      status: "SOURCE_SELECTED" as const,
+      selectedSourceId: selected.id,
+      sources: input.sources
+    };
+  }
+
+  if (input.sources.length === 1) {
+    return {
+      status: "SOURCE_SELECTED" as const,
+      selectedSourceId: input.sources[0].id,
+      sources: input.sources
+    };
+  }
+
+  return {
+    status:
+      input.sources.length > 1
+        ? "SOURCE_SELECTION_REQUIRED" as const
+        : "NO_SOURCES" as const,
+    selectedSourceId: undefined,
+    sources: input.sources
+  };
+}
+
 export function buildInvestigatorHome(input: {
   caseAvailable: boolean;
   sourceId?: string;
