@@ -227,7 +227,10 @@ export function registerInvestigationTools(
           const evidence = [
             ...paths.initialEvidence,
             ...paths.paths.flatMap(path =>
-              path.steps.flatMap(step => [step.from, step.to])
+              path.map(step => ({
+                sourceId: step.sourceId,
+                itemId: step.itemId
+              }))
             )
           ];
 
