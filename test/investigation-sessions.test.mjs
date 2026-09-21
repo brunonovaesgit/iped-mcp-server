@@ -160,3 +160,43 @@ test("allows another expansion when the last step discovered new evidence", () =
 
   assert.equal(sessions.shouldExpand(started.id).expand, true);
 });
+
+
+test("keeps follow-up questions without replacing the original investigation", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start(
+    "Investigate Carlos Almeida and related transactions",
+    "case-test"
+  );
+
+  sessions.record(started.id, {
+    query: "Carlos Almeida",
+    evidence: [{ sourceId: "case-test", itemId: 10 }]
+  });
+
+  sessions.record(started.id, {
+    followUp: "Explore Maria",
+    focus: "Maria"
+  });
+
+  sessions.record(started.id, {
+    followUp: "Why is Maria connected to Orion?",
+    focus: "Maria <-> Orion"
+  });
+
+  const context = sessions.get(started.id);
+
+  assert.ok(context);
+  assert.equal(
+    context.question,
+    "Investigate Carlos Almeida and related transactions"
+  );
+  assert.equal(context.focus, "Maria <-> Orion");
+  assert.deepEqual(context.followUps, [
+    "Explore Maria",
+    "Why is Maria connected to Orion?"
+  ]);
+  assert.deepEqual(context.evidence, [
+    { sourceId: "case-test", itemId: 10 }
+  ]);
+});
