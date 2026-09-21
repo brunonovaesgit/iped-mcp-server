@@ -168,6 +168,23 @@ npm start
 
 In normal use, an MCP client starts this process automatically.
 
+## Quick start
+
+For a first local test with a case already processed by IPED:
+
+```bash
+git clone https://github.com/brunonovaesgit/iped-mcp-server.git
+cd iped-mcp-server
+npm install
+cp .env.example .env
+npm run check
+npm run investigator
+```
+
+Then open `http://127.0.0.1:3333` and start with an investigative question.
+
+`npm run check` verifies Node.js, configuration, connectivity with the IPED Web API, availability of case sources, MCP startup, investigation instructions and registered tools before the interface is started.
+
 ## Investigator interface
 
 For the simplest local workflow, the investigator can use the included web interface instead of interacting with MCP tools directly.
