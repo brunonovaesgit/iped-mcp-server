@@ -2,7 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
-import { buildInvestigatorHome } from "../investigator-view.js";
+import {
+  buildCaseSelection,
+  buildInvestigatorHome
+} from "../investigator-view.js";
 
 export function registerCaseTools(
   server: McpServer,
@@ -61,6 +64,30 @@ export function registerCaseTools(
         const sources = Array.isArray(context.sources)
           ? context.sources
           : [];
+        const availableSources = sources.flatMap(source => {
+          if (
+            !source ||
+            typeof source !== "object" ||
+            !("id" in source) ||
+            typeof source.id !== "string"
+          ) {
+            return [];
+          }
+
+          const label =
+            "name" in source && typeof source.name === "string"
+              ? source.name
+              : undefined;
+
+          return [{
+            id: source.id,
+            ...(label ? { label } : {})
+          }];
+        });
+        const selection = buildCaseSelection({
+          sources: availableSources,
+          requestedSourceId: sourceId
+        });
         const session =
           investigationId && investigations
             ? investigations.get(investigationId)
@@ -77,26 +104,10 @@ export function registerCaseTools(
             ? investigations.progress(session.id)
             : undefined;
 
-        const home = buildInvestigatorHome({
-          caseAvailable: sources.length > 0,
-          sourceId:
-            sourceId ??
-            (sources.length === 1
-              ? (() => {
-                  const source = sources[0];
-
-                  if (
-                    source &&
-                    typeof source === "object" &&
-                    "id" in source &&
-                    typeof source.id === "string"
-                  ) {
-                    return source.id;
-                  }
-
-                  return undefined;
-                })()
-              : undefined),
+        const home = {
+          ...buildInvestigatorHome({
+          caseAvailable: availableSources.length > 0,
+          sourceId: selection.selectedSourceId,
           activeInvestigation:
             session && progress
               ? {
@@ -110,13 +121,16 @@ export function registerCaseTools(
                   status: progress.status
                 }
               : undefined
-        });
+        }),
+          sourceSelection: selection
+        };
 
         await audit.write("get_investigator_home", {
           investigationId,
           sourceId,
           status: home.status,
-          sourceCount: sources.length,
+          sourceCount: availableSources.length,
+          sourceSelectionStatus: selection.status,
           activeInvestigation: Boolean(session)
         });
 
