@@ -98,6 +98,40 @@ export function buildInvestigatorView(input: {
 }
 
 
+export function buildInvestigationResultState(input: {
+  evidenceCount: number;
+  openLeadCount: number;
+  progress: {
+    status: "CONTINUE" | "STOP";
+    reason: string;
+  };
+}) {
+  if (input.evidenceCount === 0) {
+    return {
+      status: "NO_EVIDENCE_FOUND" as const,
+      message:
+        "Nenhuma evidência correspondente foi encontrada nesta busca.",
+      suggestedAction: "REFINE_QUESTION" as const
+    };
+  }
+
+  if (input.progress.status === "CONTINUE") {
+    return {
+      status: "READY_TO_EXPLORE" as const,
+      message:
+        "Foram encontradas evidências e há pistas sustentadas para aprofundamento.",
+      suggestedAction: "EXPLORE_OPEN_LEADS" as const
+    };
+  }
+
+  return {
+    status: "EVIDENCE_FOUND" as const,
+    message:
+      "Foram encontradas evidências, mas não há expansão automática recomendada.",
+    suggestedAction: "REVIEW_EVIDENCE" as const
+  };
+}
+
 export function buildCaseSelection(input: {
   sources: Array<{ id: string; label?: string }>;
   requestedSourceId?: string;
