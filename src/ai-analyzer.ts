@@ -295,12 +295,24 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
     }
 
     const structured = parseStructuredAnalysis(text);
-    const findings = structured?.findings;
-    const renderedText = findings?.length
-      ? findings.map(finding =>
-          `${finding.kind}: ${finding.statement} ${finding.evidence.map(reference => `[${reference}]`).join(" ")}`
-        ).join("\n")
-      : text;
+    if (!structured) {
+      throw new Error("AI analysis rejected: response is not valid structured JSON");
+    }
+
+    const allowed = evidenceReferences(input);
+    const findings = structured.findings.filter(finding =>
+      finding.statement.length > 0 &&
+      finding.evidence.length > 0 &&
+      finding.evidence.every(reference => allowed.has(reference))
+    );
+
+    if (findings.length === 0) {
+      throw new Error("AI analysis rejected: no valid evidence-backed findings");
+    }
+
+    const renderedText = findings.map(finding =>
+      `${finding.kind}: ${finding.statement} ${finding.evidence.map(reference => `[${reference}]`).join(" ")}`
+    ).join("\n");
 
     const validation = validateAnalysis(renderedText, input);
 
