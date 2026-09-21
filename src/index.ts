@@ -88,7 +88,7 @@ registerEvidenceTools(server, { iped, audit });
 
 registerCommunicationTools(server, { iped, audit });
 
-registerInvestigationTools(server, { iped, audit });
+registerInvestigationTools(server, { iped, audit, investigations });
 
 registerGovernanceTools(server, { iped, audit });
 
