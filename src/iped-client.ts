@@ -904,12 +904,12 @@ export class IpedClient {
         ...(textError ? { textError } : {}),
         entities: entities.entities,
         communication,
-        timelineProperties: {
-          created: item.properties.created?.[0],
-          modified: item.properties.modified?.[0],
-          accessed: item.properties.accessed?.[0],
-          changed: item.properties.changed?.[0]
-        }
+        timelineProperties: [
+          ["created", item.properties.created?.[0]],
+          ["modified", item.properties.modified?.[0]],
+          ["accessed", item.properties.accessed?.[0]],
+          ["changed", item.properties.changed?.[0]]
+        ] as Array<[string, string | undefined]>
       });
     }
 
@@ -1120,9 +1120,7 @@ export class IpedClient {
     }> = [];
 
     for (const item of evidence) {
-      for (const [event, timestamp] of Object.entries(
-        item.timelineProperties
-      )) {
+      for (const [event, timestamp] of item.timelineProperties) {
         if (!timestamp) continue;
 
         timelineEvents.push({
