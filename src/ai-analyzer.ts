@@ -108,7 +108,7 @@ function supportWarnings(text: string, input: AiAnalysisInput): string[] {
       .map(reference => evidence.get(reference) ?? "")
       .join(" ");
     const matched = terms.filter(term => combined.includes(term));
-    const required = Math.min(2, terms.length);
+    const required = terms.length <= 2 ? 1 : 2;
 
     if (matched.length < required) {
       warnings.push(
