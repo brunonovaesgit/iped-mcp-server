@@ -104,7 +104,21 @@ export function registerInvestigationTools(
             evidence: investigation.matchedEvidence.map(item => ({
               sourceId: item.sourceId,
               itemId: item.itemId
-            }))
+            })),
+            leads: [
+              ...investigation.recurringEntities.map(entity => ({
+                type: entity.type,
+                value: entity.value,
+                evidence: entity.evidence
+              })),
+              ...investigation.recurringCommunicationParticipants.map(
+                participant => ({
+                  type: "COMMUNICATION_PARTICIPANT",
+                  value: participant.value,
+                  evidence: participant.evidence
+                })
+              )
+            ]
           });
         }
 
