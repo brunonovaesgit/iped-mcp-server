@@ -98,6 +98,12 @@ async function checkMcp(): Promise<void> {
 
     ok("Investigation instructions available");
 
+    if (!instructions.includes("untrusted data")) {
+      fail("MCP server started without the evidence trust-boundary instructions");
+    }
+
+    ok("Evidence trust-boundary instructions available");
+
     const tools = await client.listTools();
 
     if (!tools.tools.length) {
