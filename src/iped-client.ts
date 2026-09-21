@@ -295,12 +295,17 @@ export class IpedClient {
   }
 
   async inspectEvidence(sourceId: string, itemId: number) {
-    const [evidence, text, entities, related] = await Promise.all([
+    const [evidence, text, related] = await Promise.all([
       this.getEvidence(sourceId, itemId),
       this.getText(sourceId, itemId),
-      this.getEvidenceEntities(sourceId, itemId),
       this.getRelatedEvidence(sourceId, itemId)
     ]);
+
+    const entities = this.evidenceEntitiesFromProperties(
+      sourceId,
+      itemId,
+      evidence.properties
+    );
 
     return {
       evidence,
