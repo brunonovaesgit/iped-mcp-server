@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
 import {
+  describeInvestigationGraphEdge,
   expandInvestigationGraph,
   filterInvestigationGraph
 } from "../investigation-graph.js";
@@ -165,6 +166,59 @@ export function registerInvestigationTools(
           sourceId,
           error: error instanceof Error ? error.message : String(error)
         });
+        throw error;
+      }
+    }
+  );
+
+  server.tool(
+    "explain_investigation_graph_relationship",
+    "Explain one relationship from an evidence-backed investigation graph. Returns both connected nodes, the objective relationship type, its interpretation and the exact evidence references that support the edge.",
+    {
+      query: z.string().min(1),
+      edgeId: z.string().min(1),
+      sourceId: z.string().optional(),
+      limit: z.number().int().positive().max(100).optional(),
+      investigationId: z.string().uuid().optional()
+    },
+    async ({ query, edgeId, sourceId, limit, investigationId }) => {
+      try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
+        const investigation = await iped.investigateEvidence(
+          query,
+          effectiveSourceId,
+          limit
+        );
+
+        const relationship = describeInvestigationGraphEdge(
+          investigation.graph,
+          edgeId
+        );
+
+        await audit.write("explain_investigation_graph_relationship", {
+          investigationId,
+          query,
+          sourceId: effectiveSourceId,
+          edgeId,
+          relationship: relationship.edge.relationship,
+          evidence: relationship.provenance
+        });
+
+        return toolResult(relationship);
+      } catch (error) {
+        await audit.write(
+          "explain_investigation_graph_relationship_failed",
+          {
+            investigationId,
+            query,
+            sourceId,
+            edgeId,
+            error: error instanceof Error ? error.message : String(error)
+          }
+        );
         throw error;
       }
     }
