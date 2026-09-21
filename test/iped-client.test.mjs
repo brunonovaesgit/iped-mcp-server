@@ -74,6 +74,7 @@ const items = {
 
 let server;
 let baseUrl;
+const documentRequests = new Map();
 
 before(async () => {
   server = createServer((request, response) => {
@@ -144,6 +145,10 @@ before(async () => {
 
     if (documentMatch) {
       const itemId = Number(documentMatch[1]);
+      documentRequests.set(
+        itemId,
+        (documentRequests.get(itemId) ?? 0) + 1
+      );
       const item = items[itemId];
 
       if (!item) {
@@ -472,6 +477,15 @@ test("reads communication participants from IPED metadata", async () => {
       username: undefined
     }
   ]);
+});
+
+test("reuses evidence metadata while investigating an entity", async () => {
+  documentRequests.clear();
+  const iped = client();
+
+  await iped.investigateEntity("Person Test", "case-test");
+
+  assert.equal(documentRequests.get(10), 1);
 });
 
 test("investigates an entity and expands structured evidence connections", async () => {
