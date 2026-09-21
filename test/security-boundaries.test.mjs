@@ -107,3 +107,42 @@ test("relationship outputs are explicitly observational rather than proof", asyn
     /does not establish real-world identity or relationship/
   );
 });
+
+
+test("investigator application remains read-only at the IPED boundary", async () => {
+  const serviceSource = await readFile(
+    new URL("../src/investigator-service.ts", import.meta.url),
+    "utf8"
+  );
+  const httpSource = await readFile(
+    new URL("../src/investigator-http.ts", import.meta.url),
+    "utf8"
+  );
+
+  for (const source of [serviceSource, httpSource]) {
+    assert.doesNotMatch(
+      source,
+      /\.(?:createBookmark|deleteBookmark|renameBookmark|addBookmark|removeBookmark|addSelection|removeSelection|writeEvidence|deleteEvidence|updateEvidence)\s*\(/i
+    );
+    assert.doesNotMatch(
+      source,
+      /\b(?:exec|execFile|spawn|fork)\s*\(/i
+    );
+  }
+});
+
+test("investigator evidence text is returned as data, not interpreted as an action", async () => {
+  const serviceSource = await readFile(
+    new URL("../src/investigator-service.ts", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    serviceSource,
+    /text:\s*text\?\.text/
+  );
+  assert.doesNotMatch(
+    serviceSource,
+    /(?:eval|Function)\s*\(\s*text/i
+  );
+});
