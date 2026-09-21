@@ -1104,10 +1104,18 @@ export class IpedClient {
       duplicateEvidence
     });
 
+    const timeline = await this.getTimeline(
+      evidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      }))
+    );
+
     const investigatorView = buildInvestigatorView({
       question: query,
       evidence,
-      graphView: buildInvestigationGraphView(graph)
+      graphView: buildInvestigationGraphView(graph),
+      timeline: timeline.events
     });
 
     return {
@@ -1126,6 +1134,7 @@ export class IpedClient {
       graph,
       graphSummary: summarizeInvestigationGraph(graph),
       graphView: buildInvestigationGraphView(graph),
+      timeline,
       investigatorView,
       investigationLeads: {
         recurringEntities,
