@@ -314,3 +314,103 @@ test("builds one workspace contract for the investigator interface", () => {
     [{ sourceId: "case-a", itemId: 10 }]
   );
 });
+
+
+test("keeps the complete investigator workspace grounded and reviewable", () => {
+  const evidence = [
+    {
+      sourceId: "case-a",
+      itemId: 10,
+      name: "message.eml",
+      path: "/mail/message.eml",
+      textAvailable: true
+    },
+    {
+      sourceId: "case-a",
+      itemId: 11,
+      name: "attachment.pdf",
+      path: "/mail/attachment.pdf",
+      textAvailable: true
+    }
+  ];
+  const graphView = buildInvestigationGraphView(
+    buildInvestigationGraph({
+      evidence,
+      entities: [{
+        type: "EMAIL",
+        value: "person@example.test",
+        evidence: [
+          { sourceId: "case-a", itemId: 10 },
+          { sourceId: "case-a", itemId: 11 }
+        ]
+      }],
+      communicationParticipants: [],
+      duplicateEvidence: []
+    })
+  );
+  const base = buildInvestigatorView({
+    question: "Investigue person@example.test",
+    evidence,
+    graphView,
+    timeline: [{
+      sourceId: "case-a",
+      itemId: 10,
+      name: "message.eml",
+      event: "created",
+      timestamp: "2026-01-10T12:00:00Z"
+    }]
+  });
+  const view = enrichInvestigatorView(base, {
+    leads: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [
+        { sourceId: "case-a", itemId: 10 },
+        { sourceId: "case-a", itemId: 11 }
+      ],
+      status: "OPEN"
+    }],
+    progress: {
+      status: "CONTINUE",
+      reason: "OPEN_LEAD_AVAILABLE",
+      evidenceCount: 2,
+      openLeadCount: 1,
+      expansions: 0
+    }
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "investigation-e2e",
+    question: "Investigue person@example.test",
+    sourceId: "case-a",
+    view,
+    resultState: buildInvestigationResultState({
+      evidenceCount: 2,
+      openLeadCount: 1,
+      progress: view.sections.progress
+    })
+  });
+
+  assert.equal(workspace.status.status, "READY_TO_EXPLORE");
+  assert.equal(workspace.summary.evidenceCount, 2);
+  assert.equal(workspace.summary.timelineEventCount, 1);
+  assert.equal(workspace.panels.findings.length, 1);
+  assert.equal(workspace.panels.evidence.length, 2);
+  assert.equal(workspace.panels.timeline.length, 1);
+  assert.equal(workspace.panels.leads.length, 1);
+  assert.ok(workspace.panels.relationships.edges.length > 0);
+
+  for (const finding of workspace.panels.findings) {
+    assert.ok(finding.evidence.length > 0);
+    for (const reference of finding.evidence) {
+      assert.equal(reference.sourceId, "case-a");
+      assert.ok(Number.isInteger(reference.itemId));
+    }
+  }
+
+  for (const edge of workspace.panels.relationships.edges) {
+    assert.ok(edge.evidence.length > 0);
+  }
+
+  assert.equal("conclusion" in workspace, false);
+  assert.equal("guilt" in workspace, false);
+});
