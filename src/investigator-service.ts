@@ -5,7 +5,8 @@ import {
   buildCaseSelection,
   buildInvestigationResultState,
   buildInvestigationWorkspace,
-  buildInvestigatorHome
+  buildInvestigatorHome,
+  enrichInvestigatorView
 } from "./investigator-view.js";
 
 export class InvestigatorService {
@@ -211,4 +212,185 @@ export class InvestigatorService {
       })
     };
   }
+  async continue(
+    investigationId: string,
+    question: string,
+    focus?: string
+  ) {
+    const current = this.investigations.get(investigationId);
+
+    if (!current) {
+      throw new Error(
+        `Unknown investigation session: ${investigationId}`
+      );
+    }
+
+    const investigation = await this.iped.investigateEvidence(
+      question,
+      current.sourceId
+    );
+    const session = this.investigations.record(investigationId, {
+      followUp: question,
+      focus: focus ?? question,
+      query: question,
+      evidence: investigation.matchedEvidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      })),
+      leads: [
+        ...investigation.recurringEntities.map(entity => ({
+          type: entity.type,
+          value: entity.value,
+          evidence: entity.evidence
+        })),
+        ...investigation.recurringCommunicationParticipants.map(
+          participant => ({
+            type: "COMMUNICATION_PARTICIPANT",
+            value: participant.value,
+            evidence: participant.evidence
+          })
+        )
+      ]
+    });
+    const progress = this.investigations.progress(investigationId);
+    const view = enrichInvestigatorView(
+      investigation.investigatorView,
+      { leads: session.leads, progress }
+    );
+    const resultState = buildInvestigationResultState({
+      evidenceCount: investigation.matchedEvidence.length,
+      openLeadCount: session.leads.filter(
+        lead => lead.status === "OPEN"
+      ).length,
+      progress
+    });
+
+    await this.audit.write("continue_investigation", {
+      investigationId,
+      question,
+      focus: session.focus,
+      evidenceCount: session.evidence.length,
+      matchedEvidenceCount: investigation.matchedEvidence.length
+    });
+
+    return {
+      status: "INVESTIGATION_UPDATED" as const,
+      workspace: buildInvestigationWorkspace({
+        investigationId,
+        question: session.question,
+        focus: session.focus,
+        sourceId: session.sourceId,
+        view,
+        resultState
+      })
+    };
+  }
+
+  async exploreLead(
+    investigationId: string,
+    leadType?: string,
+    leadValue?: string
+  ) {
+    const decision = this.investigations.shouldExpand(investigationId);
+
+    if (!decision.expand) {
+      return {
+        status: "INVESTIGATION_STOPPED" as const,
+        reason: decision.reason,
+        progress: this.investigations.progress(investigationId)
+      };
+    }
+
+    const current = this.investigations.get(investigationId);
+
+    if (!current) {
+      throw new Error(
+        `Unknown investigation session: ${investigationId}`
+      );
+    }
+
+    const selected =
+      leadType && leadValue
+        ? this.investigations.lead(
+            investigationId,
+            leadType,
+            leadValue
+          )
+        : undefined;
+    const next = selected
+      ? { available: true as const, lead: selected }
+      : this.investigations.nextLead(investigationId);
+
+    if (!next.available) {
+      return {
+        status: "NO_OPEN_LEADS" as const,
+        reason: next.reason,
+        progress: this.investigations.progress(investigationId)
+      };
+    }
+
+    const lead = next.lead;
+    const investigation = await this.iped.investigateEvidence(
+      lead.value,
+      current.sourceId
+    );
+    const session = this.investigations.record(investigationId, {
+      query: lead.value,
+      expansion: true,
+      expansionQuery: lead.value,
+      evidence: investigation.matchedEvidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      })),
+      leads: [
+        ...investigation.recurringEntities.map(entity => ({
+          type: entity.type,
+          value: entity.value,
+          evidence: entity.evidence
+        })),
+        ...investigation.recurringCommunicationParticipants.map(
+          participant => ({
+            type: "COMMUNICATION_PARTICIPANT",
+            value: participant.value,
+            evidence: participant.evidence
+          })
+        )
+      ],
+      exploredLead: { type: lead.type, value: lead.value }
+    });
+    const progress = this.investigations.progress(investigationId);
+    const view = enrichInvestigatorView(
+      investigation.investigatorView,
+      { leads: session.leads, progress }
+    );
+    const resultState = buildInvestigationResultState({
+      evidenceCount: investigation.matchedEvidence.length,
+      openLeadCount: session.leads.filter(
+        item => item.status === "OPEN"
+      ).length,
+      progress
+    });
+
+    await this.audit.write("explore_investigation_lead", {
+      investigationId,
+      leadType: lead.type,
+      leadValue: lead.value,
+      sourceId: current.sourceId,
+      matchedEvidenceCount: investigation.matchedEvidence.length
+    });
+
+    return {
+      status: "LEAD_EXPLORED" as const,
+      exploredLead: lead,
+      workspace: buildInvestigationWorkspace({
+        investigationId,
+        question: session.question,
+        focus: session.focus,
+        sourceId: session.sourceId,
+        view,
+        resultState
+      })
+    };
+  }
+
 }
