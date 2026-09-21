@@ -305,6 +305,12 @@ Important current limitations include:
 
 Future IPED improvements may allow more efficient search pagination and additional forensic capabilities, but this MCP server is designed to remain usable with a standard IPED installation.
 
+## Security and community development
+
+Evidence handled by the server is considered untrusted input. The threat model covers indirect prompt injection, misleading relationships, duplicate evidence, data exfiltration and exposed IPED APIs. See `docs/threat-model.md`.
+
+New MCP capabilities should be added as tool modules rather than large handlers in the server entry point. The extension pattern, audit requirements and testing rules are documented in `docs/creating-a-tool.md`.
+
 ## Development
 
 Run the TypeScript development server with:
