@@ -98,6 +98,35 @@ export function buildInvestigatorView(input: {
 }
 
 
+export function buildInvestigatorHome(input: {
+  caseAvailable: boolean;
+  sourceId?: string;
+  activeInvestigation?: {
+    id: string;
+    question: string;
+    focus?: string;
+    evidenceCount: number;
+    openLeadCount: number;
+    status: "CONTINUE" | "STOP";
+  };
+}) {
+  return {
+    status: input.caseAvailable ? "READY" : "IPED_NOT_AVAILABLE",
+    sourceId: input.sourceId,
+    activeInvestigation: input.activeInvestigation,
+    primaryAction: input.activeInvestigation
+      ? "CONTINUE_INVESTIGATION"
+      : "START_INVESTIGATION",
+    suggestedQuestions: input.caseAvailable
+      ? [
+          "Investigue uma pessoa, empresa, telefone, e-mail ou outro identificador.",
+          "Procure relações entre pessoas, comunicações e evidências.",
+          "Analise evidências relacionadas a um fato ou hipótese investigativa."
+        ]
+      : []
+  };
+}
+
 export function enrichInvestigatorView(
   view: ReturnType<typeof buildInvestigatorView>,
   input: {
