@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildCaseSelection,
   buildInvestigatorHome,
   buildInvestigatorView,
   enrichInvestigatorView
@@ -163,4 +164,37 @@ test("shows a clear unavailable state when IPED cannot be reached", () => {
 
   assert.equal(home.status, "IPED_NOT_AVAILABLE");
   assert.equal(home.suggestedQuestions.length, 0);
+});
+
+
+test("automatically selects the only IPED source", () => {
+  const selection = buildCaseSelection({
+    sources: [{ id: "case-a", label: "Case A" }]
+  });
+
+  assert.equal(selection.status, "SOURCE_SELECTED");
+  assert.equal(selection.selectedSourceId, "case-a");
+});
+
+test("asks for a simple source choice when multiple sources exist", () => {
+  const selection = buildCaseSelection({
+    sources: [
+      { id: "case-a", label: "Case A" },
+      { id: "case-b", label: "Case B" }
+    ]
+  });
+
+  assert.equal(selection.status, "SOURCE_SELECTION_REQUIRED");
+  assert.equal(selection.selectedSourceId, undefined);
+  assert.equal(selection.sources.length, 2);
+});
+
+test("rejects a requested source that is not available", () => {
+  const selection = buildCaseSelection({
+    sources: [{ id: "case-a" }],
+    requestedSourceId: "missing"
+  });
+
+  assert.equal(selection.status, "SOURCE_NOT_FOUND");
+  assert.equal(selection.selectedSourceId, undefined);
 });
