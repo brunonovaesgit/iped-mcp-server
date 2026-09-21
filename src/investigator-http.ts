@@ -81,6 +81,12 @@ const investigatorHtml = `<!doctype html>
   <h3>Metadados</h3><div id="evidenceProperties"></div>
 </aside>
 <script>
+window.addEventListener("error",event=>{
+  const connection=document.getElementById("connection");
+  const status=document.getElementById("status");
+  if(connection) connection.textContent="Erro na interface";
+  if(status) status.textContent="A interface encontrou um erro: "+(event.message||"erro desconhecido");
+});
 let activeInvestigationId;
 let selectedSourceId;
 const byId=id=>document.getElementById(id);
