@@ -4,7 +4,8 @@ import { test } from "node:test";
 import {
   buildInvestigationGraph,
   expandInvestigationGraph,
-  filterInvestigationGraph
+  filterInvestigationGraph,
+  summarizeInvestigationGraph
 } from "../dist/investigation-graph.js";
 
 test("builds a provenance-first graph from evidence and indexed values", () => {
@@ -174,4 +175,42 @@ test("filters graph views without losing edge provenance", () => {
   assert.ok(
     communicationView.edges.every(edge => edge.evidence.length > 0)
   );
+});
+
+
+test("summarizes graph structure without inferring importance", () => {
+  const graph = buildInvestigationGraph({
+    evidence: [
+      { sourceId: "case-a", itemId: 10, name: "message.eml" },
+      { sourceId: "case-a", itemId: 11, name: "document.pdf" }
+    ],
+    entities: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [
+        { sourceId: "case-a", itemId: 10 },
+        { sourceId: "case-a", itemId: 11 }
+      ]
+    }],
+    communicationParticipants: [{
+      value: "+5511999999999",
+      evidence: [{ sourceId: "case-a", itemId: 10 }]
+    }],
+    duplicateEvidence: []
+  });
+
+  const summary = summarizeInvestigationGraph(graph);
+
+  assert.equal(summary.nodeCount, 4);
+  assert.equal(summary.edgeCount, 3);
+  assert.deepEqual(summary.nodesByKind, {
+    EVIDENCE: 2,
+    ENTITY: 1,
+    COMMUNICATION_PARTICIPANT: 1
+  });
+  assert.equal(summary.edgesByRelationship.OBSERVED_IN_EVIDENCE, 2);
+  assert.equal(summary.edgesByRelationship.OBSERVED_IN_COMMUNICATION, 1);
+  assert.equal(summary.connectedNodes[0].connections, 2);
+  assert.equal("importance" in summary.connectedNodes[0], false);
+  assert.equal("risk" in summary.connectedNodes[0], false);
 });
