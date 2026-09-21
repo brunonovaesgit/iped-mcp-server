@@ -247,7 +247,10 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       "If the evidence is insufficient, say so explicitly.",
       "Answer in Brazilian Portuguese for the investigator.",
       "Return JSON only, with this shape: {\"findings\":[{\"statement\":\"...\",\"kind\":\"FACT|INFERENCE|HYPOTHESIS\",\"evidence\":[\"sourceId:itemId\"]}],\"limitations\":[\"...\"],\"nextSteps\":[\"...\"]}.",
-      "Each FACT must have at least one evidence reference. Keep findings atomic: one claim per finding."
+      "The findings array is required and must not be empty when the supplied evidence supports any case-specific observation.",
+      "Create FACT findings directly from explicit statements in the supplied evidence before attempting inference.",
+      "Copy evidence references exactly from the reference field supplied with each evidence item, without brackets or invented IDs.",
+      "Each finding must have at least one evidence reference. Keep findings atomic: one claim per finding."
     ].join("\n");
 
     const response = await fetch(
@@ -264,6 +267,7 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
           model: this.model,
           temperature: 0,
           max_tokens: 700,
+          response_format: { type: "json_object" },
           messages: [
             { role: "system", content: instructions },
             {
