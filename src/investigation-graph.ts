@@ -51,6 +51,50 @@ export type InvestigationGraphEdge = {
   interpretation: string;
 };
 
+export function getInvestigationGraphEvidence(
+  graph: {
+    nodes: InvestigationGraphNode[];
+    edges: InvestigationGraphEdge[];
+  },
+  nodeId: string
+) {
+  const node = graph.nodes.find(item => item.id === nodeId);
+
+  if (!node) {
+    throw new Error(`Unknown investigation graph node: ${nodeId}`);
+  }
+
+  if (node.kind === "EVIDENCE") {
+    return {
+      selectedNode: node,
+      evidence: [{
+        sourceId: node.sourceId,
+        itemId: node.itemId
+      }]
+    };
+  }
+
+  const evidence = new Map<string, EvidenceReference>();
+
+  for (const edge of graph.edges) {
+    if (edge.from !== node.id && edge.to !== node.id) {
+      continue;
+    }
+
+    for (const reference of edge.evidence) {
+      evidence.set(
+        `${reference.sourceId}:${reference.itemId}`,
+        reference
+      );
+    }
+  }
+
+  return {
+    selectedNode: node,
+    evidence: [...evidence.values()]
+  };
+}
+
 export function describeInvestigationGraphEdge(
   graph: {
     nodes: InvestigationGraphNode[];
