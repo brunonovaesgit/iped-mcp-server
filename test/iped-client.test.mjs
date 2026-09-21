@@ -11,6 +11,7 @@ const items = {
     luceneId: 110,
     properties: {
       name: ["origin.txt"],
+      created: ["2025-01-01T10:00:00Z"],
       parentId: ["5"],
       hash: ["HASH-A"],
       "Regex:EMAIL": ["person@example.test"],
@@ -39,6 +40,7 @@ const items = {
     luceneId: 111,
     properties: {
       name: ["same-email.txt"],
+      created: ["2025-01-02T10:00:00Z"],
       hash: ["HASH-B"],
       "Regex:EMAIL": ["person@example.test"],
       "Regex:PHONE": ["+5511999999999"]
@@ -113,6 +115,7 @@ const items = {
     luceneId: 112,
     properties: {
       name: ["same-hash.txt"],
+      created: ["2025-01-03T10:00:00Z"],
       hash: ["HASH-A"],
       "Regex:PHONE": ["+5511999999999"]
     },
