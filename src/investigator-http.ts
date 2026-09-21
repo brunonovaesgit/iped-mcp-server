@@ -30,6 +30,7 @@ const investigatorHtml = `<!doctype html>
     .caseBar{display:flex;gap:12px;align-items:center;margin-top:18px;padding:12px 14px;background:#f7f9fb;border-radius:8px}.caseBar label{font-size:13px;color:#5d6773}.caseBar select{padding:8px 10px}
     button{border:0;border-radius:8px;padding:12px 18px;background:#263b50;color:white;cursor:pointer}
     button:disabled{opacity:.5;cursor:not-allowed}.status{margin-top:14px;font-size:14px}
+    .analysis{background:white;border:1px solid #dfe4ea;border-radius:12px;padding:22px;margin:20px 0}.analysis h2{margin:0 0 10px;font-size:18px}.analysis p{line-height:1.55}.analysis .observation{border-top:1px solid #edf0f3;padding:10px 0}.analysis .observation:first-of-type{border-top:0}
     .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:20px 0}
     .metric{background:white;border:1px solid #dfe4ea;border-radius:10px;padding:16px}.metric b{display:block;font-size:22px}.metric span{font-size:12px;color:#68727e}
     .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.panel h2{margin-top:0;font-size:17px}
@@ -64,6 +65,7 @@ const investigatorHtml = `<!doctype html>
       <input id="followUp" autocomplete="off" placeholder="Pergunte algo sobre esta investigação">
       <button>Continuar investigação</button>
     </form>
+    <div class="analysis" id="analysis"></div>
     <div class="summary" id="summary"></div>
     <div class="grid">
       <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
@@ -97,6 +99,9 @@ function items(target,values,render){
 function renderWorkspace(workspace){
   activeInvestigationId=workspace.investigationId;
   byId("workspace").classList.remove("hidden");
+  const analysis=workspace.analysis||{};
+  const observations=(analysis.observations||[]).map(item=>'<div class="observation">'+escapeHtml(item.text)+'<div class="meta">'+(item.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>').join("");
+  byId("analysis").innerHTML='<h2>Síntese da investigação</h2><p>'+escapeHtml(analysis.headline||"")+'</p>'+observations+(analysis.communication?'<p>'+escapeHtml(analysis.communication)+'</p>':"")+(analysis.limitation?'<p class="meta">'+escapeHtml(analysis.limitation)+'</p>':"");
   const s=workspace.summary||{};
   const metrics=[["Evidências",s.evidenceCount],["Entidades",s.entityCount],["Relações",s.relationshipCount],["Comunicações",s.communicationParticipantCount],["Pistas abertas",s.openLeadCount]];
   byId("summary").innerHTML=metrics.map(([label,value])=>'<div class="metric"><b>'+escapeHtml(value??0)+'</b><span>'+label+'</span></div>').join("");
