@@ -51,6 +51,10 @@ const investigatorHtml = `<!doctype html>
     <div class="status" id="status"></div>
   </section>
   <section id="workspace" class="hidden">
+    <form id="followUpForm">
+      <input id="followUp" autocomplete="off" placeholder="Pergunte algo sobre esta investigação">
+      <button>Continuar investigação</button>
+    </form>
     <div class="summary" id="summary"></div>
     <div class="grid">
       <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
@@ -61,18 +65,21 @@ const investigatorHtml = `<!doctype html>
   </section>
 </main>
 <script>
+let activeInvestigationId;
 const byId=id=>document.getElementById(id);
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 function items(target,values,render){
   byId(target).innerHTML=values?.length?values.map(render).join(""):'<div class="empty">Nenhum item para exibir.</div>';
 }
 function renderWorkspace(workspace){
+  activeInvestigationId=workspace.investigationId;
   byId("workspace").classList.remove("hidden");
   const s=workspace.summary||{};
   const metrics=[["Evidências",s.evidenceCount],["Entidades",s.entityCount],["Relações",s.relationshipCount],["Comunicações",s.communicationParticipantCount],["Pistas abertas",s.openLeadCount]];
   byId("summary").innerHTML=metrics.map(([label,value])=>'<div class="metric"><b>'+escapeHtml(value??0)+'</b><span>'+label+'</span></div>').join("");
   items("evidence",workspace.panels?.evidence,e=>'<div class="item"><b>'+escapeHtml(e.name||"Evidência")+'</b><div class="meta">'+escapeHtml(e.path||"")+' · item '+escapeHtml(e.itemId)+'</div></div>');
-  items("leads",workspace.panels?.leads,l=>'<div class="item lead"><div><b>'+escapeHtml(l.value)+'</b><div class="meta">'+escapeHtml(l.type)+'</div></div><span class="meta">'+escapeHtml(l.status)+'</span></div>');
+  items("leads",workspace.panels?.leads,l=>'<div class="item lead"><div><b>'+escapeHtml(l.value)+'</b><div class="meta">'+escapeHtml(l.type)+'</div></div>'+(l.status==="OPEN"?'<button type="button" class="leadButton" data-type="'+escapeHtml(l.type)+'" data-value="'+escapeHtml(l.value)+'">Explorar</button>':'<span class="meta">'+escapeHtml(l.status)+'</span>')+'</div>');
+  document.querySelectorAll(".leadButton").forEach(button=>button.addEventListener("click",()=>exploreLead(button.dataset.type,button.dataset.value)));
   const rel=workspace.panels?.relationships;
   byId("relationships").innerHTML=rel?'<div class="meta">'+escapeHtml(rel.summary?.nodeCount??0)+' nós · '+escapeHtml(rel.summary?.edgeCount??0)+' relações observadas</div>':'<div class="empty">Nenhuma relação para exibir.</div>';
   items("timeline",workspace.panels?.timeline,t=>'<div class="item"><b>'+escapeHtml(t.label||t.name||"Evento")+'</b><div class="meta">'+escapeHtml(t.timestamp||t.date||"")+'</div></div>');
@@ -88,6 +95,25 @@ async function loadHome(){
     if(!ready) byId("status").textContent="Abra o IPED com o caso processado e mantenha a Web API disponível.";
   }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true}
 }
+async function updateInvestigation(path,payload){
+  if(!activeInvestigationId)return;
+  byId("status").textContent="Analisando evidências...";
+  try{
+    const response=await fetch("/api/investigations/"+encodeURIComponent(activeInvestigationId)+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+    const result=await response.json();
+    if(result.workspace)renderWorkspace(result.workspace);
+    else byId("status").textContent=result.error||result.reason||"A investigação não pôde avançar.";
+  }catch{byId("status").textContent="Não foi possível continuar a investigação."}
+}
+async function exploreLead(leadType,leadValue){
+  await updateInvestigation("/leads",{leadType,leadValue});
+}
+byId("followUpForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const question=byId("followUp").value.trim();if(!question)return;
+  byId("followUp").value="";
+  await updateInvestigation("/questions",{question});
+});
 byId("questionForm").addEventListener("submit",async event=>{
   event.preventDefault();
   const question=byId("question").value.trim(); if(!question)return;
@@ -174,6 +200,54 @@ const server = createServer(async (request, response) => {
         response,
         200,
         await investigator.begin(question, sourceId)
+      );
+    }
+
+    const continueMatch = url.pathname.match(
+      /^\/api\/investigations\/([^/]+)\/questions$/
+    );
+    if (request.method === "POST" && continueMatch) {
+      const input = await body(request);
+      const question =
+        typeof input.question === "string" ? input.question.trim() : "";
+      const focus =
+        typeof input.focus === "string" ? input.focus.trim() : undefined;
+
+      if (!question) {
+        return json(response, 400, {
+          error: "A pergunta da investigação é obrigatória."
+        });
+      }
+
+      return json(
+        response,
+        200,
+        await investigator.continue(
+          decodeURIComponent(continueMatch[1]),
+          question,
+          focus
+        )
+      );
+    }
+
+    const leadMatch = url.pathname.match(
+      /^\/api\/investigations\/([^/]+)\/leads$/
+    );
+    if (request.method === "POST" && leadMatch) {
+      const input = await body(request);
+      const leadType =
+        typeof input.leadType === "string" ? input.leadType : undefined;
+      const leadValue =
+        typeof input.leadValue === "string" ? input.leadValue : undefined;
+
+      return json(
+        response,
+        200,
+        await investigator.exploreLead(
+          decodeURIComponent(leadMatch[1]),
+          leadType,
+          leadValue
+        )
       );
     }
 
