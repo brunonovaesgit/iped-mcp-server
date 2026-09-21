@@ -192,16 +192,18 @@ export class IpedClient {
     };
   }
 
-  async getEvidenceEntities(sourceId: string, itemId: number) {
-    const evidence = await this.getEvidence(sourceId, itemId);
-
+  private evidenceEntitiesFromProperties(
+    sourceId: string,
+    itemId: number,
+    properties: Record<string, string[]>
+  ) {
     const entities: Array<{
       type: string;
       value: string;
       searchQuery: string;
     }> = [];
 
-    for (const [property, values] of Object.entries(evidence.properties)) {
+    for (const [property, values] of Object.entries(properties)) {
       if (!property.startsWith("Regex:") || !values?.length) {
         continue;
       }
@@ -226,12 +228,19 @@ export class IpedClient {
     }
 
     return {
-      evidence: {
-        sourceId,
-        itemId
-      },
+      evidence: { sourceId, itemId },
       entities
     };
+  }
+
+  async getEvidenceEntities(sourceId: string, itemId: number) {
+    const evidence = await this.getEvidence(sourceId, itemId);
+
+    return this.evidenceEntitiesFromProperties(
+      sourceId,
+      itemId,
+      evidence.properties
+    );
   }
 
   async getRelatedEvidence(sourceId: string, itemId: number) {
@@ -377,13 +386,11 @@ export class IpedClient {
     };
   }
 
-  async getCommunicationParticipants(
+  private communicationParticipantsFromProperties(
     sourceId: string,
-    itemId: number
+    itemId: number,
+    properties: Record<string, string[]>
   ) {
-    const evidence = await this.getEvidence(sourceId, itemId);
-    const properties = evidence.properties;
-
     const values = (key: string) =>
       properties[key]?.filter(value => value !== "") ?? [];
 
@@ -412,10 +419,7 @@ export class IpedClient {
     };
 
     return {
-      evidence: {
-        sourceId,
-        itemId
-      },
+      evidence: { sourceId, itemId },
       from: participantValues("Communication:From"),
       to: participantValues("Communication:To"),
       conversation: {
@@ -424,6 +428,19 @@ export class IpedClient {
         type: properties["Conversation:Type"]?.[0]
       }
     };
+  }
+
+  async getCommunicationParticipants(
+    sourceId: string,
+    itemId: number
+  ) {
+    const evidence = await this.getEvidence(sourceId, itemId);
+
+    return this.communicationParticipantsFromProperties(
+      sourceId,
+      itemId,
+      evidence.properties
+    );
   }
 
   async getCommunicationNetwork(
@@ -816,19 +833,23 @@ export class IpedClient {
     const evidence = [];
 
     for (const reference of search.matches) {
-      const [item, text, entities, communication] =
-        await Promise.all([
-          this.getEvidence(reference.sourceId, reference.itemId),
-          this.getText(reference.sourceId, reference.itemId),
-          this.getEvidenceEntities(
-            reference.sourceId,
-            reference.itemId
-          ),
-          this.getCommunicationParticipants(
-            reference.sourceId,
-            reference.itemId
-          )
-        ]);
+      const [item, text] = await Promise.all([
+        this.getEvidence(reference.sourceId, reference.itemId),
+        this.getText(reference.sourceId, reference.itemId)
+      ]);
+
+      const entities = this.evidenceEntitiesFromProperties(
+        reference.sourceId,
+        reference.itemId,
+        item.properties
+      );
+
+      const communication =
+        this.communicationParticipantsFromProperties(
+          reference.sourceId,
+          reference.itemId,
+          item.properties
+        );
 
       evidence.push({
         sourceId: reference.sourceId,
