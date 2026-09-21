@@ -51,6 +51,41 @@ export type InvestigationGraphEdge = {
   interpretation: string;
 };
 
+export function buildInvestigationGraphView(graph: {
+  nodes: InvestigationGraphNode[];
+  edges: InvestigationGraphEdge[];
+}) {
+  return {
+    summary: summarizeInvestigationGraph(graph),
+    nodes: graph.nodes.map(node => ({
+      ...node,
+      actions: [
+        "EXPAND",
+        "SHOW_SUPPORTING_EVIDENCE"
+      ]
+    })),
+    edges: graph.edges.map(edge => ({
+      ...edge,
+      actions: ["EXPLAIN_RELATIONSHIP"]
+    })),
+    legend: {
+      nodeKinds: {
+        EVIDENCE: "Evidence item",
+        ENTITY: "Indexed entity",
+        COMMUNICATION_PARTICIPANT: "Communication participant"
+      },
+      relationships: {
+        OBSERVED_IN_EVIDENCE:
+          "Indexed value observed in evidence",
+        OBSERVED_IN_COMMUNICATION:
+          "Participant observed in communication metadata",
+        DUPLICATE_CONTENT:
+          "Evidence items with the same hash"
+      }
+    }
+  };
+}
+
 export function getInvestigationGraphEvidence(
   graph: {
     nodes: InvestigationGraphNode[];
