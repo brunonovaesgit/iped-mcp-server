@@ -6,6 +6,9 @@ export interface Config {
   textLimit: number;
   contentLimit: number;
   auditLog?: string;
+  aiBaseUrl?: string;
+  aiModel?: string;
+  aiApiKey?: string;
 }
 
 function positiveInteger(name: string, fallback: number): number {
@@ -35,6 +38,9 @@ export function getConfig(): Config {
     searchResultLimit: positiveInteger("SEARCH_RESULT_LIMIT", 50),
     textLimit: positiveInteger("TEXT_LIMIT", 50_000),
     contentLimit: positiveInteger("CONTENT_LIMIT", 10_000_000),
-    auditLog: process.env.AUDIT_LOG || "./audit/requests.jsonl"
+    auditLog: process.env.AUDIT_LOG || "./audit/requests.jsonl",
+    aiBaseUrl: process.env.AI_BASE_URL,
+    aiModel: process.env.AI_MODEL,
+    aiApiKey: process.env.AI_API_KEY
   };
 }
