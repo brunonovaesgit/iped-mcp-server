@@ -98,7 +98,9 @@ function supportWarnings(text: string, input: AiAnalysisInput): string[] {
     const refs = citedReferences(line);
     if (refs.length === 0) continue;
 
-    const claim = line.replace(/\[[^\]]+\]/g, " ");
+    const claim = line
+      .replace(/\[[^\]]+\]/g, " ")
+      .replace(/^\s*(?:[-*]\s*)?(?:Resumo|Achados sustentados|Relações relevantes)\s*:\s*/i, "");
     const terms = [...new Set(normalizeTerms(claim))];
     if (terms.length === 0) continue;
 
