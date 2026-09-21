@@ -87,6 +87,7 @@ before(async () => {
 
       const results = {
         "anything": [10, 11, 12],
+        "mixed-text": [10, 12],
         "Person Test": [10],
         "parentId:10": [],
         "hash:HASH-A": [10, 12],
@@ -119,6 +120,13 @@ before(async () => {
     if (textMatch) {
       const itemId = Number(textMatch[1]);
       const item = items[itemId];
+
+      if (itemId === 12) {
+        response.statusCode = 500;
+        response.statusMessage = "Text extraction failed";
+        response.end("text extraction failed");
+        return;
+      }
 
       if (!item) {
         response.statusCode = 404;
@@ -765,6 +773,46 @@ test("identifies evidence shared by both investigated terms", async () => {
       itemId: 10
     }
   ]);
+});
+
+test("continues a broad investigation when one item text cannot be extracted", async () => {
+  const iped = client();
+
+  const result = await iped.investigateEvidence(
+    "mixed-text",
+    "case-test"
+  );
+
+  assert.equal(result.matchedEvidence.length, 2);
+
+  const readable = result.matchedEvidence.find(
+    item => item.itemId === 10
+  );
+  const unavailable = result.matchedEvidence.find(
+    item => item.itemId === 12
+  );
+
+  assert.ok(readable);
+  assert.equal(readable.textAvailable, true);
+  assert.match(readable.text, /Extracted text/);
+
+  assert.ok(unavailable);
+  assert.equal(unavailable.textAvailable, false);
+  assert.equal(unavailable.text, undefined);
+  assert.equal(unavailable.textTruncated, false);
+  assert.match(
+    unavailable.textError,
+    /IPED request failed: 500 Text extraction failed/
+  );
+
+  assert.equal(unavailable.name, "same-hash.txt");
+  assert.ok(
+    unavailable.entities.some(
+      entity =>
+        entity.type === "PHONE" &&
+        entity.value === "+5511999999999"
+    )
+  );
 });
 
 test("collects evidence context for a focused investigation", async () => {
