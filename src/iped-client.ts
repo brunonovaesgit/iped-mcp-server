@@ -1008,6 +1008,9 @@ export class IpedClient {
           crossEvidenceLinks.push({
             left: entity.evidence[left],
             right: entity.evidence[right],
+            relationship: "SHARED_INDEXED_VALUE" as const,
+            interpretation:
+              "The evidence items contain the same indexed value. This is an investigative lead, not proof of a real-world relationship.",
             via: {
               kind: "INDEXED_ENTITY" as const,
               type: entity.type,
@@ -1032,6 +1035,9 @@ export class IpedClient {
           crossEvidenceLinks.push({
             left: participant.evidence[left],
             right: participant.evidence[right],
+            relationship: "SHARED_COMMUNICATION_PARTICIPANT" as const,
+            interpretation:
+              "The same participant value was observed in communication metadata for both evidence items. This is an investigative lead and does not establish real-world identity or relationship.",
             via: {
               kind: "COMMUNICATION_PARTICIPANT" as const,
               value: participant.value
