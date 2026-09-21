@@ -839,10 +839,30 @@ export class IpedClient {
     const evidence = [];
 
     for (const reference of search.matches) {
-      const [item, text] = await Promise.all([
-        this.getEvidence(reference.sourceId, reference.itemId),
-        this.getText(reference.sourceId, reference.itemId)
-      ]);
+      const item = await this.getEvidence(
+        reference.sourceId,
+        reference.itemId
+      );
+
+      let text: {
+        sourceId: string;
+        itemId: number;
+        text: string;
+        truncated: boolean;
+      } | undefined;
+      let textError: string | undefined;
+
+      try {
+        text = await this.getText(
+          reference.sourceId,
+          reference.itemId
+        );
+      } catch (error) {
+        textError =
+          error instanceof Error
+            ? error.message
+            : String(error);
+      }
 
       const entities = this.evidenceEntitiesFromProperties(
         reference.sourceId,
@@ -863,8 +883,10 @@ export class IpedClient {
         name: item.properties.name?.[0],
         path: item.properties.path?.[0],
         hash: item.properties.hash?.[0],
-        text: text.text,
-        textTruncated: text.truncated,
+        text: text?.text,
+        textTruncated: text?.truncated ?? false,
+        textAvailable: text !== undefined,
+        ...(textError ? { textError } : {}),
         entities: entities.entities,
         communication
       });
