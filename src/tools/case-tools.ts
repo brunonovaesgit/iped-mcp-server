@@ -4,6 +4,7 @@ import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
 import {
   buildCaseSelection,
+  buildInvestigationResultState,
   buildInvestigatorHome
 } from "../investigator-view.js";
 
@@ -138,6 +139,13 @@ export function registerCaseTools(
         ]
       });
       const progress = investigations.progress(session.id);
+      const resultState = buildInvestigationResultState({
+        evidenceCount: state.evidence.length,
+        openLeadCount: state.leads.filter(
+          lead => lead.status === "OPEN"
+        ).length,
+        progress
+      });
 
       await audit.write("begin_investigation", {
         investigationId: session.id,
@@ -154,6 +162,7 @@ export function registerCaseTools(
         investigationId: session.id,
         question: session.question,
         sourceId: session.sourceId,
+        resultState,
         investigatorView: {
           ...investigation.investigatorView,
           overview: {
