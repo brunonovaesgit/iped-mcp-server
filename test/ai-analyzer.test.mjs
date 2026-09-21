@@ -303,3 +303,35 @@ test("accepts structured atomic findings and preserves evidence references", asy
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("rejects legacy free-form output instead of bypassing structured findings", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({
+      choices: [{
+        message: { content: "Resumo: Carlos participou do projeto Atlas [case-a:1]." }
+      }]
+    }), { status: 200, headers: { "content-type": "application/json" } });
+
+  try {
+    const analyzer = new OpenAiCompatibleAnalyzer(
+      "http://127.0.0.1:9999/v1",
+      "small-local-model"
+    );
+
+    await assert.rejects(
+      analyzer.analyze({
+        question: "Investigue Carlos",
+        evidence: [{
+          sourceId: "case-a",
+          itemId: 1,
+          text: "Carlos participou do projeto Atlas."
+        }]
+      }),
+      /not valid structured JSON/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
