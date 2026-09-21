@@ -1,6 +1,7 @@
 import type { Config } from "./config.js";
 import {
   buildInvestigationGraph,
+  buildInvestigationGraphView,
   summarizeInvestigationGraph
 } from "./investigation-graph.js";
 
@@ -1117,6 +1118,7 @@ export class IpedClient {
       duplicateEvidence,
       graph,
       graphSummary: summarizeInvestigationGraph(graph),
+      graphView: buildInvestigationGraphView(graph),
       investigationLeads: {
         recurringEntities,
         recurringCommunicationParticipants,
