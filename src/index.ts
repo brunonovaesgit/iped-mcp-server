@@ -5,6 +5,7 @@ import { AuditLog } from "./audit-log.js";
 import { getConfig } from "./config.js";
 import { IpedClient } from "./iped-client.js";
 import { registerCoreTools } from "./tools/core-tools.js";
+import { registerCaseTools } from "./tools/case-tools.js";
 import { registerEvidenceTools } from "./tools/evidence-tools.js";
 
 const config = getConfig();
@@ -554,68 +555,8 @@ server.tool(
     }
   }
 );
-server.tool("list_bookmarks", "List bookmarks already present in the IPED case.", {}, async () => {
-  const bookmarks=await iped.listBookmarks(); await audit.write("list_bookmarks",{results:bookmarks}); return result(bookmarks);
-});
-server.tool(
-  "get_bookmark_evidence",
-  "List the evidence items contained in an IPED bookmark.",
-  {
-    bookmark: z.string().min(1)
-  },
-  async ({ bookmark }) => {
-    const evidence = await iped.getBookmarkEvidence(bookmark);
+registerCaseTools(server, { iped, audit });
 
-    await audit.write("get_bookmark_evidence", {
-      bookmark,
-      results: evidence
-    });
-
-    return result(evidence);
-  }
-);
-server.tool(
-  "list_categories",
-  "List the evidence categories available in IPED.",
-  {},
-  async () => {
-    const categories = await iped.listCategories();
-
-    await audit.write("list_categories", {
-      results: categories
-    });
-
-    return result(categories);
-  }
-);
-server.tool(
-  "get_case_context",
-  "Describe the IPED investigation environment available to the agent, including sources, evidence categories and bookmarks. Use this to understand the case before starting a broad investigation.",
-  {
-    sourceId: z.string().optional()
-  },
-  async ({ sourceId }) => {
-    try {
-      const context = await iped.getCaseContext(sourceId);
-
-      await audit.write("get_case_context", {
-        sourceId,
-        sources: context.sources,
-        categories: context.categories,
-        bookmarks: context.bookmarks
-      });
-
-      return result(context);
-    } catch (error) {
-      await audit.write("get_case_context_failed", {
-        sourceId,
-        error: error instanceof Error ? error.message : String(error)
-      });
-
-      throw error;
-    }
-  }
-);
 server.registerPrompt(
   "investigate_evidence",
   {
