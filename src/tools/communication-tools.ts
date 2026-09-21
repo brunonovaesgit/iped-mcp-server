@@ -95,7 +95,9 @@ export function registerCommunicationTools(
 
           investigations.record(investigationId, {
             query,
-            evidence: investigation.matchedEvidence
+            evidence: investigation.matchedEvidence,
+            expansion: true,
+            expansionQuery: query
           });
         }
 
