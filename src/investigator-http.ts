@@ -335,6 +335,23 @@ const server = createServer(async (request, response) => {
       );
     }
 
+    const diagnosticMatch = url.pathname.match(
+      /^\/api\/investigations\/([^/]+)\/ai-diagnostic$/
+    );
+    if (
+      request.method === "GET" &&
+      diagnosticMatch &&
+      process.env.INVESTIGATOR_DEBUG === "1"
+    ) {
+      return json(
+        response,
+        200,
+        await investigator.aiDiagnostic(
+          decodeURIComponent(diagnosticMatch[1])
+        )
+      );
+    }
+
     const evidenceMatch = url.pathname.match(
       /^\/api\/evidence\/([^/]+)\/(\d+)$/
     );
