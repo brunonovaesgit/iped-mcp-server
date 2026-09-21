@@ -58,6 +58,9 @@ export function registerCaseTools(
     async ({ sourceId, investigationId }) => {
       try {
         const context = await iped.getCaseContext(sourceId);
+        const sources = Array.isArray(context.sources)
+          ? context.sources
+          : [];
         const session =
           investigationId && investigations
             ? investigations.get(investigationId)
@@ -75,11 +78,24 @@ export function registerCaseTools(
             : undefined;
 
         const home = buildInvestigatorHome({
-          caseAvailable: context.sources.length > 0,
+          caseAvailable: sources.length > 0,
           sourceId:
             sourceId ??
-            (context.sources.length === 1
-              ? context.sources[0]?.id
+            (sources.length === 1
+              ? (() => {
+                  const source = sources[0];
+
+                  if (
+                    source &&
+                    typeof source === "object" &&
+                    "id" in source &&
+                    typeof source.id === "string"
+                  ) {
+                    return source.id;
+                  }
+
+                  return undefined;
+                })()
               : undefined),
           activeInvestigation:
             session && progress
@@ -100,7 +116,7 @@ export function registerCaseTools(
           investigationId,
           sourceId,
           status: home.status,
-          sourceCount: context.sources.length,
+          sourceCount: sources.length,
           activeInvestigation: Boolean(session)
         });
 
