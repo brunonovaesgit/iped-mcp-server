@@ -56,6 +56,24 @@ export function registerSessionTools(
   );
 
   server.tool(
+    "get_investigation_progress",
+    "Summarize whether an investigation should continue automatically or stop, based on evidence growth, expansion boundaries and remaining evidence-backed leads.",
+    {
+      investigationId: z.string().uuid()
+    },
+    async ({ investigationId }) => {
+      const progress = sessions.progress(investigationId);
+
+      await audit.write("get_investigation_progress", {
+        investigationId,
+        ...progress
+      });
+
+      return toolResult(progress);
+    }
+  );
+
+  server.tool(
     "get_next_investigation_lead",
     "Return the next evidence-backed lead that has not yet been explored in an investigation. The lead remains an investigative direction, not a factual conclusion.",
     {
