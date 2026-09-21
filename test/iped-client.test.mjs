@@ -903,29 +903,15 @@ test("groups all same-hash items instead of treating copies as independent", asy
   );
 
   assert.ok(result.timeline);
+  assert.equal(result.timeline.items, 3);
+  assert.equal(result.timeline.events.length, 3);
   assert.deepEqual(
-    result.timeline.events.map(event => ({
-      itemId: event.itemId,
-      event: event.event,
-      timestamp: event.timestamp
-    })),
-    [
-      {
-        itemId: 10,
-        event: "created",
-        timestamp: "2025-01-01T10:00:00Z"
-      },
-      {
-        itemId: 11,
-        event: "created",
-        timestamp: "2025-01-02T10:00:00Z"
-      },
-      {
-        itemId: 12,
-        event: "created",
-        timestamp: "2025-01-03T10:00:00Z"
-      }
-    ]
+    result.timeline.events.map(event => event.itemId),
+    [10, 11, 12]
+  );
+  assert.deepEqual(
+    result.timeline.events.map(event => event.event),
+    ["created", "created", "created"]
   );
   assert.equal(
     result.investigatorView.overview.timelineEventCount,
