@@ -111,6 +111,9 @@ function renderWorkspace(workspace){
   if(aiAnalysis?.enabled&&aiAnalysis.text){
     aiTarget.classList.remove("hidden");
     aiTarget.innerHTML='<h2>Análise assistida por IA</h2><div class="evidenceText">'+escapeHtml(aiAnalysis.text)+'</div><p class="meta">Análise derivada · modelo '+escapeHtml(aiAnalysis.model||"configurado")+' · valide os achados nas evidências abaixo.</p>';
+  }else if(aiAnalysis?.reason&&aiAnalysis.reason!=="AI analysis is not configured."){
+    aiTarget.classList.remove("hidden");
+    aiTarget.innerHTML='<h2>Análise assistida por IA não apresentada</h2><p>A resposta produzida pelo modelo não atingiu os critérios de rastreabilidade e sustentação nas evidências.</p><p class="meta">Os achados objetivos do IPED permanecem disponíveis abaixo. A resposta rejeitada não é exibida.</p>';
   }else{
     aiTarget.classList.add("hidden");
     aiTarget.innerHTML="";
