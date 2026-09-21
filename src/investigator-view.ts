@@ -113,6 +113,12 @@ export function enrichInvestigatorView(
       evidenceCount: number;
       openLeadCount: number;
       expansions: number;
+      nextLead?: {
+        type: string;
+        value: string;
+        evidence: EvidenceReference[];
+        status: "OPEN" | "EXPLORED";
+      };
     };
   }
 ) {
