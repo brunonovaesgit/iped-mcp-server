@@ -235,6 +235,12 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
 
     const validation = validateAnalysis(text, input);
 
+    if (validation.supportWarnings.length > 0) {
+      throw new Error(
+        `AI analysis rejected: ${validation.supportWarnings.length} claim(s) have weak textual support`
+      );
+    }
+
     return {
       enabled: true,
       text,
