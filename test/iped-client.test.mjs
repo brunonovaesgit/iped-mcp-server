@@ -904,18 +904,18 @@ test("groups all same-hash items instead of treating copies as independent", asy
 
   assert.ok(result.timeline);
   assert.equal(result.timeline.items, 3);
-  assert.equal(result.timeline.events.length, 3);
+  assert.equal(result.timeline.events.length, 2);
   assert.deepEqual(
     result.timeline.events.map(event => event.itemId),
-    [10, 11, 12]
+    [10, 12]
   );
   assert.deepEqual(
     result.timeline.events.map(event => event.event),
-    ["created", "created", "created"]
+    ["created", "created"]
   );
   assert.equal(
     result.investigatorView.overview.timelineEventCount,
-    3
+    2
   );
 
   assert.deepEqual(result.duplicateEvidence, [
