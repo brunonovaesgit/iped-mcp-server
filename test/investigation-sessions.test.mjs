@@ -63,3 +63,49 @@ test("rejects updates for unknown investigation sessions", () => {
     /Unknown investigation session/
   );
 });
+
+
+test("stops automatic expansion at configured investigation boundaries", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Follow relevant evidence");
+
+  assert.equal(
+    sessions.shouldExpand(started.id, { maxExpansions: 2 }).expand,
+    true
+  );
+
+  sessions.record(started.id, { expansion: true });
+  sessions.record(started.id, { expansion: true });
+
+  assert.deepEqual(
+    sessions.shouldExpand(started.id, { maxExpansions: 2 }),
+    {
+      expand: false,
+      reason: "EXPANSION_LIMIT_REACHED",
+      expansions: 2,
+      evidenceCount: 0
+    }
+  );
+});
+
+test("stops automatic expansion when the evidence context grows too large", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Bound evidence context");
+
+  sessions.record(started.id, {
+    evidence: [
+      { sourceId: "case-test", itemId: 1 },
+      { sourceId: "case-test", itemId: 2 }
+    ]
+  });
+
+  assert.deepEqual(
+    sessions.shouldExpand(started.id, { maxEvidence: 2 }),
+    {
+      expand: false,
+      reason: "EVIDENCE_LIMIT_REACHED",
+      expansions: 0,
+      evidenceCount: 2
+    }
+  );
+});
