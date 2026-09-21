@@ -16,6 +16,12 @@ export interface InvestigationState {
   };
   focus?: string;
   followUps: string[];
+  leads: Array<{
+    type: string;
+    value: string;
+    evidence: EvidenceReference[];
+    status: "OPEN" | "EXPLORED";
+  }>;
 }
 
 export class InvestigationSessions {
@@ -32,7 +38,8 @@ export class InvestigationSessions {
       evidence: [],
       queries: [],
       expansions: 0,
-      followUps: []
+      followUps: [],
+      leads: []
     };
 
     this.sessions.set(state.id, state);
@@ -53,6 +60,15 @@ export class InvestigationSessions {
       expansionQuery?: string;
       focus?: string;
       followUp?: string;
+      leads?: Array<{
+        type: string;
+        value: string;
+        evidence?: EvidenceReference[];
+      }>;
+      exploredLead?: {
+        type: string;
+        value: string;
+      };
     }
   ): InvestigationState {
     const state = this.sessions.get(id);
@@ -71,6 +87,44 @@ export class InvestigationSessions {
 
     if (update.followUp && !state.followUps.includes(update.followUp)) {
       state.followUps.push(update.followUp);
+    }
+
+    for (const lead of update.leads ?? []) {
+      const existing = state.leads.find(
+        item => item.type === lead.type && item.value === lead.value
+      );
+
+      if (existing) {
+        for (const reference of lead.evidence ?? []) {
+          if (!existing.evidence.some(
+            item =>
+              item.sourceId === reference.sourceId &&
+              item.itemId === reference.itemId
+          )) {
+            existing.evidence.push(reference);
+          }
+        }
+        continue;
+      }
+
+      state.leads.push({
+        type: lead.type,
+        value: lead.value,
+        evidence: [...(lead.evidence ?? [])],
+        status: "OPEN"
+      });
+    }
+
+    if (update.exploredLead) {
+      const lead = state.leads.find(
+        item =>
+          item.type === update.exploredLead?.type &&
+          item.value === update.exploredLead?.value
+      );
+
+      if (lead) {
+        lead.status = "EXPLORED";
+      }
     }
 
     const evidenceCountBeforeUpdate = state.evidence.length;
