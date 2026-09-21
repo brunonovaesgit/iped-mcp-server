@@ -264,10 +264,10 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       "Do not cite an item merely because it is related; its supplied text must support the statement.",
       "Duplicate or repeated content is not independent corroboration.",
       "If an evidence excerpt is truncated, do not assume what the omitted content says.",
-      "If the evidence is insufficient, say so explicitly.",
+      "If the supplied evidence does not support a finding, return an empty findings array and explain the limitation. Never create a finding merely to provide an answer.",
+      "Next steps must stay within the supplied evidence and available forensic scope. Do not propose external facts, real-world records, people, systems, searches, or investigative actions that are not grounded in the supplied evidence.",
       "Answer in Brazilian Portuguese for the investigator.",
       "Return JSON only, with this shape: {\"findings\":[{\"statement\":\"...\",\"kind\":\"FACT|INFERENCE|HYPOTHESIS\",\"evidence\":[\"sourceId:itemId\"],\"support\":[{\"reference\":\"sourceId:itemId\",\"excerpt\":\"exact excerpt copied from that evidence\"}]}],\"limitations\":[\"...\"],\"nextSteps\":[\"...\"]}.",
-      "The findings array is required and must not be empty when the supplied evidence supports any case-specific observation.",
       "Create FACT findings directly from explicit statements in the supplied evidence before attempting inference.",
       "Copy evidence references exactly from the reference field supplied with each evidence item, without brackets or invented IDs.",
       "Each finding must have at least one evidence reference and at least one supporting exact excerpt. Keep findings atomic: one claim per finding.",
@@ -288,7 +288,59 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
           model: this.model,
           temperature: 0,
           max_tokens: 700,
-          response_format: { type: "json_object" },
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "forensic_analysis",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  findings: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      additionalProperties: false,
+                      properties: {
+                        statement: { type: "string" },
+                        kind: {
+                          type: "string",
+                          enum: ["FACT", "INFERENCE", "HYPOTHESIS"]
+                        },
+                        evidence: {
+                          type: "array",
+                          items: { type: "string" }
+                        },
+                        support: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            additionalProperties: false,
+                            properties: {
+                              reference: { type: "string" },
+                              excerpt: { type: "string" }
+                            },
+                            required: ["reference", "excerpt"]
+                          }
+                        }
+                      },
+                      required: ["statement", "kind", "evidence", "support"]
+                    }
+                  },
+                  limitations: {
+                    type: "array",
+                    items: { type: "string" }
+                  },
+                  nextSteps: {
+                    type: "array",
+                    items: { type: "string" }
+                  }
+                },
+                required: ["findings", "limitations", "nextSteps"]
+              }
+            }
+          },
           messages: [
             { role: "system", content: instructions },
             {
@@ -355,20 +407,18 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       )
     );
 
-    if (findings.length === 0) {
+    if (structured.findings.length > 0 && findings.length === 0) {
       const references = [...new Set(
         normalizedFindings.flatMap(finding => finding.evidence)
       )];
       const unknown = references.filter(reference => !allowed.has(reference));
-      const reason = structured.findings.length === 0
-        ? "model returned no findings"
-        : references.length === 0
-          ? "findings contained no evidence references"
-          : unknown.length > 0
-            ? `unknown evidence reference(s): ${unknown.join(", ")}`
-            : normalizedFindings.some(finding => finding.support.length === 0)
-              ? "findings contained no supporting excerpts"
-              : "supporting excerpt was not found verbatim in cited evidence";
+      const reason = references.length === 0
+        ? "findings contained no evidence references"
+        : unknown.length > 0
+          ? `unknown evidence reference(s): ${unknown.join(", ")}`
+          : normalizedFindings.some(finding => finding.support.length === 0)
+            ? "findings contained no supporting excerpts"
+            : "supporting excerpt was not found verbatim in cited evidence";
       throw new Error(`AI analysis rejected: ${reason}`);
     }
 
@@ -376,7 +426,14 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       `${finding.kind}: ${finding.statement} ${finding.evidence.map(reference => `[${reference}]`).join(" ")}`
     ).join("\n");
 
-    const validation = validateAnalysis(renderedText, input);
+    const validation = findings.length === 0
+      ? {
+          accepted: true,
+          citedReferences: [],
+          rejectedReferences: [],
+          supportWarnings: []
+        }
+      : validateAnalysis(renderedText, input);
 
     if (validation.supportWarnings.length > 0) {
       throw new Error(
