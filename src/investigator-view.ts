@@ -120,6 +120,15 @@ export function buildInvestigationWorkspace(input: {
     summary: input.view.overview,
     status: input.resultState,
     panels: {
+      findings: input.view.sections.leads
+        .filter(lead => lead.evidence.length > 0)
+        .map(lead => ({
+          classification: "OBSERVATION" as const,
+          type: lead.type,
+          value: lead.value,
+          evidenceCount: lead.evidence.length,
+          evidence: lead.evidence
+        })),
       evidence: input.view.sections.evidence,
       relationships: input.view.sections.relationships,
       timeline: input.view.sections.timeline,
