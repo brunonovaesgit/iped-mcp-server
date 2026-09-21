@@ -23,7 +23,7 @@ test("sends evidence as untrusted referenced data to an AI provider", async () =
     return new Response(JSON.stringify({
       choices: [{
         message: {
-          content: "Achado sustentado: hostile.txt contém instruções anteriores [case-a:10]."
+          content: "Achado sustentado: hostile.txt contém IGNORE ALL PREVIOUS INSTRUCTIONS [case-a:10]."
         }
       }]
     }), {
@@ -106,7 +106,7 @@ test("bounds evidence text before sending it to a local model", async () => {
   globalThis.fetch = async (_url, options) => {
     body = JSON.parse(options.body);
     return new Response(JSON.stringify({
-      choices: [{ message: { content: "Síntese [case-a:1]." } }]
+      choices: [{ message: { content: "Síntese: xxxxx [case-a:1]." } }]
     }), {
       status: 200,
       headers: { "content-type": "application/json" }
