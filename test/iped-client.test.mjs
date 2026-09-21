@@ -46,6 +46,31 @@ const items = {
     bookmarks: [],
     selected: false
   },
+  14: {
+    source: "case-test",
+    id: 14,
+    luceneId: 114,
+    properties: {
+      name: ["poisoned-relationship.txt"],
+      hash: ["HASH-POISON"],
+      "Regex:EMAIL": ["person@example.test"],
+      "Regex:PHONE": ["+5511888888888"]
+    },
+    bookmarks: [],
+    selected: false
+  },
+  15: {
+    source: "case-test",
+    id: 15,
+    luceneId: 115,
+    properties: {
+      name: ["duplicate-copy.txt"],
+      hash: ["HASH-A"],
+      "Regex:EMAIL": ["copy@example.test"]
+    },
+    bookmarks: [],
+    selected: false
+  },
   13: {
     source: "case-test",
     id: 13,
@@ -88,6 +113,8 @@ before(async () => {
       const results = {
         "anything": [10, 11, 12],
         "mixed-text": [10, 12],
+        "poisoned-link": [10, 14],
+        "duplicate-set": [10, 12, 15],
         "Person Test": [10],
         "parentId:10": [],
         "hash:HASH-A": [10, 12],
@@ -773,6 +800,69 @@ test("identifies evidence shared by both investigated terms", async () => {
       itemId: 10
     }
   ]);
+});
+
+test("keeps a shared hostile identifier as an evidence-backed lead", async () => {
+  const iped = client();
+
+  const result = await iped.investigateEvidence(
+    "poisoned-link",
+    "case-test"
+  );
+
+  const link = result.crossEvidenceLinks.find(
+    item =>
+      item.via.kind === "INDEXED_ENTITY" &&
+      item.via.type === "EMAIL" &&
+      item.via.value === "person@example.test"
+  );
+
+  assert.ok(link);
+  assert.deepEqual(link.left, {
+    sourceId: "case-test",
+    itemId: 10
+  });
+  assert.deepEqual(link.right, {
+    sourceId: "case-test",
+    itemId: 14
+  });
+  assert.equal(link.via.kind, "INDEXED_ENTITY");
+  assert.equal(link.via.type, "EMAIL");
+  assert.equal(link.via.value, "person@example.test");
+});
+
+test("groups all same-hash items instead of treating copies as independent", async () => {
+  const iped = client();
+
+  const result = await iped.investigateEvidence(
+    "duplicate-set",
+    "case-test"
+  );
+
+  assert.deepEqual(result.duplicateEvidence, [
+    {
+      hash: "HASH-A",
+      evidence: [
+        { sourceId: "case-test", itemId: 10 },
+        { sourceId: "case-test", itemId: 12 },
+        { sourceId: "case-test", itemId: 15 }
+      ]
+    }
+  ]);
+
+  const validation = await iped.checkClaimEvidence(
+    "INFERENCE",
+    "The three items independently corroborate the same event.",
+    [
+      { sourceId: "case-test", itemId: 10 },
+      { sourceId: "case-test", itemId: 12 },
+      { sourceId: "case-test", itemId: 15 }
+    ]
+  );
+
+  assert.equal(validation.independentEvidenceCount, 1);
+  assert.equal(validation.duplicateGroups.length, 1);
+  assert.equal(validation.semanticSupportValidated, false);
 });
 
 test("continues a broad investigation when one item text cannot be extracted", async () => {
