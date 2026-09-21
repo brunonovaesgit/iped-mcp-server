@@ -111,19 +111,69 @@ export function registerCaseTools(
         question,
         selection.selectedSourceId
       );
+      const investigation = await iped.investigateEvidence(
+        question,
+        selection.selectedSourceId
+      );
+
+      const state = investigations.record(session.id, {
+        query: question,
+        evidence: investigation.matchedEvidence.map(item => ({
+          sourceId: item.sourceId,
+          itemId: item.itemId
+        })),
+        leads: [
+          ...investigation.recurringEntities.map(entity => ({
+            type: entity.type,
+            value: entity.value,
+            evidence: entity.evidence
+          })),
+          ...investigation.recurringCommunicationParticipants.map(
+            participant => ({
+              type: "COMMUNICATION_PARTICIPANT",
+              value: participant.value,
+              evidence: participant.evidence
+            })
+          )
+        ]
+      });
+      const progress = investigations.progress(session.id);
 
       await audit.write("begin_investigation", {
         investigationId: session.id,
         question,
-        sourceId: session.sourceId
+        sourceId: session.sourceId,
+        evidenceCount: state.evidence.length,
+        openLeadCount: state.leads.filter(
+          lead => lead.status === "OPEN"
+        ).length
       });
 
       return toolResult({
-        status: "INVESTIGATION_STARTED",
+        status: "INVESTIGATION_READY",
         investigationId: session.id,
         question: session.question,
         sourceId: session.sourceId,
-        nextAction: "INVESTIGATE_QUESTION"
+        investigatorView: {
+          ...investigation.investigatorView,
+          overview: {
+            ...investigation.investigatorView.overview,
+            openLeadCount: state.leads.filter(
+              lead => lead.status === "OPEN"
+            ).length
+          },
+          sections: {
+            ...investigation.investigatorView.sections,
+            leads: state.leads.map(lead => ({
+              ...lead,
+              action:
+                lead.status === "OPEN"
+                  ? "EXPLORE_LEAD"
+                  : undefined
+            })),
+            progress
+          }
+        }
       });
     }
   );
