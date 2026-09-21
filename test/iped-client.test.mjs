@@ -899,6 +899,36 @@ test("groups all same-hash items instead of treating copies as independent", asy
     "case-test"
   );
 
+  assert.ok(result.timeline);
+  assert.deepEqual(
+    result.timeline.events.map(event => ({
+      itemId: event.itemId,
+      event: event.event,
+      timestamp: event.timestamp
+    })),
+    [
+      {
+        itemId: 10,
+        event: "created",
+        timestamp: "2025-01-01T10:00:00Z"
+      },
+      {
+        itemId: 11,
+        event: "created",
+        timestamp: "2025-01-02T10:00:00Z"
+      },
+      {
+        itemId: 12,
+        event: "created",
+        timestamp: "2025-01-03T10:00:00Z"
+      }
+    ]
+  );
+  assert.equal(
+    result.investigatorView.overview.timelineEventCount,
+    3
+  );
+
   assert.deepEqual(result.duplicateEvidence, [
     {
       hash: "HASH-A",
