@@ -200,3 +200,22 @@ test("keeps follow-up questions without replacing the original investigation", (
     { sourceId: "case-test", itemId: 10 }
   ]);
 });
+
+
+test("inherits source scope from the investigation session", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate Carlos", "case-a");
+
+  assert.equal(sessions.resolveSource(started.id), "case-a");
+  assert.equal(sessions.resolveSource(started.id, "case-a"), "case-a");
+});
+
+test("rejects expansion into a different source than the investigation scope", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate Carlos", "case-a");
+
+  assert.throws(
+    () => sessions.resolveSource(started.id, "case-b"),
+    /outside that scope/
+  );
+});
