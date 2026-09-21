@@ -98,6 +98,52 @@ export function buildInvestigatorView(input: {
 }
 
 
+export function buildInvestigationWorkspace(input: {
+  investigationId: string;
+  question: string;
+  focus?: string;
+  sourceId?: string;
+  view: ReturnType<typeof buildInvestigatorView>;
+  resultState: {
+    status: string;
+    message: string;
+    suggestedAction: string;
+  };
+}) {
+  return {
+    investigationId: input.investigationId,
+    title: input.question,
+    focus: input.focus,
+    case: {
+      sourceId: input.sourceId
+    },
+    summary: input.view.overview,
+    status: input.resultState,
+    panels: {
+      evidence: input.view.sections.evidence,
+      relationships: input.view.sections.relationships,
+      timeline: input.view.sections.timeline,
+      leads: input.view.sections.leads
+    },
+    controls: {
+      question: {
+        placeholder: "Pergunte algo sobre esta investigação.",
+        action: "ASK_FOLLOW_UP"
+      },
+      exploreNextLead:
+        input.view.sections.progress?.status === "CONTINUE"
+          ? {
+              enabled: true,
+              action: "EXPLORE_NEXT_LEAD"
+            }
+          : {
+              enabled: false,
+              action: "EXPLORE_NEXT_LEAD"
+            }
+    }
+  };
+}
+
 export function buildInvestigationResultState(input: {
   evidenceCount: number;
   openLeadCount: number;
