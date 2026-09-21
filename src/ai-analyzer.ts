@@ -9,10 +9,16 @@ export type AiAnalysisInput = {
   }>;
 };
 
+export type AiFindingSupport = {
+  reference: string;
+  excerpt: string;
+};
+
 export type AiFinding = {
   statement: string;
   kind: "FACT" | "INFERENCE" | "HYPOTHESIS";
   evidence: string[];
+  support: AiFindingSupport[];
 };
 
 export type AiAnalysis = {
@@ -96,14 +102,28 @@ function parseStructuredAnalysis(text: string): {
         typeof value.statement !== "string" ||
         !["FACT", "INFERENCE", "HYPOTHESIS"].includes(String(value.kind)) ||
         !Array.isArray(value.evidence) ||
-        !value.evidence.every(reference => typeof reference === "string")
+        !value.evidence.every(reference => typeof reference === "string") ||
+        !Array.isArray(value.support)
       ) {
         return [];
       }
+      const support = value.support.flatMap(item => {
+        if (!item || typeof item !== "object") return [];
+        const entry = item as Record<string, unknown>;
+        if (
+          typeof entry.reference !== "string" ||
+          typeof entry.excerpt !== "string"
+        ) return [];
+        return [{
+          reference: entry.reference.trim(),
+          excerpt: entry.excerpt.trim()
+        }];
+      });
       return [{
         statement: value.statement.trim(),
         kind: value.kind as AiFinding["kind"],
-        evidence: value.evidence
+        evidence: value.evidence,
+        support
       }];
     });
 
@@ -246,11 +266,12 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       "If an evidence excerpt is truncated, do not assume what the omitted content says.",
       "If the evidence is insufficient, say so explicitly.",
       "Answer in Brazilian Portuguese for the investigator.",
-      "Return JSON only, with this shape: {\"findings\":[{\"statement\":\"...\",\"kind\":\"FACT|INFERENCE|HYPOTHESIS\",\"evidence\":[\"sourceId:itemId\"]}],\"limitations\":[\"...\"],\"nextSteps\":[\"...\"]}.",
+      "Return JSON only, with this shape: {\"findings\":[{\"statement\":\"...\",\"kind\":\"FACT|INFERENCE|HYPOTHESIS\",\"evidence\":[\"sourceId:itemId\"],\"support\":[{\"reference\":\"sourceId:itemId\",\"excerpt\":\"exact excerpt copied from that evidence\"}]}],\"limitations\":[\"...\"],\"nextSteps\":[\"...\"]}.",
       "The findings array is required and must not be empty when the supplied evidence supports any case-specific observation.",
       "Create FACT findings directly from explicit statements in the supplied evidence before attempting inference.",
       "Copy evidence references exactly from the reference field supplied with each evidence item, without brackets or invented IDs.",
-      "Each finding must have at least one evidence reference. Keep findings atomic: one claim per finding."
+      "Each finding must have at least one evidence reference and at least one supporting exact excerpt. Keep findings atomic: one claim per finding.",
+      "Supporting excerpts must be copied verbatim from the supplied evidence text and paired with the evidence reference they came from. Do not paraphrase excerpts."
     ].join("\n");
 
     const response = await fetch(
@@ -309,12 +330,29 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       reference.trim().replace(/^\[|\]$/g, "");
     const normalizedFindings = structured.findings.map(finding => ({
       ...finding,
-      evidence: finding.evidence.map(normalizeReference)
+      evidence: finding.evidence.map(normalizeReference),
+      support: finding.support.map(item => ({
+        reference: normalizeReference(item.reference),
+        excerpt: item.excerpt.trim()
+      }))
     }));
+    const evidenceText = new Map(
+      input.evidence.map(item => [
+        `${item.sourceId}:${item.itemId}`,
+        item.text ?? ""
+      ])
+    );
     const findings = normalizedFindings.filter(finding =>
       finding.statement.length > 0 &&
       finding.evidence.length > 0 &&
-      finding.evidence.every(reference => allowed.has(reference))
+      finding.evidence.every(reference => allowed.has(reference)) &&
+      finding.support.length > 0 &&
+      finding.support.every(item =>
+        allowed.has(item.reference) &&
+        finding.evidence.includes(item.reference) &&
+        item.excerpt.length > 0 &&
+        (evidenceText.get(item.reference) ?? "").includes(item.excerpt)
+      )
     );
 
     if (findings.length === 0) {
@@ -328,7 +366,9 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
           ? "findings contained no evidence references"
           : unknown.length > 0
             ? `unknown evidence reference(s): ${unknown.join(", ")}`
-            : "no valid evidence-backed findings";
+            : normalizedFindings.some(finding => finding.support.length === 0)
+              ? "findings contained no supporting excerpts"
+              : "supporting excerpt was not found verbatim in cited evidence";
       throw new Error(`AI analysis rejected: ${reason}`);
     }
 
