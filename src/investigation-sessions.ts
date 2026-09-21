@@ -103,6 +103,27 @@ export class InvestigationSessions {
     state.updatedAt = new Date().toISOString();
     return structuredClone(state);
   }
+
+  resolveSource(id: string, requestedSourceId?: string): string | undefined {
+    const state = this.sessions.get(id);
+
+    if (!state) {
+      throw new Error(`Unknown investigation session: ${id}`);
+    }
+
+    if (
+      state.sourceId &&
+      requestedSourceId &&
+      state.sourceId !== requestedSourceId
+    ) {
+      throw new Error(
+        `Investigation ${id} is scoped to source ${state.sourceId}; requested source ${requestedSourceId} is outside that scope`
+      );
+    }
+
+    return state.sourceId ?? requestedSourceId;
+  }
+
   shouldExpand(
     id: string,
     options: {
