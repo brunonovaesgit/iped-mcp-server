@@ -111,7 +111,7 @@ function renderWorkspace(workspace){
   items("leads",workspace.panels?.leads,l=>'<div class="item lead"><div><b>'+escapeHtml(l.value)+'</b><div class="meta">'+escapeHtml(l.type)+'</div></div>'+(l.status==="OPEN"?'<button type="button" class="leadButton" data-type="'+escapeHtml(l.type)+'" data-value="'+escapeHtml(l.value)+'">Explorar</button>':'<span class="meta">'+escapeHtml(l.status)+'</span>')+'</div>');
   document.querySelectorAll(".leadButton").forEach(button=>button.addEventListener("click",()=>exploreLead(button.dataset.type,button.dataset.value)));
   renderGraph(workspace.panels?.relationships);
-  items("timeline",workspace.panels?.timeline,t=>'<div class="item"><b>'+escapeHtml(t.label||t.name||"Evento")+'</b><div class="meta">'+escapeHtml(t.timestamp||t.date||"")+'</div></div>');
+  items("timeline",workspace.panels?.timeline,t=>'<div class="item"><b>'+escapeHtml(t.label||t.name||"Evento")+'</b><div class="meta">'+escapeHtml(t.event||"data")+' · '+escapeHtml(t.timestamp||t.date||"")+'</div></div>');
   byId("status").textContent=workspace.status?.message||"Investigação atualizada.";
 }
 function renderGraph(graph){
