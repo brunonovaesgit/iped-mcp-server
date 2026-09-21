@@ -86,7 +86,14 @@ export function registerInvestigationTools(
             investigation.recurringCommunicationParticipants.length,
           crossEvidenceLinkCount:
             investigation.crossEvidenceLinks.length,
-          duplicateGroupCount: investigation.duplicateEvidence.length
+          duplicateGroupCount: investigation.duplicateEvidence.length,
+          textUnavailable: investigation.matchedEvidence
+            .filter(item => !item.textAvailable)
+            .map(item => ({
+              sourceId: item.sourceId,
+              itemId: item.itemId,
+              error: item.textError
+            }))
         });
 
         return toolResult(investigation);
