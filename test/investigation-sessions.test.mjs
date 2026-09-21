@@ -289,3 +289,58 @@ test("keeps evidence-backed leads and marks them explored", () => {
     }
   ]);
 });
+
+
+test("selects only open leads for progressive investigation", () => {
+  const sessions = new InvestigationSessions();
+  const started = sessions.start("Investigate Carlos", "case-test");
+
+  sessions.record(started.id, {
+    leads: [
+      {
+        type: "EMAIL",
+        value: "first@example.test",
+        evidence: [{ sourceId: "case-test", itemId: 10 }]
+      },
+      {
+        type: "PHONE",
+        value: "+5511999999999",
+        evidence: [{ sourceId: "case-test", itemId: 11 }]
+      }
+    ]
+  });
+
+  assert.deepEqual(sessions.nextLead(started.id), {
+    available: true,
+    lead: {
+      type: "EMAIL",
+      value: "first@example.test",
+      evidence: [{ sourceId: "case-test", itemId: 10 }],
+      status: "OPEN"
+    }
+  });
+
+  sessions.record(started.id, {
+    exploredLead: {
+      type: "EMAIL",
+      value: "first@example.test"
+    }
+  });
+
+  assert.equal(
+    sessions.nextLead(started.id).available,
+    true
+  );
+
+  sessions.record(started.id, {
+    exploredLead: {
+      type: "PHONE",
+      value: "+5511999999999"
+    }
+  });
+
+  assert.deepEqual(sessions.nextLead(started.id), {
+    available: false,
+    reason: "NO_OPEN_LEADS"
+  });
+});
