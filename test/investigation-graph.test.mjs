@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { buildInvestigationGraph } from "../dist/investigation-graph.js";
+import {
+  buildInvestigationGraph,
+  expandInvestigationGraph
+} from "../dist/investigation-graph.js";
 
 test("builds a provenance-first graph from evidence and indexed values", () => {
   const graph = buildInvestigationGraph({
@@ -73,5 +76,50 @@ test("graph edges always retain evidence references", () => {
         reference.sourceId && Number.isInteger(reference.itemId)
       )
     )
+  );
+});
+
+
+test("expands a graph node only through evidence-backed edges", () => {
+  const graph = buildInvestigationGraph({
+    evidence: [
+      { sourceId: "case-a", itemId: 10, name: "message.eml" },
+      { sourceId: "case-a", itemId: 11, name: "document.pdf" }
+    ],
+    entities: [{
+      type: "EMAIL",
+      value: "person@example.test",
+      evidence: [
+        { sourceId: "case-a", itemId: 10 },
+        { sourceId: "case-a", itemId: 11 }
+      ]
+    }],
+    communicationParticipants: [],
+    duplicateEvidence: []
+  });
+
+  const expansion = expandInvestigationGraph({
+    graph,
+    nodeId: "entity:EMAIL:person@example.test"
+  });
+
+  assert.equal(expansion.selectedNode.kind, "ENTITY");
+  assert.equal(expansion.nodes.length, 3);
+  assert.equal(expansion.edges.length, 2);
+  assert.ok(
+    expansion.edges.every(edge =>
+      edge.relationship === "OBSERVED_IN_EVIDENCE" &&
+      edge.evidence.length === 1
+    )
+  );
+});
+
+test("rejects expansion of a node that is not present in the graph", () => {
+  assert.throws(
+    () => expandInvestigationGraph({
+      graph: { nodes: [], edges: [] },
+      nodeId: "entity:EMAIL:missing@example.test"
+    }),
+    /Unknown investigation graph node/
   );
 });
