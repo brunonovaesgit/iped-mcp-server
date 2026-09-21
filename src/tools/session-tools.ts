@@ -30,6 +30,32 @@ export function registerSessionTools(
   );
 
   server.tool(
+    "continue_investigation",
+    "Continue an existing investigation with a new investigator question or focus while preserving the original question, source scope, prior searches and evidence references.",
+    {
+      investigationId: z.string().uuid(),
+      question: z.string().min(1),
+      focus: z.string().min(1).optional()
+    },
+    async ({ investigationId, question, focus }) => {
+      const session = sessions.record(investigationId, {
+        followUp: question,
+        focus: focus ?? question
+      });
+
+      await audit.write("continue_investigation", {
+        investigationId,
+        question,
+        focus: session.focus,
+        evidenceCount: session.evidence.length,
+        queryCount: session.queries.length
+      });
+
+      return toolResult(session);
+    }
+  );
+
+  server.tool(
     "check_investigation_expansion",
     "Check whether an investigation should continue expanding automatically. This guards against unbounded traversal while preserving the investigator's ability to explicitly deepen a relevant lead.",
     {
