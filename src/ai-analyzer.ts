@@ -265,7 +265,7 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       "Duplicate or repeated content is not independent corroboration.",
       "If an evidence excerpt is truncated, do not assume what the omitted content says.",
       "If the supplied evidence does not support a finding, return an empty findings array and explain the limitation. Never create a finding merely to provide an answer.",
-      "Next steps must stay within the supplied evidence and available forensic scope. Do not propose external facts, real-world records, people, systems, searches, or investigative actions that are not grounded in the supplied evidence.",
+      "Do not generate investigative next steps. The application derives actionable leads separately from evidence-backed deterministic analysis. Always return nextSteps as an empty array.",
       "Answer in Brazilian Portuguese for the investigator.",
       "Return JSON only, with this shape: {\"findings\":[{\"statement\":\"...\",\"kind\":\"FACT|INFERENCE|HYPOTHESIS\",\"evidence\":[\"sourceId:itemId\"],\"support\":[{\"reference\":\"sourceId:itemId\",\"excerpt\":\"exact excerpt copied from that evidence\"}]}],\"limitations\":[\"...\"],\"nextSteps\":[\"...\"]}.",
       "Create FACT findings directly from explicit statements in the supplied evidence before attempting inference.",
@@ -334,6 +334,7 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
                   },
                   nextSteps: {
                     type: "array",
+                    maxItems: 0,
                     items: { type: "string" }
                   }
                 },
@@ -446,7 +447,7 @@ export class OpenAiCompatibleAnalyzer implements AiAnalyzer {
       text: renderedText,
       findings,
       limitations: structured?.limitations,
-      nextSteps: structured?.nextSteps,
+      nextSteps: [],
       model: this.model,
       validation
     };
