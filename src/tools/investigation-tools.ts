@@ -19,10 +19,14 @@ export function registerInvestigationTools(
     },
     async ({ leftQuery, rightQuery, sourceId, limit, investigationId }) => {
       try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
         const investigation = await iped.investigateRelationship(
           leftQuery,
           rightQuery,
-          sourceId,
+          effectiveSourceId,
           limit
         );
 
@@ -46,7 +50,7 @@ export function registerInvestigationTools(
           investigationId,
           leftQuery,
           rightQuery,
-          sourceId,
+          sourceId: effectiveSourceId,
           leftEvidence: investigation.left.evidence,
           rightEvidence: investigation.right.evidence,
           sharedEvidence: investigation.sharedEvidence,
@@ -80,9 +84,13 @@ export function registerInvestigationTools(
     },
     async ({ query, sourceId, limit, investigationId }) => {
       try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
         const investigation = await iped.investigateEvidence(
           query,
-          sourceId,
+          effectiveSourceId,
           limit
         );
 
@@ -103,7 +111,7 @@ export function registerInvestigationTools(
         await audit.write("investigate_evidence", {
           investigationId,
           query,
-          sourceId,
+          sourceId: effectiveSourceId,
           matchedEvidence: investigation.matchedEvidence.map(item => ({
             sourceId: item.sourceId,
             itemId: item.itemId
@@ -155,9 +163,13 @@ export function registerInvestigationTools(
     },
     async ({ query, sourceId, limit, investigationId }) => {
       try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
         const investigation = await iped.investigateEntity(
           query,
-          sourceId,
+          effectiveSourceId,
           limit
         );
 
@@ -180,7 +192,7 @@ export function registerInvestigationTools(
         await audit.write("investigate_entity", {
           investigationId,
           query,
-          sourceId,
+          sourceId: effectiveSourceId,
           initialEvidence: investigation.initialEvidence.map(item => ({
             sourceId: item.sourceId,
             itemId: item.itemId
@@ -216,9 +228,13 @@ export function registerInvestigationTools(
     },
     async ({ query, sourceId, depth, limit, investigationId }) => {
       try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
         const paths = await iped.traceEntityPaths(
           query,
-          sourceId,
+          effectiveSourceId,
           depth,
           limit
         );
@@ -249,7 +265,7 @@ export function registerInvestigationTools(
         await audit.write("trace_entity_paths", {
           investigationId,
           query,
-          sourceId,
+          sourceId: effectiveSourceId,
           depth: paths.depth,
           initialEvidence: paths.initialEvidence,
           pathCount: paths.paths.length,
@@ -261,7 +277,7 @@ export function registerInvestigationTools(
         await audit.write("trace_entity_paths_failed", {
           investigationId,
           query,
-          sourceId,
+          sourceId: effectiveSourceId,
           depth,
           error: error instanceof Error ? error.message : String(error)
         });
