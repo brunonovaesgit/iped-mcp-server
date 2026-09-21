@@ -168,6 +168,46 @@ npm start
 
 In normal use, an MCP client starts this process automatically.
 
+## Investigator interface
+
+For the simplest local workflow, the investigator can use the included web interface instead of interacting with MCP tools directly.
+
+With a processed IPED case available through the Web API:
+
+```bash
+npm run investigator
+```
+
+Then open:
+
+```text
+http://127.0.0.1:3333
+```
+
+The application is intentionally bound to localhost. It discovers the available IPED source, asks for a simple source choice only when necessary, and lets the investigator start from a natural-language question.
+
+From the same workspace the investigator can review observed findings, supporting evidence, relationships, timeline events and open leads; open evidence details; ask follow-up questions; and explore evidence-backed leads.
+
+A typical workflow is:
+
+```text
+Processed case in IPED
+        ↓
+IPED Web API
+        ↓
+IPED MCP Server / Investigator
+        ↓
+Natural-language investigation
+        ↓
+Findings + evidence + relationships + timeline
+        ↓
+Investigator review and conclusions
+```
+
+No evidence upload is performed by this application. Evidence processing remains an IPED responsibility, and the investigator interface remains read-only with respect to the case.
+
+The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
+
 ## MCP client configuration
 
 A generic stdio configuration looks like this:
@@ -328,8 +368,14 @@ npm run build
 Before committing:
 
 ```bash
-npm run build
+npm test
 git diff --check
+```
+
+A quick connectivity check is also available:
+
+```bash
+npm run check
 ```
 
 ## Project status
