@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ToolContext } from "../tool-context.js";
 import { toolResult } from "../tool-context.js";
+import { expandInvestigationGraph } from "../investigation-graph.js";
 
 export function registerInvestigationTools(
   server: McpServer,
@@ -159,6 +160,57 @@ export function registerInvestigationTools(
           investigationId,
           query,
           sourceId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        throw error;
+      }
+    }
+  );
+
+  server.tool(
+    "expand_investigation_graph_node",
+    "Expand one node from an evidence-backed investigation graph. Returns only the selected node, directly connected nodes and their provenance-carrying edges. This exposes why a node is connected without inventing real-world relationships.",
+    {
+      query: z.string().min(1),
+      nodeId: z.string().min(1),
+      sourceId: z.string().optional(),
+      limit: z.number().int().positive().max(100).optional(),
+      investigationId: z.string().uuid().optional()
+    },
+    async ({ query, nodeId, sourceId, limit, investigationId }) => {
+      try {
+        const effectiveSourceId = investigationId
+          ? investigations?.resolveSource(investigationId, sourceId)
+          : sourceId;
+
+        const investigation = await iped.investigateEvidence(
+          query,
+          effectiveSourceId,
+          limit
+        );
+
+        const expansion = expandInvestigationGraph({
+          graph: investigation.graph,
+          nodeId
+        });
+
+        await audit.write("expand_investigation_graph_node", {
+          investigationId,
+          query,
+          sourceId: effectiveSourceId,
+          nodeId,
+          connectedNodeCount: expansion.nodes.length,
+          edgeCount: expansion.edges.length,
+          evidence: expansion.edges.flatMap(edge => edge.evidence)
+        });
+
+        return toolResult(expansion);
+      } catch (error) {
+        await audit.write("expand_investigation_graph_node_failed", {
+          investigationId,
+          query,
+          sourceId,
+          nodeId,
           error: error instanceof Error ? error.message : String(error)
         });
         throw error;
