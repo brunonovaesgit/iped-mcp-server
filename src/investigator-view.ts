@@ -159,6 +159,13 @@ export function buildInvestigatorHome(input: {
     primaryAction: input.activeInvestigation
       ? "CONTINUE_INVESTIGATION"
       : "START_INVESTIGATION",
+    questionInput: input.caseAvailable
+      ? {
+          placeholder:
+            "O que você quer investigar neste caso?",
+          action: "START_INVESTIGATION"
+        }
+      : undefined,
     suggestedQuestions: input.caseAvailable
       ? [
           "Investigue uma pessoa, empresa, telefone, e-mail ou outro identificador.",
