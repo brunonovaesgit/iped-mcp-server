@@ -1,5 +1,8 @@
 import type { Config } from "./config.js";
-import { buildInvestigationGraph } from "./investigation-graph.js";
+import {
+  buildInvestigationGraph,
+  summarizeInvestigationGraph
+} from "./investigation-graph.js";
 
 interface SearchResponse { data?: Array<{ source: string; ids: number[] }>; }
 export interface EvidenceReference { sourceId: string; itemId: number; }
@@ -1091,6 +1094,14 @@ export class IpedClient {
       sourceSpecified: sourceId !== undefined
     };
 
+    const graph = buildInvestigationGraph({
+      evidence,
+      entities: [...entities.values()],
+      communicationParticipants:
+        [...communicationParticipants.values()],
+      duplicateEvidence
+    });
+
     return {
       query,
       sourceId,
@@ -1104,13 +1115,8 @@ export class IpedClient {
       recurringCommunicationParticipants,
       crossEvidenceLinks,
       duplicateEvidence,
-      graph: buildInvestigationGraph({
-        evidence,
-        entities: [...entities.values()],
-        communicationParticipants:
-          [...communicationParticipants.values()],
-        duplicateEvidence
-      }),
+      graph,
+      graphSummary: summarizeInvestigationGraph(graph),
       investigationLeads: {
         recurringEntities,
         recurringCommunicationParticipants,
