@@ -903,7 +903,13 @@ export class IpedClient {
         textAvailable: text !== undefined,
         ...(textError ? { textError } : {}),
         entities: entities.entities,
-        communication
+        communication,
+        timelineProperties: {
+          created: item.properties.created?.[0],
+          modified: item.properties.modified?.[0],
+          accessed: item.properties.accessed?.[0],
+          changed: item.properties.changed?.[0]
+        }
       });
     }
 
@@ -1104,12 +1110,36 @@ export class IpedClient {
       duplicateEvidence
     });
 
-    const timeline = await this.getTimeline(
-      evidence.map(item => ({
-        sourceId: item.sourceId,
-        itemId: item.itemId
-      }))
+    const timelineEvents = evidence.flatMap(item =>
+      Object.entries(item.timelineProperties)
+        .filter((entry): entry is [string, string] =>
+          typeof entry[1] === "string" && entry[1].length > 0
+        )
+        .map(([event, timestamp]) => ({
+          sourceId: item.sourceId,
+          itemId: item.itemId,
+          name: item.name,
+          path: item.path,
+          event,
+          timestamp
+        }))
     );
+
+    timelineEvents.sort((left, right) => {
+      const leftTime = Date.parse(left.timestamp);
+      const rightTime = Date.parse(right.timestamp);
+
+      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+        return left.timestamp.localeCompare(right.timestamp);
+      }
+
+      return leftTime - rightTime;
+    });
+
+    const timeline = {
+      items: evidence.length,
+      events: timelineEvents
+    };
 
     const investigatorView = buildInvestigatorView({
       question: query,
