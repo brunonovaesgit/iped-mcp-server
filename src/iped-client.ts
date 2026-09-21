@@ -724,17 +724,23 @@ export class IpedClient {
     >();
 
     for (const reference of initialSearch.matches) {
-      const [item, entities, participants] = await Promise.all([
-        this.getEvidence(reference.sourceId, reference.itemId),
-        this.getEvidenceEntities(
+      const item = await this.getEvidence(
+        reference.sourceId,
+        reference.itemId
+      );
+
+      const entities = this.evidenceEntitiesFromProperties(
+        reference.sourceId,
+        reference.itemId,
+        item.properties
+      );
+
+      const participants =
+        this.communicationParticipantsFromProperties(
           reference.sourceId,
-          reference.itemId
-        ),
-        this.getCommunicationParticipants(
-          reference.sourceId,
-          reference.itemId
-        )
-      ]);
+          reference.itemId,
+          item.properties
+        );
 
       evidence.push({
         sourceId: reference.sourceId,
