@@ -52,6 +52,83 @@ export function registerCaseTools(
   );
 
   server.tool(
+    "begin_investigation",
+    "Start a forensic investigation from a natural-language question. When IPED exposes one source it is selected automatically; when several sources exist the client receives a simple selection state instead of requiring a sourceId.",
+    {
+      question: z.string().min(1),
+      sourceId: z.string().optional()
+    },
+    async ({ question, sourceId }) => {
+      if (!investigations) {
+        throw new Error("Investigation sessions are not available");
+      }
+
+      const context = await iped.getCaseContext(sourceId);
+      const sources = Array.isArray(context.sources)
+        ? context.sources
+        : [];
+      const availableSources = sources.flatMap(source => {
+        if (
+          !source ||
+          typeof source !== "object" ||
+          !("id" in source) ||
+          typeof source.id !== "string"
+        ) {
+          return [];
+        }
+
+        const label =
+          "name" in source && typeof source.name === "string"
+            ? source.name
+            : undefined;
+
+        return [{
+          id: source.id,
+          ...(label ? { label } : {})
+        }];
+      });
+      const selection = buildCaseSelection({
+        sources: availableSources,
+        requestedSourceId: sourceId
+      });
+
+      if (selection.status !== "SOURCE_SELECTED") {
+        await audit.write("begin_investigation_needs_source", {
+          question,
+          requestedSourceId: sourceId,
+          sourceSelectionStatus: selection.status,
+          sourceCount: availableSources.length
+        });
+
+        return toolResult({
+          status: "SOURCE_SELECTION_REQUIRED",
+          question,
+          sourceSelection: selection
+        });
+      }
+
+      const session = investigations.start(
+        question,
+        selection.selectedSourceId
+      );
+
+      await audit.write("begin_investigation", {
+        investigationId: session.id,
+        question,
+        sourceId: session.sourceId
+      });
+
+      return toolResult({
+        status: "INVESTIGATION_STARTED",
+        investigationId: session.id,
+        question: session.question,
+        sourceId: session.sourceId,
+        nextAction: "INVESTIGATE_QUESTION"
+      });
+    }
+  );
+
+  server.tool(
     "get_investigator_home",
     "Return a simple investigator-facing entry state for the current IPED environment. It hides MCP and IPED API details and tells the client whether investigation can start.",
     {
