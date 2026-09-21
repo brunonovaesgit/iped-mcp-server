@@ -8,6 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
+    "investigator": "node dist/investigator-http.js",
+    "investigator:dev": "tsx src/investigator-http.ts",
     "check": "npm run build --silent && node dist/check.js",
     "test": "npm run build --silent && node --test test/*.test.mjs"
   },
