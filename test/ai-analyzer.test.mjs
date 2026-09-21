@@ -272,8 +272,8 @@ test("accepts structured atomic findings and preserves evidence references", asy
               kind: "FACT",
               evidence: ["case-a:1"]
             }],
-            limitations: [],
-            nextSteps: []
+            limitations: ["Trecho limitado ao conteúdo fornecido."],
+            nextSteps: ["Examinar outras evidências relacionadas a Carlos."]
           })
         }
       }]
@@ -296,6 +296,8 @@ test("accepts structured atomic findings and preserves evidence references", asy
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].kind, "FACT");
     assert.deepEqual(result.findings[0].evidence, ["case-a:1"]);
+    assert.deepEqual(result.limitations, ["Trecho limitado ao conteúdo fornecido."]);
+    assert.deepEqual(result.nextSteps, ["Examinar outras evidências relacionadas a Carlos."]);
     assert.match(result.text, /\[case-a:1\]/);
   } finally {
     globalThis.fetch = originalFetch;
