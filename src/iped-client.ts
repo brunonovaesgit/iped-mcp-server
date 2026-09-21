@@ -348,7 +348,11 @@ export class IpedClient {
 
   async getEvidenceConnections(sourceId: string, itemId: number) {
     const origin = await this.getEvidence(sourceId, itemId);
-    const entities = await this.getEvidenceEntities(sourceId, itemId);
+    const entities = this.evidenceEntitiesFromProperties(
+      sourceId,
+      itemId,
+      origin.properties
+    );
 
     const connections = [];
 
