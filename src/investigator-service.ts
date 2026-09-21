@@ -223,6 +223,21 @@ export class InvestigatorService {
         }))
       : undefined;
 
+    if (aiAnalysis) {
+      await this.audit.write(
+        aiAnalysis.enabled
+          ? "ai_analysis_accepted"
+          : "ai_analysis_not_presented",
+        {
+          investigationId: session.id,
+          model: aiAnalysis.model,
+          reason: aiAnalysis.reason,
+          citedReferences: aiAnalysis.validation?.citedReferences,
+          evidenceCount: investigation.matchedEvidence.length
+        }
+      );
+    }
+
     await this.audit.write("begin_investigation", {
       investigationId: session.id,
       question,
