@@ -34,6 +34,10 @@ const investigatorHtml = `<!doctype html>
     .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.panel h2{margin-top:0;font-size:17px}
     .item{border-top:1px solid #edf0f3;padding:12px 0}.item:first-of-type{border-top:0}
     .meta{font-size:12px;color:#68727e}.lead{display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .graph{position:relative;min-height:360px;overflow:auto;border:1px solid #edf0f3;border-radius:8px;margin-top:12px}
+    .graph svg{display:block;min-width:620px}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}
+    .graph .node{cursor:pointer}.graph .node circle{fill:white;stroke:#52677b;stroke-width:2}.graph .node.evidence circle{stroke:#263b50}.graph .node.communication circle{stroke:#68727e}
+    .graph .edge{cursor:pointer}.graph .edge:hover{stroke-width:3}.graphDetail{margin-top:10px;padding:10px;background:#f7f9fb;border-radius:7px;font-size:12px}
     .empty{color:#7a8490;font-size:14px}.hidden{display:none}
     @media(max-width:800px){.summary{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}form{flex-direction:column}}
   </style>
@@ -59,7 +63,7 @@ const investigatorHtml = `<!doctype html>
     <div class="grid">
       <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
       <div class="panel"><h2>Pistas para aprofundar</h2><div id="leads"></div></div>
-      <div class="panel"><h2>Relações</h2><div id="relationships"></div></div>
+      <div class="panel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
       <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
     </div>
   </section>
@@ -80,10 +84,41 @@ function renderWorkspace(workspace){
   items("evidence",workspace.panels?.evidence,e=>'<div class="item"><b>'+escapeHtml(e.name||"Evidência")+'</b><div class="meta">'+escapeHtml(e.path||"")+' · item '+escapeHtml(e.itemId)+'</div></div>');
   items("leads",workspace.panels?.leads,l=>'<div class="item lead"><div><b>'+escapeHtml(l.value)+'</b><div class="meta">'+escapeHtml(l.type)+'</div></div>'+(l.status==="OPEN"?'<button type="button" class="leadButton" data-type="'+escapeHtml(l.type)+'" data-value="'+escapeHtml(l.value)+'">Explorar</button>':'<span class="meta">'+escapeHtml(l.status)+'</span>')+'</div>');
   document.querySelectorAll(".leadButton").forEach(button=>button.addEventListener("click",()=>exploreLead(button.dataset.type,button.dataset.value)));
-  const rel=workspace.panels?.relationships;
-  byId("relationships").innerHTML=rel?'<div class="meta">'+escapeHtml(rel.summary?.nodeCount??0)+' nós · '+escapeHtml(rel.summary?.edgeCount??0)+' relações observadas</div>':'<div class="empty">Nenhuma relação para exibir.</div>';
+  renderGraph(workspace.panels?.relationships);
   items("timeline",workspace.panels?.timeline,t=>'<div class="item"><b>'+escapeHtml(t.label||t.name||"Evento")+'</b><div class="meta">'+escapeHtml(t.timestamp||t.date||"")+'</div></div>');
   byId("status").textContent=workspace.status?.message||"Investigação atualizada.";
+}
+function renderGraph(graph){
+  const target=byId("relationships"),detail=byId("relationshipDetail");
+  detail.innerHTML="";
+  if(!graph?.nodes?.length){target.innerHTML='<div class="empty">Nenhuma relação para exibir.</div>';return}
+  const width=620,height=Math.max(360,Math.ceil(graph.nodes.length/8)*130);
+  const centerX=width/2,centerY=height/2,radius=Math.min(width,height)*.36;
+  const positions=new Map();
+  graph.nodes.forEach((node,index)=>{
+    const angle=(Math.PI*2*index)/graph.nodes.length-Math.PI/2;
+    positions.set(node.id,{x:centerX+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius});
+  });
+  const edges=(graph.edges||[]).map(edge=>{
+    const a=positions.get(edge.from),b=positions.get(edge.to);if(!a||!b)return"";
+    return '<line class="edge" data-edge="'+escapeHtml(edge.id)+'" x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'"></line>';
+  }).join("");
+  const nodes=graph.nodes.map(node=>{
+    const p=positions.get(node.id),kind=node.kind==="EVIDENCE"?"evidence":node.kind==="COMMUNICATION_PARTICIPANT"?"communication":"entity";
+    const label=String(node.label||"").slice(0,24);
+    return '<g class="node '+kind+'" data-node="'+escapeHtml(node.id)+'" transform="translate('+p.x+' '+p.y+')"><circle r="15"></circle><text x="20" y="4">'+escapeHtml(label)+'</text></g>';
+  }).join("");
+  target.innerHTML='<div class="meta">'+escapeHtml(graph.summary?.nodeCount??graph.nodes.length)+' nós · '+escapeHtml(graph.summary?.edgeCount??graph.edges?.length??0)+' relações observadas</div><div class="graph"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'">'+edges+nodes+'</svg></div>';
+  target.querySelectorAll(".node").forEach(el=>el.addEventListener("click",()=>{
+    const node=graph.nodes.find(n=>n.id===el.dataset.node);if(!node)return;
+    const supporting=(graph.edges||[]).filter(e=>e.from===node.id||e.to===node.id).flatMap(e=>e.evidence||[]);
+    const unique=[...new Map(supporting.map(e=>[e.sourceId+":"+e.itemId,e])).values()];
+    detail.innerHTML='<div class="graphDetail"><b>'+escapeHtml(node.label)+'</b><div class="meta">'+escapeHtml(node.kind)+(node.entityType?" · "+escapeHtml(node.entityType):"")+'</div><div>'+unique.length+' evidência(s) de suporte</div></div>';
+  }));
+  target.querySelectorAll(".edge").forEach(el=>el.addEventListener("click",()=>{
+    const edge=(graph.edges||[]).find(e=>e.id===el.dataset.edge);if(!edge)return;
+    detail.innerHTML='<div class="graphDetail"><b>'+escapeHtml(edge.relationship)+'</b><div>'+escapeHtml(edge.interpretation||"Relação observada nas evidências.")+'</div><div class="meta">'+(edge.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>';
+  }));
 }
 async function loadHome(){
   try{
