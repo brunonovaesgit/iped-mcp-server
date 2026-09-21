@@ -200,6 +200,46 @@ export class InvestigationSessions {
     return state.sourceId ?? requestedSourceId;
   }
 
+  progress(id: string) {
+    const state = this.sessions.get(id);
+
+    if (!state) {
+      throw new Error(`Unknown investigation session: ${id}`);
+    }
+
+    const expansion = this.shouldExpand(id);
+    const openLeads = state.leads.filter(lead => lead.status === "OPEN");
+
+    if (!expansion.expand) {
+      return {
+        status: "STOP" as const,
+        reason: expansion.reason,
+        evidenceCount: state.evidence.length,
+        openLeadCount: openLeads.length,
+        expansions: state.expansions
+      };
+    }
+
+    if (openLeads.length === 0) {
+      return {
+        status: "STOP" as const,
+        reason: "NO_OPEN_LEADS" as const,
+        evidenceCount: state.evidence.length,
+        openLeadCount: 0,
+        expansions: state.expansions
+      };
+    }
+
+    return {
+      status: "CONTINUE" as const,
+      reason: "OPEN_LEAD_AVAILABLE" as const,
+      evidenceCount: state.evidence.length,
+      openLeadCount: openLeads.length,
+      expansions: state.expansions,
+      nextLead: structuredClone(openLeads[0])
+    };
+  }
+
   shouldExpand(
     id: string,
     options: {
