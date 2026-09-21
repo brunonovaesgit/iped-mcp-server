@@ -393,4 +393,38 @@ export class InvestigatorService {
     };
   }
 
+  async evidence(sourceId: string, itemId: number) {
+    const [metadata, text] = await Promise.all([
+      this.iped.getEvidence(sourceId, itemId),
+      this.iped.getText(sourceId, itemId).catch(() => undefined)
+    ]);
+
+    await this.audit.write("open_investigator_evidence", {
+      sourceId,
+      itemId,
+      textAvailable: Boolean(text)
+    });
+
+    const properties = Object.entries(metadata.properties)
+      .filter(([, values]) => values?.length)
+      .map(([name, values]) => ({ name, values }));
+
+    return {
+      reference: { sourceId, itemId },
+      name:
+        metadata.properties.name?.[0] ??
+        metadata.properties.Name?.[0] ??
+        `Item ${itemId}`,
+      path:
+        metadata.properties.path?.[0] ??
+        metadata.properties.Path?.[0],
+      hash: metadata.properties.hash?.[0],
+      bookmarks: metadata.bookmarks,
+      selected: metadata.selected,
+      text: text?.text,
+      textTruncated: text?.truncated ?? false,
+      properties
+    };
+  }
+
 }
