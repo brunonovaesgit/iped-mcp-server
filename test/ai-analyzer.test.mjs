@@ -109,7 +109,7 @@ test("bounds evidence text before sending it to a local model", async () => {
   globalThis.fetch = async (_url, options) => {
     body = JSON.parse(options.body);
     return providerResponse(structured([{
-      statement: "repetido.",
+      statement: "evidence.",
       kind: "FACT",
       evidence: ["case-a:1"]
     }]));
@@ -126,7 +126,7 @@ test("bounds evidence text before sending it to a local model", async () => {
       evidence: Array.from({ length: 10 }, (_, index) => ({
         sourceId: "case-a",
         itemId: index + 1,
-        text: "conteúdo repetido ".repeat(400)
+        text: "evidence ".repeat(1000)
       }))
     });
 
