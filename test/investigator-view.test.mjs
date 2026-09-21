@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildInvestigatorHome,
   buildInvestigatorView,
   enrichInvestigatorView
 } from "../dist/investigator-view.js";
@@ -121,4 +122,45 @@ test("adds evidence-backed open leads and progress to the investigator view", ()
     { sourceId: "case-a", itemId: 10 }
   ]);
   assert.equal(view.sections.progress.status, "CONTINUE");
+});
+
+
+test("builds a simple ready state for an investigator", () => {
+  const home = buildInvestigatorHome({
+    caseAvailable: true,
+    sourceId: "case-a"
+  });
+
+  assert.equal(home.status, "READY");
+  assert.equal(home.primaryAction, "START_INVESTIGATION");
+  assert.ok(home.suggestedQuestions.length > 0);
+});
+
+test("continues an active investigation without exposing MCP operations", () => {
+  const home = buildInvestigatorHome({
+    caseAvailable: true,
+    sourceId: "case-a",
+    activeInvestigation: {
+      id: "investigation-1",
+      question: "Investigate Carlos Almeida",
+      focus: "person@example.test",
+      evidenceCount: 8,
+      openLeadCount: 2,
+      status: "CONTINUE"
+    }
+  });
+
+  assert.equal(home.primaryAction, "CONTINUE_INVESTIGATION");
+  assert.equal(home.activeInvestigation.openLeadCount, 2);
+  assert.equal("tool" in home, false);
+  assert.equal("sourceId" in home.activeInvestigation, false);
+});
+
+test("shows a clear unavailable state when IPED cannot be reached", () => {
+  const home = buildInvestigatorHome({
+    caseAvailable: false
+  });
+
+  assert.equal(home.status, "IPED_NOT_AVAILABLE");
+  assert.equal(home.suggestedQuestions.length, 0);
 });
