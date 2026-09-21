@@ -5,7 +5,7 @@ import { toolResult } from "../tool-context.js";
 
 export function registerCommunicationTools(
   server: McpServer,
-  { iped, audit }: ToolContext
+  { iped, audit, investigations }: ToolContext
 ): void {
   server.tool(
     "get_communication_participants",
@@ -77,9 +77,10 @@ export function registerCommunicationTools(
     {
       query: z.string().min(1),
       sourceId: z.string().optional(),
-      limit: z.number().int().positive().max(100).optional()
+      limit: z.number().int().positive().max(100).optional(),
+      investigationId: z.string().uuid().optional()
     },
-    async ({ query, sourceId, limit }) => {
+    async ({ query, sourceId, limit, investigationId }) => {
       try {
         const investigation = await iped.investigateCommunications(
           query,
@@ -87,7 +88,19 @@ export function registerCommunicationTools(
           limit
         );
 
+        if (investigationId) {
+          if (!investigations) {
+            throw new Error("Investigation context is not available");
+          }
+
+          investigations.record(investigationId, {
+            query,
+            evidence: investigation.matchedEvidence
+          });
+        }
+
         await audit.write("investigate_communications", {
+          investigationId,
           query,
           sourceId,
           matchedEvidence: investigation.matchedEvidence,
@@ -100,6 +113,7 @@ export function registerCommunicationTools(
         return toolResult(investigation);
       } catch (error) {
         await audit.write("investigate_communications_failed", {
+          investigationId,
           query,
           sourceId,
           error: error instanceof Error ? error.message : String(error)
