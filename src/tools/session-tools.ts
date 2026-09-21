@@ -2,12 +2,18 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AuditLog } from "../audit-log.js";
 import type { InvestigationSessions } from "../investigation-sessions.js";
+import type { IpedClient } from "../iped-client.js";
+import {
+  buildInvestigationResultState,
+  enrichInvestigatorView
+} from "../investigator-view.js";
 import { toolResult } from "../tool-context.js";
 
 export function registerSessionTools(
   server: McpServer,
   sessions: InvestigationSessions,
-  audit: AuditLog
+  audit: AuditLog,
+  iped?: IpedClient
 ): void {
   server.tool(
     "start_investigation",
@@ -38,20 +44,82 @@ export function registerSessionTools(
       focus: z.string().min(1).optional()
     },
     async ({ investigationId, question, focus }) => {
+      const current = sessions.get(investigationId);
+
+      if (!current) {
+        throw new Error(
+          `Unknown investigation session: ${investigationId}`
+        );
+      }
+
+      if (!iped) {
+        const session = sessions.record(investigationId, {
+          followUp: question,
+          focus: focus ?? question
+        });
+
+        return toolResult(session);
+      }
+
+      const investigation = await iped.investigateEvidence(
+        question,
+        current.sourceId
+      );
       const session = sessions.record(investigationId, {
         followUp: question,
-        focus: focus ?? question
+        focus: focus ?? question,
+        query: question,
+        evidence: investigation.matchedEvidence.map(item => ({
+          sourceId: item.sourceId,
+          itemId: item.itemId
+        })),
+        leads: [
+          ...investigation.recurringEntities.map(entity => ({
+            type: entity.type,
+            value: entity.value,
+            evidence: entity.evidence
+          })),
+          ...investigation.recurringCommunicationParticipants.map(
+            participant => ({
+              type: "COMMUNICATION_PARTICIPANT",
+              value: participant.value,
+              evidence: participant.evidence
+            })
+          )
+        ]
       });
+      const progress = sessions.progress(investigationId);
+      const investigatorView = enrichInvestigatorView(
+        investigation.investigatorView,
+        {
+          leads: session.leads,
+          progress
+        }
+      );
 
       await audit.write("continue_investigation", {
         investigationId,
         question,
         focus: session.focus,
         evidenceCount: session.evidence.length,
-        queryCount: session.queries.length
+        queryCount: session.queries.length,
+        matchedEvidenceCount: investigation.matchedEvidence.length
       });
 
-      return toolResult(session);
+      return toolResult({
+        status: "INVESTIGATION_UPDATED",
+        investigationId,
+        question,
+        focus: session.focus,
+        resultState: buildInvestigationResultState({
+          evidenceCount: investigation.matchedEvidence.length,
+          openLeadCount: session.leads.filter(
+            lead => lead.status === "OPEN"
+          ).length,
+          progress
+        }),
+        investigatorView
+      });
     }
   );
 
