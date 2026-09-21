@@ -11,7 +11,8 @@
     "investigator": "node dist/investigator-http.js",
     "investigator:dev": "tsx src/investigator-http.ts",
     "check": "npm run build --silent && node dist/check.js",
-    "test": "npm run build --silent && node --test test/*.test.mjs"
+    "test": "npm run build --silent && node --test test/*.test.mjs",
+    "preinvestigator": "npm run build --silent"
   },
   "engines": {
     "node": ">=20"
