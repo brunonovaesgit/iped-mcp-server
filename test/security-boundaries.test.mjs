@@ -85,3 +85,25 @@ test("server does not expose IPED bookmark or selection mutation tools", async (
     );
   }
 });
+
+
+test("relationship outputs are explicitly observational rather than proof", async () => {
+  const clientSource = await readFile(
+    new URL("../src/iped-client.ts", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(clientSource, /relationship: "SHARED_INDEXED_VALUE"/);
+  assert.match(
+    clientSource,
+    /This is an investigative lead, not proof of a real-world relationship/
+  );
+  assert.match(
+    clientSource,
+    /relationship: "SHARED_COMMUNICATION_PARTICIPANT"/
+  );
+  assert.match(
+    clientSource,
+    /does not establish real-world identity or relationship/
+  );
+});
