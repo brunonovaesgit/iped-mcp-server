@@ -4,12 +4,18 @@ import { getConfig } from "./config.js";
 import { IpedClient } from "./iped-client.js";
 import { InvestigatorService } from "./investigator-service.js";
 import { InvestigationSessions } from "./investigation-sessions.js";
+import { createAiAnalyzer } from "./ai-analyzer.js";
 
 const config = getConfig();
 const audit = new AuditLog(config.auditLog);
 const iped = new IpedClient(config);
 const investigations = new InvestigationSessions();
-const investigator = new InvestigatorService(iped, investigations, audit);
+const ai = createAiAnalyzer({
+  baseUrl: config.aiBaseUrl,
+  model: config.aiModel,
+  apiKey: config.aiApiKey
+});
+const investigator = new InvestigatorService(iped, investigations, audit, ai);
 const port = Number(process.env.INVESTIGATOR_PORT ?? 3333);
 
 const investigatorHtml = `<!doctype html>
@@ -66,6 +72,7 @@ const investigatorHtml = `<!doctype html>
       <button>Continuar investigação</button>
     </form>
     <div class="analysis" id="analysis"></div>
+    <div class="analysis hidden" id="aiAnalysis"></div>
     <div class="summary" id="summary"></div>
     <div class="grid">
       <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
@@ -99,6 +106,15 @@ function items(target,values,render){
 function renderWorkspace(workspace){
   activeInvestigationId=workspace.investigationId;
   byId("workspace").classList.remove("hidden");
+  const aiAnalysis=workspace.aiAnalysis;
+  const aiTarget=byId("aiAnalysis");
+  if(aiAnalysis?.enabled&&aiAnalysis.text){
+    aiTarget.classList.remove("hidden");
+    aiTarget.innerHTML='<h2>Análise assistida por IA</h2><div class="evidenceText">'+escapeHtml(aiAnalysis.text)+'</div><p class="meta">Análise derivada · modelo '+escapeHtml(aiAnalysis.model||"configurado")+' · valide os achados nas evidências abaixo.</p>';
+  }else{
+    aiTarget.classList.add("hidden");
+    aiTarget.innerHTML="";
+  }
   const analysis=workspace.analysis||{};
   const observations=(analysis.observations||[]).map(item=>'<div class="observation">'+escapeHtml(item.text)+'<div class="meta">'+(item.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>').join("");
   byId("analysis").innerHTML='<h2>Síntese da investigação</h2><p>'+escapeHtml(analysis.headline||"")+'</p>'+observations+(analysis.communication?'<p>'+escapeHtml(analysis.communication)+'</p>':"")+(analysis.limitation?'<p class="meta">'+escapeHtml(analysis.limitation)+'</p>':"");
