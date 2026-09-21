@@ -157,7 +157,14 @@ async function openEvidence(sourceId,itemId){
     const evidence=await response.json();
     byId("evidenceTitle").textContent=evidence.name||("Item "+itemId);
     byId("evidenceMeta").textContent=(evidence.path||"")+" · "+sourceId+":"+itemId+(evidence.hash?" · hash "+evidence.hash:"");
-    byId("evidenceText").innerHTML=evidence.text?'<div class="evidenceText">'+escapeHtml(evidence.text)+'</div>'+(evidence.textTruncated?'<div class="meta">Texto limitado para visualização.</div>'):'<div class="empty">Texto extraído não disponível.</div>';
+    let evidenceTextHtml='<div class="empty">Texto extraído não disponível.</div>';
+    if(evidence.text){
+      evidenceTextHtml='<div class="evidenceText">'+escapeHtml(evidence.text)+'</div>';
+      if(evidence.textTruncated){
+        evidenceTextHtml+='<div class="meta">Texto limitado para visualização.</div>';
+      }
+    }
+    byId("evidenceText").innerHTML=evidenceTextHtml;
     byId("evidenceProperties").innerHTML=(evidence.properties||[]).map(p=>'<div class="property"><b>'+escapeHtml(p.name)+'</b><div class="meta">'+escapeHtml((p.values||[]).join(" · "))+'</div></div>').join("");
   }catch{byId("evidenceTitle").textContent="Evidência";byId("evidenceText").innerHTML='<div class="empty">Não foi possível carregar esta evidência.</div>'}
 }
