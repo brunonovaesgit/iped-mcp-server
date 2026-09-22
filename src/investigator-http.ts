@@ -229,13 +229,21 @@ async function loadHome(){
 byId("sourceSelect").addEventListener("change",loadHome);
 async function updateInvestigation(path,payload){
   if(!activeInvestigationId)return;
-  byId("status").textContent="Analisando evidências...";
+  const leadButtons=[...document.querySelectorAll(".leadButton")];
+  const followUpButton=byId("followUpForm")?.querySelector("button");
+  leadButtons.forEach(button=>{button.disabled=true;if(path==="/leads")button.textContent="Analisando...";});
+  if(followUpButton)followUpButton.disabled=true;
+  byId("status").textContent="Analisando evidências com IA. Isso pode levar alguns segundos...";
   try{
     const response=await fetch("/api/investigations/"+encodeURIComponent(activeInvestigationId)+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
     const result=await response.json();
     if(result.workspace)renderWorkspace(result.workspace);
     else byId("status").textContent=result.error||result.reason||"A investigação não pôde avançar.";
   }catch{byId("status").textContent="Não foi possível continuar a investigação."}
+  finally{
+    leadButtons.forEach(button=>{button.disabled=false;if(path==="/leads")button.textContent="Explorar";});
+    if(followUpButton)followUpButton.disabled=false;
+  }
 }
 async function exploreLead(leadType,leadValue){
   await updateInvestigation("/leads",{leadType,leadValue});
