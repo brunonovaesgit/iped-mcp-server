@@ -70,6 +70,7 @@ test("sends hostile evidence as untrusted data and never as instructions", async
     assert.match(body.messages[0].content, /return an empty findings array/);
     assert.match(body.messages[0].content, /Do not generate investigative next steps/);
     assert.match(body.messages[0].content, /Copy evidence references exactly/);
+    assert.equal(body.max_tokens, 1400);
     assert.equal(body.response_format.type, "json_schema");
     assert.equal(body.response_format.json_schema.name, "forensic_analysis");
     assert.equal(body.response_format.json_schema.strict, true);
