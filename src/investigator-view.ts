@@ -98,19 +98,35 @@ export function buildInvestigatorView(input: {
 }
 
 
-function buildObservedInconsistencies(leads: Array<{
-  type: string;
-  value: string;
-  evidence: EvidenceReference[];
-}>) {
-  const money = leads.filter(lead => lead.type === "MONEY" && lead.evidence.length > 0);
-  const distinct = [...new Map(money.map(lead => [lead.value, lead])).values()];
+function buildObservedInconsistencies(relationships: InvestigationGraphView) {
+  const moneyNodes = relationships.nodes.filter(
+    node => node.kind === "ENTITY" && node.entityType === "MONEY"
+  );
+
+  const observed = moneyNodes.map(node => {
+    const evidence = new Map<string, EvidenceReference>();
+    for (const edge of relationships.edges) {
+      if (
+        edge.relationship !== "OBSERVED_IN_EVIDENCE" ||
+        (edge.from !== node.id && edge.to !== node.id)
+      ) {
+        continue;
+      }
+      for (const reference of edge.evidence) {
+        evidence.set(`${reference.sourceId}:${reference.itemId}`, reference);
+      }
+    }
+    return { value: node.label, evidence: [...evidence.values()] };
+  }).filter(item => item.evidence.length > 0);
+
+  const distinct = [...new Map(observed.map(item => [item.value, item])).values()];
   if (distinct.length < 2) return [];
+
   return [{
     classification: "OBSERVED_INCONSISTENCY" as const,
     type: "MONEY",
     description: `Foram observados ${distinct.length} valores monetários distintos nas evidências recuperadas: ${distinct.map(item => item.value).join(", ")}. A divergência deve ser verificada nas evidências; o sistema não infere qual valor é correto.`,
-    values: distinct.map(item => ({ value: item.value, evidence: item.evidence }))
+    values: distinct
   }];
 }
 
@@ -191,7 +207,7 @@ export function buildInvestigationWorkspace(input: {
       leads: input.view.sections.leads
     }),
     panels: {
-      inconsistencies: buildObservedInconsistencies(input.view.sections.leads),
+      inconsistencies: buildObservedInconsistencies(input.view.sections.relationships),
       findings: input.view.sections.leads
         .filter(lead => lead.evidence.length > 0)
         .map(lead => ({
