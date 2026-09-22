@@ -98,7 +98,7 @@ export function buildInvestigatorView(input: {
 }
 
 
-function buildGroundedSummary(input: {
+function buildObservedInconsistencies(leads: Array<{\n  type: string;\n  value: string;\n  evidence: EvidenceReference[];\n}>) {\n  const money = leads.filter(lead => lead.type === "MONEY" && lead.evidence.length > 0);\n  const distinct = [...new Map(money.map(lead => [lead.value, lead])).values()];\n  if (distinct.length < 2) return [];\n  return [{\n    classification: "OBSERVED_INCONSISTENCY" as const,\n    type: "MONEY",\n    description: `Foram observados ${distinct.length} valores monetários distintos nas evidências recuperadas: ${distinct.map(item => item.value).join(", ")}. A divergência deve ser verificada nas evidências; o sistema não infere qual valor é correto.`,\n    values: distinct.map(item => ({ value: item.value, evidence: item.evidence }))\n  }];\n}\n\nfunction buildGroundedSummary(input: {
   evidenceCount: number;
   entityCount: number;
   relationshipCount: number;
