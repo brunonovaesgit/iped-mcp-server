@@ -72,7 +72,7 @@ const investigatorHtml = `<!doctype html>
       <button>Continuar investigação</button>
     </form>
     <div class="analysis" id="analysis"></div>
-    <div class="analysis hidden" id="aiAnalysis"></div>
+    <div class="analysis hidden" id="inconsistencies"></div>\n      <div class="analysis hidden" id="aiAnalysis"></div>
     <div class="summary" id="summary"></div>
     <div class="grid">
       <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
@@ -127,6 +127,17 @@ function renderWorkspace(workspace){
   }else{
     aiTarget.classList.add("hidden");
     aiTarget.innerHTML="";
+  }
+  const inconsistencies=workspace.panels?.inconsistencies||[];
+  const inconsistencyTarget=byId("inconsistencies");
+  if(inconsistencyTarget){
+    if(inconsistencies.length){
+      inconsistencyTarget.classList.remove("hidden");
+      inconsistencyTarget.innerHTML='<h2>Inconsistências observadas</h2>'+inconsistencies.map(item=>'<div class="observation"><strong>'+escapeHtml(item.type)+'</strong> · '+escapeHtml(item.description)+'</div>').join("");
+    }else{
+      inconsistencyTarget.classList.add("hidden");
+      inconsistencyTarget.innerHTML="";
+    }
   }
   const analysis=workspace.analysis||{};
   const observations=(analysis.observations||[]).map(item=>'<div class="observation">'+escapeHtml(item.text)+'<div class="meta">'+(item.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>').join("");
