@@ -191,6 +191,7 @@ export function buildInvestigationWorkspace(input: {
       leads: input.view.sections.leads
     }),
     panels: {
+      inconsistencies: buildObservedInconsistencies(input.view.sections.leads),
       findings: input.view.sections.leads
         .filter(lead => lead.evidence.length > 0)
         .map(lead => ({
