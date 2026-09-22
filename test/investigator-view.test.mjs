@@ -418,3 +418,36 @@ test("keeps the complete investigator workspace grounded and reviewable", () => 
   assert.equal("conclusion" in workspace, false);
   assert.equal("guilt" in workspace, false);
 });
+
+
+test("surfaces distinct observed money values as a reviewable inconsistency", () => {
+  const evidence = [
+    { sourceId: "case-a", itemId: 1 },
+    { sourceId: "case-a", itemId: 2 },
+    { sourceId: "case-a", itemId: 3 }
+  ];
+  const base = buildInvestigatorView({
+    question: "Investigue Carlos",
+    evidence,
+    graphView: buildInvestigationGraphView(buildInvestigationGraph({
+      evidence,
+      entities: [], communicationParticipants: [], duplicateEvidence: []
+    }))
+  });
+  const view = enrichInvestigatorView(base, {
+    leads: [
+      { type: "MONEY", value: "18.750,00", evidence: [{ sourceId: "case-a", itemId: 1 }, { sourceId: "case-a", itemId: 2 }], status: "EXPLORED" },
+      { type: "MONEY", value: "17.850,00", evidence: [{ sourceId: "case-a", itemId: 3 }], status: "EXPLORED" }
+    ],
+    progress: { status: "STOP", reason: "NO_OPEN_LEADS", evidenceCount: 3, openLeadCount: 0, expansions: 1 }
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "investigation-money", question: "Investigue Carlos", sourceId: "case-a", view,
+    resultState: buildInvestigationResultState({ evidenceCount: 3, openLeadCount: 0, progress: view.sections.progress })
+  });
+  assert.equal(workspace.panels.inconsistencies.length, 1);
+  assert.equal(workspace.panels.inconsistencies[0].classification, "OBSERVED_INCONSISTENCY");
+  assert.deepEqual(workspace.panels.inconsistencies[0].values.map(item => item.value), ["18.750,00", "17.850,00"]);
+  assert.match(workspace.panels.inconsistencies[0].description, /não infere qual valor é correto/);
+  assert.deepEqual(workspace.panels.inconsistencies[0].values[1].evidence, [{ sourceId: "case-a", itemId: 3 }]);
+});
