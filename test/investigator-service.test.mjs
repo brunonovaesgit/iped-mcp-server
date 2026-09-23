@@ -191,7 +191,16 @@ test("lead expansion excludes same-value evidence without established context", 
         ? makeInvestigation(query, expandedEvidence)
         : makeInvestigation(query, initialEvidence);
     }
-  };
+,
+    async getEvidenceEntities(sourceId, itemId) {
+      const item = [initialEvidence, expansionEvidence].flat().find(
+        candidate => candidate.sourceId === sourceId && candidate.itemId === itemId
+      );
+      return { entities: item?.entities ?? [] };
+    },
+    async getCommunicationParticipants() {
+      return { from: [], to: [] };
+    }  };
 
   const audit = new AuditLog();
   const sessions = new InvestigationSessions();
