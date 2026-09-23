@@ -448,11 +448,11 @@ test("surfaces distinct MONEY graph values as a neutral reviewable variation eve
     resultState: buildInvestigationResultState({ evidenceCount: 3, openLeadCount: 0, progress: view.sections.progress })
   });
   assert.equal(workspace.panels.leads.length, 1);
-  assert.equal(workspace.panels.inconsistencies.length, 1);
-  assert.equal(workspace.panels.inconsistencies[0].classification, "OBSERVED_VALUE_VARIATION");
-  assert.match(workspace.panels.inconsistencies[0].description, /não demonstram inconsistência/);
-  assert.deepEqual(workspace.panels.inconsistencies[0].values.map(item => item.value), ["18.750,00", "17.850,00"]);
-  assert.deepEqual(workspace.panels.inconsistencies[0].values[1].evidence, [{ sourceId: "case-a", itemId: 3 }]);
+  assert.equal(workspace.panels.valueVariations.length, 1);
+  assert.equal(workspace.panels.valueVariations[0].classification, "OBSERVED_VALUE_VARIATION");
+  assert.match(workspace.panels.valueVariations[0].description, /não demonstram inconsistência/);
+  assert.deepEqual(workspace.panels.valueVariations[0].values.map(item => item.value), ["18.750,00", "17.850,00"]);
+  assert.deepEqual(workspace.panels.valueVariations[0].values[1].evidence, [{ sourceId: "case-a", itemId: 3 }]);
 });
 
 
@@ -488,8 +488,8 @@ test("MVP acceptance: examiner workspace remains evidence-grounded and uses neut
   assert.equal(workspace.status.status, "READY_TO_EXPLORE");
   assert.equal(workspace.panels.evidence.length, 3);
   assert.ok(workspace.panels.relationships.edges.every(edge => edge.evidence.length > 0));
-  assert.equal(workspace.panels.inconsistencies[0].classification, "OBSERVED_VALUE_VARIATION");
-  assert.match(workspace.panels.inconsistencies[0].description, /não demonstram inconsistência/);
+  assert.equal(workspace.panels.valueVariations[0].classification, "OBSERVED_VALUE_VARIATION");
+  assert.match(workspace.panels.valueVariations[0].description, /não demonstram inconsistência/);
   assert.equal("conclusion" in workspace, false);
   assert.equal("guilt" in workspace, false);
 });
@@ -530,4 +530,44 @@ test("contextual view filtering removes relationships that point to rejected evi
     false
   );
   assert.equal(filtered.sections.relationships.summary.edgeCount, 0);
+});
+
+
+test("examiner workspace contract does not label neutral monetary variation as inconsistency", () => {
+  const evidence = [
+    { sourceId: "case-a", itemId: 1 },
+    { sourceId: "case-a", itemId: 2 }
+  ];
+  const graphView = buildInvestigationGraphView(buildInvestigationGraph({
+    evidence,
+    entities: [
+      { type: "MONEY", value: "10,00", evidence: [{ sourceId: "case-a", itemId: 1 }] },
+      { type: "MONEY", value: "20,00", evidence: [{ sourceId: "case-a", itemId: 2 }] }
+    ],
+    communicationParticipants: [],
+    duplicateEvidence: []
+  }));
+  const view = buildInvestigatorView({
+    question: "Analise os valores",
+    evidence,
+    graphView
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "terminology",
+    question: "Analise os valores",
+    sourceId: "case-a",
+    view,
+    resultState: buildInvestigationResultState({
+      evidenceCount: 2,
+      openLeadCount: 0,
+      progress: { status: "STOP", reason: "NO_OPEN_LEADS" }
+    })
+  });
+
+  assert.equal("inconsistencies" in workspace.panels, false);
+  assert.equal(workspace.panels.valueVariations.length, 1);
+  assert.equal(
+    workspace.panels.valueVariations[0].classification,
+    "OBSERVED_VALUE_VARIATION"
+  );
 });
