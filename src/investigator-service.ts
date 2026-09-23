@@ -546,21 +546,19 @@ export class InvestigatorService {
         continue;
       }
 
-      const item = await this.iped.getEvidence(
-        reference.sourceId,
-        reference.itemId
-      );
-      addContextFromItem({
-        entities: this.iped.evidenceEntitiesFromProperties(
+      const [entities, communication] = await Promise.all([
+        this.iped.getEvidenceEntities(
           reference.sourceId,
-          reference.itemId,
-          item.properties
-        ).entities,
-        communication: this.iped.communicationParticipantsFromProperties(
+          reference.itemId
+        ),
+        this.iped.getCommunicationParticipants(
           reference.sourceId,
-          reference.itemId,
-          item.properties
+          reference.itemId
         )
+      ]);
+      addContextFromItem({
+        entities: entities.entities,
+        communication
       });
     }
 
