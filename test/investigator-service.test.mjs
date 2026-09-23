@@ -576,8 +576,8 @@ test("correlation expansion keeps anchor context even when bounded search omits 
 
   assert.equal(expanded.status, "LEAD_EXPLORED");
   assert.deepEqual(
-    expanded.workspace.panels.evidence.map(item => item.itemId),
-    [3]
+    expanded.workspace.panels.evidence.map(item => item.itemId).sort(),
+    [1, 2, 3]
   );
   assert.equal(
     expanded.workspace.panels.evidence.some(item => item.itemId === 4),
