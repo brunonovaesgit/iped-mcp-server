@@ -77,7 +77,7 @@ const investigatorHtml = `<!doctype html>
     <div class="grid">
       <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
       <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
-      <div class="panel"><h2>Pistas para aprofundar</h2><div id="leads"></div></div>
+      <div class="panel"><h2>Valores e entidades correlacionáveis</h2><div id="leads"></div></div>
       <div class="panel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
       <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
     </div>
@@ -143,7 +143,7 @@ function renderWorkspace(workspace){
   const observations=(analysis.observations||[]).map(item=>'<div class="observation">'+escapeHtml(item.text)+'<div class="meta">'+(item.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>').join("");
   byId("analysis").innerHTML='<h2>Síntese da investigação</h2><p>'+escapeHtml(analysis.headline||"")+'</p>'+observations+(analysis.communication?'<p>'+escapeHtml(analysis.communication)+'</p>':"")+(analysis.limitation?'<p class="meta">'+escapeHtml(analysis.limitation)+'</p>':"");
   const s=workspace.summary||{};
-  const metrics=[["Evidências",s.evidenceCount],["Entidades",s.entityCount],["Relações",s.relationshipCount],["Comunicações",s.communicationParticipantCount],["Pistas abertas",s.openLeadCount]];
+  const metrics=[["Evidências",s.evidenceCount],["Entidades",s.entityCount],["Relações",s.relationshipCount],["Comunicações",s.communicationParticipantCount],["Correlações pendentes",s.openLeadCount]];
   byId("summary").innerHTML=metrics.map(([label,value])=>'<div class="metric"><b>'+escapeHtml(value??0)+'</b><span>'+label+'</span></div>').join("");
   items("findings",workspace.panels?.findings,f=>'<div class="item"><b>'+escapeHtml(f.value)+'</b><div class="meta">'+escapeHtml(f.type)+' · observado em '+escapeHtml(f.evidenceCount)+' evidência(s)</div><div class="meta">'+(f.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>');
     items("evidence",workspace.panels?.evidence,e=>'<div class="item"><button type="button" class="evidenceButton" data-source="'+escapeHtml(e.sourceId)+'" data-item="'+escapeHtml(e.itemId)+'">'+escapeHtml(e.name||"Evidência")+'</button><div class="meta">'+escapeHtml(e.path||"")+' · item '+escapeHtml(e.itemId)+'</div></div>');
