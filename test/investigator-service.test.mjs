@@ -221,6 +221,37 @@ test("lead expansion excludes same-value evidence without established context", 
 });
 
 
+test("repeated textual context never joins forensic fields across line boundaries", async () => {
+  const audit = new AuditLog();
+  const anchors = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "PROJETO ATLAS\n\nContratante: Carlos Almeida\nContratada: Orion Tecnologia Ltda", entities: [
+      { type: "MONEY", value: "18.750,00", searchQuery: 'Regex\\:MONEY:"18.750,00"' }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "PROJETO ATLAS\n\nContratante: Carlos Almeida\nContratada: Orion Tecnologia Ltda", entities: [
+      { type: "MONEY", value: "18.750,00", searchQuery: 'Regex\\:MONEY:"18.750,00"' }
+    ], communication: { from: [], to: [] } }
+  ];
+  const make = (question, evidence) => ({
+    matchedEvidence: evidence, matchedEvidenceTruncated: false,
+    matchedEvidenceAvailable: evidence.length,
+    recurringEntities: [{ type: "MONEY", value: "18.750,00", evidence: anchors.map(item => ({ sourceId: item.sourceId, itemId: item.itemId })) }],
+    recurringCommunicationParticipants: [], investigatorView: view(question, evidence)
+  });
+  const fakeIped = {
+    async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
+    async getEvidence(_sourceId, itemId) { return { sourceId: "case-1", itemId, properties: { "Regex:MONEY": ["18.750,00"] } }; },
+    async investigateEvidence(query) { return make(query, anchors); }
+  };
+  const service = new InvestigatorService(fakeIped, new InvestigationSessions(), audit);
+  const started = await service.begin("Carlos");
+  await service.exploreLead(started.workspace.investigationId, "MONEY", "18.750,00");
+  const diagnostic = [...audit.entries()].find(entry => entry.action === "context_correlation_diagnostics");
+  const phrases = diagnostic.extractedContext.filter(item => item.type === "TEXT_PHRASE").map(item => item.value);
+  assert.equal(phrases.some(value => value.includes("\n")), false);
+  assert.equal(phrases.includes("PROJETO ATLAS"), true);
+  assert.equal(phrases.includes("Orion Tecnologia Ltda"), true);
+});
+
 test("contextual expansion uses repeated anchor phrases when IPED has no structured project entity", async () => {
   const queries = [];
   const initial = [
