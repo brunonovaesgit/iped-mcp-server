@@ -218,3 +218,50 @@ test("lead expansion excludes same-value evidence without established context", 
   assert.equal(auditEntry.matchedEvidenceCount, 4);
   assert.equal(auditEntry.contextualEvidenceCount, 3);
 });
+
+
+test("explicit correlation selection never falls through to a different open correlation", async () => {
+  const evidence = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas Carlos", entities: [], communication: { from: [], to: [] } }
+  ];
+  const fakeIped = {
+    async getCaseContext() {
+      return { sources: [{ id: "case-1", name: "Caso" }] };
+    },
+    async investigateEvidence(query) {
+      return {
+        matchedEvidence: evidence,
+        recurringEntities: [
+          { type: "PROJECT", value: "Atlas", evidence: [{ sourceId: "case-1", itemId: 1 }] },
+          { type: "PERSON", value: "Carlos", evidence: [{ sourceId: "case-1", itemId: 1 }] }
+        ],
+        recurringCommunicationParticipants: [],
+        investigatorView: view(query, evidence)
+      };
+    }
+  };
+
+  const audit = new AuditLog();
+  const sessions = new InvestigationSessions();
+  const service = new InvestigatorService(fakeIped, sessions, audit);
+  const started = await service.begin("Investigue o caso");
+  const id = started.workspace.investigationId;
+
+  sessions.record(id, {
+    exploredLead: { type: "PROJECT", value: "Atlas" }
+  });
+
+  const result = await service.exploreLead(id, "PROJECT", "Atlas");
+
+  assert.equal(result.status, "CORRELATION_NOT_AVAILABLE");
+  assert.equal(result.reason, "REQUESTED_CORRELATION_IS_NOT_OPEN");
+  assert.equal(
+    sessions.get(id).leads.find(item => item.value === "Carlos").status,
+    "OPEN"
+  );
+  assert.ok(
+    audit.entries().some(
+      entry => entry.action === "explore_investigation_lead_not_available"
+    )
+  );
+});
