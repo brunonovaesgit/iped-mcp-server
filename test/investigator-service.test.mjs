@@ -221,6 +221,56 @@ test("lead expansion excludes same-value evidence without established context", 
 });
 
 
+test("contextual expansion enriches loaded anchors from authoritative IPED metadata", async () => {
+  const queries = [];
+  const initial = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "18.750", entities: [
+      { type: "MONEY", value: "18.750,00", searchQuery: 'Regex\\:MONEY:"18.750,00"' }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "18.750", entities: [
+      { type: "MONEY", value: "18.750,00", searchQuery: 'Regex\\:MONEY:"18.750,00"' }
+    ], communication: { from: [], to: [] } }
+  ];
+  const divergent = { sourceId: "case-1", itemId: 3, name: "divergent.txt", text: "Atlas 17.850", entities: [
+    { type: "PROJECT", value: "Atlas", searchQuery: 'Regex\\:PROJECT:"Atlas"' },
+    { type: "MONEY", value: "17.850,00", searchQuery: 'Regex\\:MONEY:"17.850,00"' }
+  ], communication: { from: [], to: [] } };
+  const make = (question, evidence) => ({
+    matchedEvidence: evidence,
+    matchedEvidenceTruncated: false,
+    matchedEvidenceAvailable: evidence.length,
+    recurringEntities: [{
+      type: "MONEY", value: "18.750,00",
+      evidence: initial.map(item => ({ sourceId: item.sourceId, itemId: item.itemId }))
+    }],
+    recurringCommunicationParticipants: [],
+    investigatorView: view(question, evidence)
+  });
+  const fakeIped = {
+    async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
+    async getEvidence(_sourceId, itemId) {
+      return { sourceId: "case-1", itemId, properties: {
+        name: [itemId === 1 ? "a.txt" : "b.txt"],
+        "Regex:MONEY": ["18.750,00"],
+        "Regex:PROJECT": ["Atlas"]
+      }};
+    },
+    async investigateEvidence(query) {
+      queries.push(query);
+      if (query === 'Regex\\:PROJECT:"Atlas"') return make(query, [divergent]);
+      return make(query, initial);
+    }
+  };
+  const service = new InvestigatorService(fakeIped, new InvestigationSessions(), new AuditLog());
+  const started = await service.begin("Carlos");
+  const expanded = await service.exploreLead(started.workspace.investigationId, "MONEY", "18.750,00");
+  assert.equal(queries.includes('Regex\\:PROJECT:"Atlas"'), true);
+  assert.deepEqual(
+    expanded.workspace.panels.evidence.map(item => item.itemId).sort(),
+    [1, 2, 3]
+  );
+});
+
 test("contextual expansion preserves the exact IPED searchQuery supplied by indexed evidence", async () => {
   const queries = [];
   const initial = [
@@ -526,8 +576,8 @@ test("correlation expansion keeps anchor context even when bounded search omits 
 
   assert.equal(expanded.status, "LEAD_EXPLORED");
   assert.deepEqual(
-    expanded.workspace.panels.evidence.map(item => item.itemId),
-    [3]
+    expanded.workspace.panels.evidence.map(item => item.itemId).sort(),
+    [1, 2, 3]
   );
   assert.equal(
     expanded.workspace.panels.evidence.some(item => item.itemId === 4),
@@ -618,8 +668,8 @@ test("MVP acceptance: contextual expansion preserves provenance and excludes sam
 
   assert.equal(expanded.status, "LEAD_EXPLORED");
   assert.deepEqual(
-    expanded.workspace.panels.evidence.map(item => item.itemId),
-    [6]
+    expanded.workspace.panels.evidence.map(item => item.itemId).sort(),
+    [2, 3, 6, 8]
   );
   assert.equal(
     expanded.workspace.panels.evidence.some(item => item.itemId === 1),

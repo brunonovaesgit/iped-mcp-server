@@ -7,6 +7,7 @@ import {
   buildInvestigationResultState,
   buildInvestigationWorkspace,
   buildInvestigatorHome,
+  buildInvestigatorView,
   enrichInvestigatorView,
   filterInvestigatorViewEvidence
 } from "./investigator-view.js";
@@ -566,24 +567,41 @@ export class InvestigatorService {
       let entities = loaded?.entities ?? [];
       let communication = loaded?.communication;
 
-      if (!loaded) {
-        try {
-          const metadata = await this.iped.getEvidence(
-            reference.sourceId,
-            reference.itemId
-          );
-          const properties = metadata.properties ?? {};
-          entities = Object.entries(properties)
-            .filter(([name, values]) =>
-              name.startsWith("Regex:") && Boolean(values?.length)
-            )
-            .flatMap(([name, values]) =>
-              (values ?? []).map(value => ({
-                type: name.slice("Regex:".length),
+      try {
+        const metadata = await this.iped.getEvidence(
+          reference.sourceId,
+          reference.itemId
+        );
+        const properties = metadata.properties ?? {};
+        const metadataEntities = Object.entries(properties)
+          .filter(([name, values]) =>
+            name.startsWith("Regex:") && Boolean(values?.length)
+          )
+          .flatMap(([name, values]) =>
+            (values ?? []).map(value => {
+              const type = name.slice("Regex:".length);
+              const escapedValue = value
+                .replace(/\\/g, "\\\\")
+                .replace(/"/g, '\\"');
+              return {
+                type,
                 value,
-                searchQuery: value
-              }))
-            );
+                searchQuery: `Regex\\:${type}:"${escapedValue}"`
+              };
+            })
+          );
+        const entityKeys = new Set(
+          entities.map(entity => `${entity.type}\u0000${entity.value}`)
+        );
+        for (const entity of metadataEntities) {
+          const entityKey = `${entity.type}\u0000${entity.value}`;
+          if (!entityKeys.has(entityKey)) {
+            entities.push(entity);
+            entityKeys.add(entityKey);
+          }
+        }
+
+        if (!communication) {
           const participantValues = (prefix: string) => [
             ...(properties[prefix] ?? []),
             ...(properties[`${prefix}:id`] ?? []),
@@ -599,13 +617,11 @@ export class InvestigatorService {
             to: participantValues("Communication:To").map(value => ({
               value, id: "", name: "", phoneNumber: "", username: ""
             })),
-            conversation: {
-              id: "", name: "", type: ""
-            }
+            conversation: { id: "", name: "", type: "" }
           };
-        } catch {
-          continue;
         }
+      } catch {
+        if (!loaded) continue;
       }
 
       for (const entity of entities) {
@@ -760,7 +776,29 @@ export class InvestigatorService {
       candidates: candidateDiagnostics
     });
 
-    const primaryInvestigation = investigations[0];
+    const combinedInvestigatorView = buildInvestigatorView({
+      question: current.question,
+      evidence: contextualEvidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId,
+        name: item.name,
+        path: item.path,
+        textAvailable: item.textAvailable
+      })),
+      graphView: {
+        summary: { nodeCount: 0, edgeCount: 0, nodesByKind: {}, edgesByRelationship: {} },
+        legend: investigations[0].investigatorView.sections.relationships.legend,
+        nodes: investigations.flatMap(item =>
+          item.investigatorView.sections.relationships.nodes
+        ),
+        edges: investigations.flatMap(item =>
+          item.investigatorView.sections.relationships.edges
+        )
+      },
+      timeline: investigations.flatMap(item =>
+        item.investigatorView.sections.timeline
+      )
+    });
     const allowedEvidenceKeys = new Set(
       contextualEvidence.map(
         item => `${item.sourceId}:${item.itemId}`
@@ -802,7 +840,7 @@ export class InvestigatorService {
     });
     const progress = this.investigations.progress(investigationId);
     const contextualView = filterInvestigatorViewEvidence(
-      primaryInvestigation.investigatorView,
+      combinedInvestigatorView,
       contextualEvidence.map(item => ({
         sourceId: item.sourceId,
         itemId: item.itemId
