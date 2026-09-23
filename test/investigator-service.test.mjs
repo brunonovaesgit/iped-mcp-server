@@ -345,3 +345,131 @@ test("workspace explicitly reports when the bounded evidence search is truncated
   assert.equal(result.workspace.resultState.evidenceSearchTruncated, true);
   assert.equal(result.workspace.resultState.evidenceSearchAvailable, 37);
 });
+
+
+test("correlation expansion keeps anchor context even when bounded search omits the anchor item", async () => {
+  const anchor = {
+    sourceId: "case-1",
+    itemId: 1,
+    name: "atlas-anchor.txt",
+    text: "Atlas 18.750",
+    entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ],
+    communication: { from: [], to: [] }
+  };
+  const initialEvidence = [
+    anchor,
+    {
+      sourceId: "case-1",
+      itemId: 2,
+      name: "atlas-second.txt",
+      text: "Atlas 18.750",
+      entities: [
+        { type: "MONEY", value: "18.750,00" },
+        { type: "PROJECT", value: "Atlas" }
+      ],
+      communication: { from: [], to: [] }
+    }
+  ];
+  const boundedExpansion = [
+    {
+      sourceId: "case-1",
+      itemId: 3,
+      name: "atlas-new.txt",
+      text: "Atlas payment 18.750",
+      entities: [
+        { type: "MONEY", value: "18.750,00" },
+        { type: "PROJECT", value: "Atlas" }
+      ],
+      communication: { from: [], to: [] }
+    },
+    {
+      sourceId: "case-1",
+      itemId: 4,
+      name: "apollo.txt",
+      text: "Apollo 18.750",
+      entities: [
+        { type: "MONEY", value: "18.750,00" },
+        { type: "PROJECT", value: "Apollo" }
+      ],
+      communication: { from: [], to: [] }
+    }
+  ];
+
+  const makeInvestigation = (question, evidence) => ({
+    matchedEvidence: evidence,
+    recurringEntities: [{
+      type: "MONEY",
+      value: "18.750,00",
+      evidence: evidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      }))
+    }],
+    recurringCommunicationParticipants: [],
+    investigatorView: view(question, evidence)
+  });
+
+  const fakeIped = {
+    async getCaseContext() {
+      return { sources: [{ id: "case-1", name: "Caso" }] };
+    },
+    async investigateEvidence(query) {
+      return query === "18.750,00"
+        ? makeInvestigation(query, boundedExpansion)
+        : makeInvestigation(query, initialEvidence);
+    },
+    async getEvidence(sourceId, itemId) {
+      assert.equal(sourceId, "case-1");
+      assert.ok(itemId === 1 || itemId === 2);
+      return {
+        properties: itemId === 1
+          ? {
+              "Regex:MONEY": ["18.750,00"],
+              "Regex:PROJECT": ["Atlas"]
+            }
+          : {
+              "Regex:MONEY": ["18.750,00"],
+              "Regex:PROJECT": ["Atlas"]
+            }
+      };
+    },
+    evidenceEntitiesFromProperties(sourceId, itemId, properties) {
+      return {
+        entities: Object.entries(properties).flatMap(([key, values]) =>
+          key.startsWith("Regex:")
+            ? values.map(value => ({
+                type: key.slice(6),
+                value
+              }))
+            : []
+        )
+      };
+    },
+    communicationParticipantsFromProperties() {
+      return { from: [], to: [] };
+    }
+  };
+
+  const sessions = new InvestigationSessions();
+  const service = new InvestigatorService(fakeIped, sessions, new AuditLog());
+  const started = await service.begin("Investigue Atlas");
+  const id = started.workspace.investigationId;
+  const expanded = await service.exploreLead(id, "MONEY", "18.750,00");
+
+  assert.equal(expanded.status, "LEAD_EXPLORED");
+  assert.deepEqual(
+    expanded.workspace.panels.evidence.map(item => item.itemId),
+    [3]
+  );
+  assert.equal(
+    expanded.workspace.panels.evidence.some(item => item.itemId === 4),
+    false
+  );
+  assert.deepEqual(
+    sessions.get(id).evidence.map(item => item.itemId),
+    [1, 2, 3]
+  );
+});
