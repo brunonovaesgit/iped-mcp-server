@@ -7,7 +7,8 @@ import {
   buildInvestigationResultState,
   buildInvestigationWorkspace,
   buildInvestigatorHome,
-  enrichInvestigatorView
+  enrichInvestigatorView,
+  filterInvestigatorViewEvidence
 } from "./investigator-view.js";
 
 export class InvestigatorService {
@@ -577,12 +578,19 @@ export class InvestigatorService {
       exploredLead: { type: lead.type, value: lead.value }
     });
     const progress = this.investigations.progress(investigationId);
-    const view = enrichInvestigatorView(
+    const contextualView = filterInvestigatorViewEvidence(
       investigation.investigatorView,
+      contextualEvidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      }))
+    );
+    const view = enrichInvestigatorView(
+      contextualView,
       { leads: session.leads, progress }
     );
     const resultState = buildInvestigationResultState({
-      evidenceCount: investigation.matchedEvidence.length,
+      evidenceCount: contextualEvidence.length,
       openLeadCount: session.leads.filter(
         item => item.status === "OPEN"
       ).length,

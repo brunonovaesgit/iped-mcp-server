@@ -205,6 +205,15 @@ test("lead expansion excludes same-value evidence without established context", 
     sessions.get(id).evidence.map(item => item.itemId),
     [1, 2, 3]
   );
+  assert.deepEqual(
+    expanded.workspace.panels.evidence.map(item => item.itemId),
+    [1, 2, 3]
+  );
+  assert.equal(expanded.workspace.summary.evidenceCount, 3);
+  assert.equal(
+    expanded.workspace.panels.evidence.some(item => item.itemId === 4),
+    false
+  );
   const auditEntry = audit.entries().find(entry => entry.action === "explore_investigation_lead");
   assert.equal(auditEntry.matchedEvidenceCount, 4);
   assert.equal(auditEntry.contextualEvidenceCount, 3);
