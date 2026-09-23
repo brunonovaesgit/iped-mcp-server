@@ -221,6 +221,53 @@ test("lead expansion excludes same-value evidence without established context", 
 });
 
 
+test("optional contextual query failure does not abort correlation expansion", async () => {
+  const initial = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "Atlas 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ], communication: { from: [], to: [] } }
+  ];
+  const make = (question, evidence) => ({
+    matchedEvidence: evidence,
+    matchedEvidenceTruncated: false,
+    matchedEvidenceAvailable: evidence.length,
+    recurringEntities: [{
+      type: "MONEY", value: "18.750,00",
+      evidence: evidence.map(item => ({ sourceId: item.sourceId, itemId: item.itemId }))
+    }],
+    recurringCommunicationParticipants: [],
+    investigatorView: view(question, evidence)
+  });
+  const fakeIped = {
+    async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
+    async investigateEvidence(query) {
+      if (query === "Atlas") throw new Error("IPED request failed: 500 Request failed.");
+      return make(query, initial);
+    }
+  };
+  const audit = new AuditLog();
+  const sessions = new InvestigationSessions();
+  const service = new InvestigatorService(fakeIped, sessions, audit);
+  const started = await service.begin("Carlos");
+  const expanded = await service.exploreLead(started.workspace.investigationId, "MONEY", "18.750,00");
+
+  assert.equal(expanded.status, "LEAD_EXPLORED");
+  assert.deepEqual(expanded.workspace.panels.evidence.map(item => item.itemId), [1, 2]);
+  assert.equal(
+    audit.entries().some(entry =>
+      entry.action === "context_correlation_query_failed" &&
+      entry.contextValue === "Atlas"
+    ),
+    true
+  );
+});
+
+
 test("explicit correlation selection never falls through to a different open correlation", async () => {
   const evidence = [
     { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas Carlos", entities: [], communication: { from: [], to: [] } }
