@@ -529,13 +529,28 @@ export class InvestigatorService {
       contextValues.set(`${type}\u0000${value}`, { type, value });
     };
 
-    for (const reference of lead.evidence) {
-      const [entities, communication] = await Promise.all([
-        this.iped.getEvidenceEntities(reference.sourceId, reference.itemId),
-        this.iped.getCommunicationParticipants(reference.sourceId, reference.itemId)
-      ]);
-      for (const entity of entities.entities) addContextValue(entity.type, entity.value);
-      for (const participant of [...communication.from, ...communication.to]) {
+    const anchorInvestigation = await this.iped.investigateEvidence(
+      lead.value,
+      current.sourceId
+    );
+    const anchorEvidenceKeys = new Set(
+      lead.evidence.map(
+        reference => `${reference.sourceId}:${reference.itemId}`
+      )
+    );
+
+    for (const item of anchorInvestigation.matchedEvidence) {
+      const key = `${item.sourceId}:${item.itemId}`;
+      if (!anchorEvidenceKeys.has(key)) continue;
+
+      for (const entity of item.entities ?? []) {
+        addContextValue(entity.type, entity.value);
+      }
+
+      for (const participant of [
+        ...(item.communication?.from ?? []),
+        ...(item.communication?.to ?? [])
+      ]) {
         addContextValue(
           "COMMUNICATION_PARTICIPANT",
           participant.value ?? participant.id ?? participant.phoneNumber ??
@@ -544,9 +559,9 @@ export class InvestigatorService {
       }
     }
 
-    const queryValues = [lead.value, ...[...contextValues.values()].map(item => item.value)];
-    const investigations = [];
-    const seenQueries = new Set<string>();
+    const queryValues = [...[...contextValues.values()].map(item => item.value)];
+    const investigations = [anchorInvestigation];
+    const seenQueries = new Set<string>([lead.value]);
     for (const value of queryValues) {
       if (seenQueries.has(value)) continue;
       seenQueries.add(value);
