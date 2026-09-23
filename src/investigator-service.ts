@@ -613,15 +613,29 @@ export class InvestigatorService {
       }
     }
 
-    const queryValues = [...[...contextValues.values()].map(item => item.value)];
+    const queryValues = [...contextValues.values()];
     const investigations = [anchorInvestigation];
     const seenQueries = new Set<string>([lead.value]);
-    for (const value of queryValues) {
-      if (seenQueries.has(value)) continue;
+    for (const context of queryValues) {
+      const value = context.value.trim();
+      if (!value || seenQueries.has(value)) continue;
       seenQueries.add(value);
-      investigations.push(
-        await this.iped.investigateEvidence(value, current.sourceId)
-      );
+
+      try {
+        investigations.push(
+          await this.iped.investigateEvidence(value, current.sourceId)
+        );
+      } catch (error) {
+        await this.audit.write("context_correlation_query_failed", {
+          investigationId,
+          leadType: lead.type,
+          leadValue: lead.value,
+          contextType: context.type,
+          contextValue: value,
+          sourceId: current.sourceId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
     }
 
     const evidenceByKey = new Map<string, (typeof investigations)[number]["matchedEvidence"][number]>();
