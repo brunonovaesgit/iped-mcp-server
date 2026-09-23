@@ -262,7 +262,7 @@ export function buildInvestigationResultState(input: {
     return {
       status: "READY_TO_EXPLORE" as const,
       message:
-        "Foram encontradas evidências e há pistas sustentadas para aprofundamento.",
+        "Foram encontradas evidências e há valores ou entidades recorrentes sustentados pelas evidências que podem ser correlacionados.",
       suggestedAction: "EXPLORE_OPEN_LEADS" as const
     };
   }
