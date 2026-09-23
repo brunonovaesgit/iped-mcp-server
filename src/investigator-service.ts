@@ -538,18 +538,63 @@ export class InvestigatorService {
         reference => `${reference.sourceId}:${reference.itemId}`
       )
     );
+    const loadedAnchorItems = new Map(
+      anchorInvestigation.matchedEvidence
+        .filter(item =>
+          anchorEvidenceKeys.has(`${item.sourceId}:${item.itemId}`)
+        )
+        .map(item => [
+          `${item.sourceId}:${item.itemId}`,
+          item
+        ])
+    );
 
-    for (const item of anchorInvestigation.matchedEvidence) {
-      const key = `${item.sourceId}:${item.itemId}`;
-      if (!anchorEvidenceKeys.has(key)) continue;
+    for (const reference of lead.evidence) {
+      const key = `${reference.sourceId}:${reference.itemId}`;
+      const loaded = loadedAnchorItems.get(key);
+      let entities = loaded?.entities ?? [];
+      let communication = loaded?.communication;
 
-      for (const entity of item.entities ?? []) {
+      if (!loaded) {
+        try {
+          const metadata = await this.iped.getEvidence(
+            reference.sourceId,
+            reference.itemId
+          );
+          const properties = metadata.properties ?? {};
+          entities = Object.entries(properties)
+            .filter(([name, values]) =>
+              name.startsWith("Regex:") && Boolean(values?.length)
+            )
+            .flatMap(([name, values]) =>
+              (values ?? []).map(value => ({
+                type: name.slice("Regex:".length),
+                value
+              }))
+            );
+          const participantValues = (prefix: string) => [
+            ...(properties[prefix] ?? []),
+            ...(properties[`${prefix}:id`] ?? []),
+            ...(properties[`${prefix}:name`] ?? []),
+            ...(properties[`${prefix}:phoneNumber`] ?? []),
+            ...(properties[`${prefix}:username`] ?? [])
+          ];
+          communication = {
+            from: participantValues("Communication:From").map(value => ({ value })),
+            to: participantValues("Communication:To").map(value => ({ value }))
+          };
+        } catch {
+          continue;
+        }
+      }
+
+      for (const entity of entities) {
         addContextValue(entity.type, entity.value);
       }
 
       for (const participant of [
-        ...(item.communication?.from ?? []),
-        ...(item.communication?.to ?? [])
+        ...(communication?.from ?? []),
+        ...(communication?.to ?? [])
       ]) {
         addContextValue(
           "COMMUNICATION_PARTICIPANT",
