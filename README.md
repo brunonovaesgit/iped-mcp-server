@@ -409,3 +409,10 @@ The project is not intended to replace IPED or the forensic examiner. Its purpos
 User-facing language follows IPED and digital-forensics terminology whenever an established term exists. The interface uses concepts such as evidence, item, metadata, indexed values, entities, relationships, correlations, bookmarks/tags, hash, timeline, analysis and findings according to their actual technical meaning.
 
 Implementation names such as `lead` may remain internal while APIs are stabilized, but they must not force detective-style vocabulary into the examiner-facing interface. In particular, a repeated value is presented as an observed value available for correlation, not as proof of a relationship. Terms such as evidence, finding and conclusion must not be treated as interchangeable.
+
+
+## MVP acceptance baseline
+
+The MVP is considered ready for a release candidate when the automated acceptance suite keeps the examiner workflow evidence-grounded: the case is discoverable, natural-language investigation returns reviewable IPED items, relationships preserve supporting references, contextual expansion does not add evidence solely because a monetary value repeats, observed monetary differences remain neutral until context supports a conflict, and the interface does not produce forensic conclusions on behalf of the examiner.
+
+This baseline is intentionally narrower than the long-term product backlog. Improvements that are not required to satisfy these acceptance properties belong after the MVP unless they fix a correctness, provenance, security or usability blocker.
