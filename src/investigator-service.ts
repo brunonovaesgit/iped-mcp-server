@@ -535,7 +535,25 @@ export class InvestigatorService {
         to?: Array<Record<string, string | undefined>>;
       };
     }) => {
-      addContextFromItem(item);
+      for (const entity of item.entities ?? []) {
+        if (entity.type === lead.type && entity.value === lead.value) {
+          continue;
+        }
+        contextValues.add(`${entity.type}\u0000${entity.value}`);
+      }
+
+      for (const participant of [
+        ...(item.communication?.from ?? []),
+        ...(item.communication?.to ?? [])
+      ]) {
+        const value =
+          participant.value ??
+          participant.id ??
+          participant.phoneNumber ??
+          participant.username ??
+          participant.name;
+        if (value) contextValues.add(`COMMUNICATION_PARTICIPANT\u0000${value}`);
+      }
     };
 
     for (const reference of lead.evidence) {
@@ -568,25 +586,7 @@ export class InvestigatorService {
         continue;
       }
 
-      for (const entity of item.entities ?? []) {
-        if (entity.type === lead.type && entity.value === lead.value) {
-          continue;
-        }
-        contextValues.add(`${entity.type}\u0000${entity.value}`);
-      }
-
-      for (const participant of [
-        ...(item.communication?.from ?? []),
-        ...(item.communication?.to ?? [])
-      ]) {
-        const value =
-          participant.value ??
-          participant.id ??
-          participant.phoneNumber ??
-          participant.username ??
-          participant.name;
-        if (value) contextValues.add(`COMMUNICATION_PARTICIPANT\u0000${value}`);
-      }
+      addContextFromItem(item);
     }
 
     const contextualEvidence = investigation.matchedEvidence.filter(item => {
