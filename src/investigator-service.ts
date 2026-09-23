@@ -15,14 +15,22 @@ import {
 function repeatedAnchorPhrases(texts: string[]) {
   const counts = new Map<string, { value: string; evidence: Set<number> }>();
   texts.forEach((text, evidenceIndex) => {
-    const phrases = text.match(/\b[\p{Lu}][\p{L}\p{N}-]+(?:\s+[\p{Lu}][\p{L}\p{N}-]+){1,3}\b/gu) ?? [];
-    for (const raw of phrases) {
-      const value = raw.trim();
-      if (value.length < 6 || /\d[.,]\d/.test(value)) continue;
-      const key = value.toLocaleLowerCase();
-      const entry = counts.get(key) ?? { value, evidence: new Set<number>() };
-      entry.evidence.add(evidenceIndex);
-      counts.set(key, entry);
+    const lines = text
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
+    for (const line of lines) {
+      const phrases = line.match(
+        /\b[\p{Lu}][\p{L}\p{N}-]+(?:[ \t]+[\p{Lu}][\p{L}\p{N}-]+){1,3}\b/gu
+      ) ?? [];
+      for (const raw of phrases) {
+        const value = raw.trim();
+        if (value.length < 6 || /\d[.,]\d/.test(value)) continue;
+        const key = value.toLocaleLowerCase();
+        const entry = counts.get(key) ?? { value, evidence: new Set<number>() };
+        entry.evidence.add(evidenceIndex);
+        counts.set(key, entry);
+      }
     }
   });
   return [...counts.values()]
