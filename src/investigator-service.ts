@@ -405,8 +405,7 @@ export class InvestigatorService {
       question,
       focus: session.focus,
       evidenceCount: session.evidence.length,
-      matchedEvidenceCount: investigation.matchedEvidence.length,
-      contextualEvidenceCount: contextualEvidence.length
+      matchedEvidenceCount: investigation.matchedEvidence.length
     });
 
     return {
@@ -608,7 +607,8 @@ export class InvestigatorService {
       leadType: lead.type,
       leadValue: lead.value,
       sourceId: current.sourceId,
-      matchedEvidenceCount: investigation.matchedEvidence.length
+      matchedEvidenceCount: investigation.matchedEvidence.length,
+      contextualEvidenceCount: contextualEvidence.length
     });
 
     return {
