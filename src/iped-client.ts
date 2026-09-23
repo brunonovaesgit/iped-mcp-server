@@ -136,13 +136,33 @@ export class IpedClient {
     const limit = Math.min(requestedLimit ?? this.config.searchResultLimit, this.config.searchResultLimit);
     const response = await this.getJson<SearchResponse>("/search", { q: query, sourceID: sourceId });
     const matches: EvidenceReference[] = [];
+    let totalAvailable = 0;
+
     for (const group of response.data ?? []) {
+      totalAvailable += group.ids?.length ?? 0;
+
       for (const itemId of group.ids ?? []) {
-        if (matches.length === limit) return { query, sourceId, matches, truncated: true };
+        if (matches.length === limit) {
+          return {
+            query,
+            sourceId,
+            matches,
+            truncated: true,
+            totalAvailable
+          };
+        }
+
         matches.push({ sourceId: group.source, itemId });
       }
     }
-    return { query, sourceId, matches, truncated: false };
+
+    return {
+      query,
+      sourceId,
+      matches,
+      truncated: false,
+      totalAvailable
+    };
   }
 
   async getEvidence(sourceId: string, itemId: number) {
