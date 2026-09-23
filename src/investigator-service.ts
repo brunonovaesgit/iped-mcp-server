@@ -86,7 +86,7 @@ export class InvestigatorService {
             session && progress
               ? {
                   id: session.id,
-                  question: current.question,
+                  question: session.question,
                   focus: session.focus,
                   evidenceCount: session.evidence.length,
                   openLeadCount: session.leads.filter(
@@ -777,7 +777,7 @@ export class InvestigatorService {
     });
 
     const combinedInvestigatorView = buildInvestigatorView({
-      question: session.question,
+      question: current.question,
       evidence: contextualEvidence.map(item => ({
         sourceId: item.sourceId,
         itemId: item.itemId,
