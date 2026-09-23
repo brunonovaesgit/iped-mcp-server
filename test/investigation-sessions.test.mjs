@@ -437,3 +437,44 @@ test("resolves only open evidence-backed leads selected by the investigator", ()
     undefined
   );
 });
+
+
+test("a follow-up question reopens bounded expansion after a no-new-evidence stop", () => {
+  const sessions = new InvestigationSessions();
+  const session = sessions.start("Investigue Carlos", "case-a");
+
+  sessions.record(session.id, {
+    evidence: [{ sourceId: "case-a", itemId: 1 }],
+    leads: [{
+      type: "PROJECT",
+      value: "Atlas",
+      evidence: [{ sourceId: "case-a", itemId: 1 }]
+    }]
+  });
+  sessions.record(session.id, {
+    expansion: true,
+    expansionQuery: "Atlas",
+    exploredLead: { type: "PROJECT", value: "Atlas" },
+    evidence: []
+  });
+
+  assert.equal(sessions.shouldExpand(session.id).expand, false);
+  assert.equal(sessions.shouldExpand(session.id).reason, "NO_NEW_EVIDENCE");
+
+  sessions.record(session.id, {
+    followUp: "Agora investigue Mariana",
+    query: "Agora investigue Mariana",
+    evidence: [{ sourceId: "case-a", itemId: 2 }],
+    leads: [{
+      type: "PERSON",
+      value: "Mariana",
+      evidence: [{ sourceId: "case-a", itemId: 2 }]
+    }]
+  });
+
+  assert.equal(sessions.shouldExpand(session.id).expand, true);
+  assert.equal(
+    sessions.progress(session.id).reason,
+    "OPEN_LEAD_AVAILABLE"
+  );
+});
