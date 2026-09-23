@@ -270,6 +270,7 @@ export function buildInvestigationWorkspace(input: {
     message: string;
     suggestedAction: string;
     evidenceSearchTruncated?: boolean;
+    evidenceSearchAvailable?: number;
   };
 }) {
   return {
