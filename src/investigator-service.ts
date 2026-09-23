@@ -7,6 +7,7 @@ import {
   buildInvestigationResultState,
   buildInvestigationWorkspace,
   buildInvestigatorHome,
+  buildInvestigatorView,
   enrichInvestigatorView,
   filterInvestigatorViewEvidence
 } from "./investigator-view.js";
@@ -775,7 +776,27 @@ export class InvestigatorService {
       candidates: candidateDiagnostics
     });
 
-    const primaryInvestigation = investigations[0];
+    const combinedInvestigatorView = buildInvestigatorView({
+      question: session.question,
+      evidence: contextualEvidence.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId,
+        name: item.name,
+        path: item.path,
+        textAvailable: item.textAvailable
+      })),
+      graphView: {
+        nodes: investigations.flatMap(item =>
+          item.investigatorView.sections.relationships.nodes
+        ),
+        edges: investigations.flatMap(item =>
+          item.investigatorView.sections.relationships.edges
+        )
+      },
+      timeline: investigations.flatMap(item =>
+        item.investigatorView.sections.timeline
+      )
+    });
     const allowedEvidenceKeys = new Set(
       contextualEvidence.map(
         item => `${item.sourceId}:${item.itemId}`
@@ -817,7 +838,7 @@ export class InvestigatorService {
     });
     const progress = this.investigations.progress(investigationId);
     const contextualView = filterInvestigatorViewEvidence(
-      primaryInvestigation.investigatorView,
+      combinedInvestigatorView,
       contextualEvidence.map(item => ({
         sourceId: item.sourceId,
         itemId: item.itemId
