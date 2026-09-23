@@ -448,14 +448,29 @@ export class InvestigatorService {
       );
     }
 
+    const explicitSelection = Boolean(leadType && leadValue);
     const selected =
-      leadType && leadValue
+      explicitSelection
         ? this.investigations.lead(
             investigationId,
-            leadType,
-            leadValue
+            leadType!,
+            leadValue!
           )
         : undefined;
+
+    if (explicitSelection && !selected) {
+      await this.audit.write("explore_investigation_lead_not_available", {
+        investigationId,
+        leadType,
+        leadValue
+      });
+      return {
+        status: "CORRELATION_NOT_AVAILABLE" as const,
+        reason: "REQUESTED_CORRELATION_IS_NOT_OPEN" as const,
+        progress: this.investigations.progress(investigationId)
+      };
+    }
+
     const next = selected
       ? { available: true as const, lead: selected }
       : this.investigations.nextLead(investigationId);
