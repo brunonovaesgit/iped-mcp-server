@@ -528,12 +528,13 @@ export class InvestigatorService {
     );
     const contextValues = new Set<string>();
 
-    for (const item of investigation.matchedEvidence) {
-      const key = `${item.sourceId}:${item.itemId}`;
-      if (!priorEvidenceKeys.has(key) && !anchorKeys.has(key)) {
-        continue;
-      }
-
+    const addContextFromItem = (item: {
+      entities?: Array<{ type: string; value: string }>;
+      communication?: {
+        from?: Array<Record<string, string | undefined>>;
+        to?: Array<Record<string, string | undefined>>;
+      };
+    }) => {
       for (const entity of item.entities ?? []) {
         if (entity.type === lead.type && entity.value === lead.value) {
           continue;
@@ -553,6 +554,39 @@ export class InvestigatorService {
           participant.name;
         if (value) contextValues.add(`COMMUNICATION_PARTICIPANT\u0000${value}`);
       }
+    };
+
+    for (const reference of lead.evidence) {
+      const key = `${reference.sourceId}:${reference.itemId}`;
+      if (investigation.matchedEvidence.some(
+        item => `${item.sourceId}:${item.itemId}` === key
+      )) {
+        continue;
+      }
+
+      const [entities, communication] = await Promise.all([
+        this.iped.getEvidenceEntities(
+          reference.sourceId,
+          reference.itemId
+        ),
+        this.iped.getCommunicationParticipants(
+          reference.sourceId,
+          reference.itemId
+        )
+      ]);
+      addContextFromItem({
+        entities: entities.entities,
+        communication
+      });
+    }
+
+    for (const item of investigation.matchedEvidence) {
+      const key = `${item.sourceId}:${item.itemId}`;
+      if (!priorEvidenceKeys.has(key) && !anchorKeys.has(key)) {
+        continue;
+      }
+
+      addContextFromItem(item);
     }
 
     const contextualEvidence = investigation.matchedEvidence.filter(item => {
