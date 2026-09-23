@@ -421,34 +421,19 @@ test("correlation expansion keeps anchor context even when bounded search omits 
         ? makeInvestigation(query, boundedExpansion)
         : makeInvestigation(query, initialEvidence);
     },
-    async getEvidence(sourceId, itemId) {
+    async getEvidenceEntities(sourceId, itemId) {
       assert.equal(sourceId, "case-1");
       assert.ok(itemId === 1 || itemId === 2);
       return {
-        properties: itemId === 1
-          ? {
-              "Regex:MONEY": ["18.750,00"],
-              "Regex:PROJECT": ["Atlas"]
-            }
-          : {
-              "Regex:MONEY": ["18.750,00"],
-              "Regex:PROJECT": ["Atlas"]
-            }
+        entities: [
+          { type: "MONEY", value: "18.750,00" },
+          { type: "PROJECT", value: "Atlas" }
+        ]
       };
     },
-    evidenceEntitiesFromProperties(sourceId, itemId, properties) {
-      return {
-        entities: Object.entries(properties).flatMap(([key, values]) =>
-          key.startsWith("Regex:")
-            ? values.map(value => ({
-                type: key.slice(6),
-                value
-              }))
-            : []
-        )
-      };
-    },
-    communicationParticipantsFromProperties() {
+    async getCommunicationParticipants(sourceId, itemId) {
+      assert.equal(sourceId, "case-1");
+      assert.ok(itemId === 1 || itemId === 2);
       return { from: [], to: [] };
     }
   };
