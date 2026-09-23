@@ -626,6 +626,22 @@ export class InvestigatorService {
 
     const queryValues = [...contextValues.values()];
     const investigations = [anchorInvestigation];
+    const queryDiagnostics: Array<{
+      contextType: string;
+      contextValue: string;
+      query: string;
+      matchedEvidence: string[];
+      status: "OK" | "FAILED";
+      error?: string;
+    }> = [{
+      contextType: lead.type,
+      contextValue: lead.value,
+      query: lead.value,
+      matchedEvidence: anchorInvestigation.matchedEvidence.map(
+        item => `${item.sourceId}:${item.itemId}`
+      ),
+      status: "OK"
+    }];
     const seenQueries = new Set<string>([lead.value]);
     for (const context of queryValues) {
       const value = context.value.trim();
@@ -642,10 +658,27 @@ export class InvestigatorService {
           : `Regex\\:${context.type}:"${escapedValue}"`);
 
       try {
-        investigations.push(
-          await this.iped.investigateEvidence(query, current.sourceId)
-        );
+        const contextualInvestigation =
+          await this.iped.investigateEvidence(query, current.sourceId);
+        investigations.push(contextualInvestigation);
+        queryDiagnostics.push({
+          contextType: context.type,
+          contextValue: value,
+          query,
+          matchedEvidence: contextualInvestigation.matchedEvidence.map(
+            item => `${item.sourceId}:${item.itemId}`
+          ),
+          status: "OK"
+        });
       } catch (error) {
+        queryDiagnostics.push({
+          contextType: context.type,
+          contextValue: value,
+          query,
+          matchedEvidence: [],
+          status: "FAILED",
+          error: error instanceof Error ? error.message : String(error)
+        });
         await this.audit.write("context_correlation_query_failed", {
           investigationId,
           leadType: lead.type,
@@ -670,19 +703,61 @@ export class InvestigatorService {
       }
     }
 
+    const candidateDiagnostics: Array<{
+      evidence: string;
+      accepted: boolean;
+      reason: string;
+      matchedContext: string[];
+    }> = [];
     const contextualEvidence = [...evidenceByKey.values()].filter(item => {
       const key = `${item.sourceId}:${item.itemId}`;
-      if (priorEvidenceKeys.has(key) || anchorKeys.has(key)) return true;
-      return (item.entities ?? []).some(entity =>
-        contextValues.has(`${entity.type}\u0000${entity.value}`)
-      ) || [...(item.communication?.from ?? []), ...(item.communication?.to ?? [])]
-        .some(participant => {
-          const value = participant.value ?? participant.id ??
-            participant.phoneNumber ?? participant.username ?? participant.name;
-          return value
-            ? contextValues.has(`COMMUNICATION_PARTICIPANT\u0000${value}`)
-            : false;
+      if (priorEvidenceKeys.has(key) || anchorKeys.has(key)) {
+        candidateDiagnostics.push({
+          evidence: key,
+          accepted: true,
+          reason: "ALREADY_IN_INVESTIGATION_OR_ANCHOR",
+          matchedContext: []
         });
+        return true;
+      }
+
+      const matchedContext = [
+        ...(item.entities ?? []).flatMap(entity =>
+          contextValues.has(`${entity.type}\u0000${entity.value}`)
+            ? [`${entity.type}:${entity.value}`]
+            : []
+        ),
+        ...[...(item.communication?.from ?? []), ...(item.communication?.to ?? [])]
+          .flatMap(participant => {
+            const value = participant.value ?? participant.id ??
+              participant.phoneNumber ?? participant.username ?? participant.name;
+            return value && contextValues.has(
+              `COMMUNICATION_PARTICIPANT\u0000${value}`
+            )
+              ? [`COMMUNICATION_PARTICIPANT:${value}`]
+              : [];
+          })
+      ];
+      const accepted = matchedContext.length > 0;
+      candidateDiagnostics.push({
+        evidence: key,
+        accepted,
+        reason: accepted
+          ? "SHARES_ESTABLISHED_CONTEXT"
+          : "NO_ESTABLISHED_CONTEXT_MATCH",
+        matchedContext
+      });
+      return accepted;
+    });
+
+    await this.audit.write("context_correlation_diagnostics", {
+      investigationId,
+      leadType: lead.type,
+      leadValue: lead.value,
+      sourceId: current.sourceId,
+      extractedContext: [...contextValues.values()],
+      queries: queryDiagnostics,
+      candidates: candidateDiagnostics
     });
 
     const primaryInvestigation = investigations[0];
