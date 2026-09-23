@@ -326,6 +326,7 @@ test("workspace explicitly reports when the bounded evidence search is truncated
       return {
         matchedEvidence: evidence,
         matchedEvidenceTruncated: true,
+        matchedEvidenceAvailable: 37,
         recurringEntities: [],
         recurringCommunicationParticipants: [],
         investigatorView: view(query, evidence)
@@ -342,4 +343,5 @@ test("workspace explicitly reports when the bounded evidence search is truncated
 
   assert.equal(result.status, "INVESTIGATION_READY");
   assert.equal(result.workspace.resultState.evidenceSearchTruncated, true);
+  assert.equal(result.workspace.resultState.evidenceSearchAvailable, 37);
 });
