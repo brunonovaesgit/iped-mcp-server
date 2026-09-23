@@ -1182,6 +1182,7 @@ export class IpedClient {
       sourceId,
       matchedEvidence: evidence,
       matchedEvidenceTruncated: search.truncated,
+      matchedEvidenceAvailable: search.totalAvailable,
       scope,
       entities: [...entities.values()],
       recurringEntities,
