@@ -148,3 +148,64 @@ test("runs the investigator flow from case discovery through follow-up and evide
   assert.ok(actions.includes("continue_investigation"));
   assert.ok(actions.includes("open_investigator_evidence"));
 });
+
+
+test("lead expansion excludes same-value evidence without established context", async () => {
+  const initialEvidence = [
+    { sourceId: "case-1", itemId: 1, name: "atlas-a.txt", text: "Carlos Almeida Atlas 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "atlas-b.txt", text: "Atlas 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ], communication: { from: [], to: [] } }
+  ];
+  const expandedEvidence = [
+    ...initialEvidence,
+    { sourceId: "case-1", itemId: 3, name: "atlas-new.txt", text: "Atlas payment 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 4, name: "apollo.txt", text: "Carlos Santos Apollo 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Apollo" }
+    ], communication: { from: [], to: [] } }
+  ];
+
+  const makeInvestigation = (question, evidence) => ({
+    matchedEvidence: evidence,
+    recurringEntities: [
+      { type: "MONEY", value: "18.750,00", evidence: evidence.map(item => ({ sourceId: item.sourceId, itemId: item.itemId })) }
+    ],
+    recurringCommunicationParticipants: [],
+    investigatorView: view(question, evidence)
+  });
+
+  const fakeIped = {
+    async getCaseContext() {
+      return { sources: [{ id: "case-1", name: "Caso" }] };
+    },
+    async investigateEvidence(query) {
+      return query === "18.750,00"
+        ? makeInvestigation(query, expandedEvidence)
+        : makeInvestigation(query, initialEvidence);
+    }
+  };
+
+  const audit = new AuditLog();
+  const sessions = new InvestigationSessions();
+  const service = new InvestigatorService(fakeIped, sessions, audit);
+  const started = await service.begin("Investigue Carlos Almeida");
+  const id = started.workspace.investigationId;
+  const expanded = await service.exploreLead(id, "MONEY", "18.750,00");
+
+  assert.equal(expanded.status, "LEAD_EXPLORED");
+  assert.deepEqual(
+    sessions.get(id).evidence.map(item => item.itemId),
+    [1, 2, 3]
+  );
+  const auditEntry = audit.entries().find(entry => entry.action === "explore_investigation_lead");
+  assert.equal(auditEntry.matchedEvidenceCount, 4);
+  assert.equal(auditEntry.contextualEvidenceCount, 3);
+});
