@@ -569,7 +569,8 @@ export class InvestigatorService {
             .flatMap(([name, values]) =>
               (values ?? []).map(value => ({
                 type: name.slice("Regex:".length),
-                value
+                value,
+                searchQuery: value
               }))
             );
           const participantValues = (prefix: string) => [
@@ -580,8 +581,12 @@ export class InvestigatorService {
             ...(properties[`${prefix}:username`] ?? [])
           ];
           communication = {
-            from: participantValues("Communication:From").map(value => ({ value })),
-            to: participantValues("Communication:To").map(value => ({ value }))
+            from: participantValues("Communication:From").map(value => ({
+              value, id: undefined, name: undefined, phoneNumber: undefined, username: undefined
+            })),
+            to: participantValues("Communication:To").map(value => ({
+              value, id: undefined, name: undefined, phoneNumber: undefined, username: undefined
+            }))
           };
         } catch {
           continue;
