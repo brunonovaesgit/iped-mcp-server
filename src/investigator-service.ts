@@ -589,7 +589,7 @@ export class InvestigatorService {
               value, id: "", name: "", phoneNumber: "", username: ""
             })),
             conversation: {
-              id: undefined, name: undefined, type: undefined
+              id: "", name: "", type: ""
             }
           };
         } catch {
