@@ -521,12 +521,23 @@ export class InvestigatorService {
         reference => `${reference.sourceId}:${reference.itemId}`
       )
     );
-    const contextValues = new Map<string, { type: string; value: string }>();
+    const contextValues = new Map<string, {
+      type: string;
+      value: string;
+      searchQuery?: string;
+    }>();
 
-    const addContextValue = (type: string, value?: string) => {
+    const addContextValue = (
+      type: string,
+      value?: string,
+      searchQuery?: string
+    ) => {
       if (!value) return;
       if (type === lead.type && value === lead.value) return;
-      contextValues.set(`${type}\u0000${value}`, { type, value });
+      contextValues.set(
+        `${type}\u0000${value}`,
+        { type, value, ...(searchQuery ? { searchQuery } : {}) }
+      );
     };
 
     const anchorInvestigation = await this.iped.investigateEvidence(
@@ -598,7 +609,7 @@ export class InvestigatorService {
       }
 
       for (const entity of entities) {
-        addContextValue(entity.type, entity.value);
+        addContextValue(entity.type, entity.value, entity.searchQuery);
       }
 
       for (const participant of [
@@ -625,9 +636,10 @@ export class InvestigatorService {
         .replace(/\\/g, "\\\\")
         .replace(/"/g, '\\"');
       const query =
-        context.type === "COMMUNICATION_PARTICIPANT"
+        context.searchQuery ??
+        (context.type === "COMMUNICATION_PARTICIPANT"
           ? `"${escapedValue}"`
-          : `Regex\\:${context.type}:"${escapedValue}"`;
+          : `Regex\\:${context.type}:"${escapedValue}"`);
 
       try {
         investigations.push(
