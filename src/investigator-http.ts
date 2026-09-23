@@ -249,7 +249,10 @@ async function updateInvestigation(path,payload){
     const response=await fetch("/api/investigations/"+encodeURIComponent(activeInvestigationId)+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
     const result=await response.json();
     if(result.workspace)renderWorkspace(result.workspace);
-    else byId("status").textContent=result.error||result.reason||"A investigação não pôde avançar.";
+    else if(result.status==="CORRELATION_NOT_AVAILABLE"){
+      byId("status").textContent="Esta correlação já não está disponível para exploração. A investigação não foi alterada.";
+      await loadHome();
+    }else byId("status").textContent=result.error||result.reason||"A investigação não pôde avançar.";
   }catch{byId("status").textContent="Não foi possível continuar a investigação."}
   finally{
     leadButtons.forEach(button=>{button.disabled=false;if(path==="/leads")button.textContent="Explorar";});
@@ -422,14 +425,15 @@ const server = createServer(async (request, response) => {
       const leadValue =
         typeof input.leadValue === "string" ? input.leadValue : undefined;
 
+      const result = await investigator.exploreLead(
+        decodeURIComponent(leadMatch[1]),
+        leadType,
+        leadValue
+      );
       return json(
         response,
-        200,
-        await investigator.exploreLead(
-          decodeURIComponent(leadMatch[1]),
-          leadType,
-          leadValue
-        )
+        result.status === "CORRELATION_NOT_AVAILABLE" ? 409 : 200,
+        result
       );
     }
 
