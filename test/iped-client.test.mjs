@@ -1156,7 +1156,7 @@ test("returns hostile evidence text as data without interpreting it", async () =
 
 
 test("reports the total references returned by IPED when MCP bounds the search result", async () => {
-  const iped = client({ searchResultLimit: 2 });
+  const iped = client(2);
 
   const result = await iped.search("anything", "case-test");
 
