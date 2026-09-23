@@ -7,7 +7,8 @@ import {
   buildInvestigationWorkspace,
   buildInvestigatorHome,
   buildInvestigatorView,
-  enrichInvestigatorView
+  enrichInvestigatorView,
+  filterInvestigatorViewEvidence
 } from "../dist/investigator-view.js";
 import {
   buildInvestigationGraph,
