@@ -18,7 +18,7 @@ An MCP-compatible AI client can then use the server to:
 - search evidence;
 - inspect metadata and extracted text;
 - examine values already extracted and indexed by IPED;
-- follow evidence leads;
+- follow evidence-backed correlations;
 - navigate parent, child and duplicate relationships;
 - examine file metadata timelines;
 - analyze IPED bookmarks;
@@ -48,7 +48,7 @@ Its investigation instructions require AI clients to:
 - base factual findings on evidence available through IPED;
 - preserve `sourceId` and `itemId` references for factual findings;
 - distinguish facts, inferences and unconfirmed hypotheses;
-- treat repeated names, identifiers and values as investigative leads rather than proof of a relationship;
+- treat repeated names, identifiers and values as recurring observed values requiring correlation rather than proof of a relationship;
 - avoid counting identical files as independent corroboration;
 - report conflicting evidence instead of resolving conflicts by document count;
 - avoid treating file-system timestamps as event dates without supporting evidence;
@@ -203,7 +203,7 @@ http://127.0.0.1:3333
 
 The application is intentionally bound to localhost. It discovers the available IPED source, asks for a simple source choice only when necessary, and lets the investigator start from a natural-language question.
 
-From the same workspace the investigator can review observed findings, supporting evidence, relationships, timeline events and open leads; open evidence details; ask follow-up questions; and explore evidence-backed leads.
+From the same workspace the investigator can review observed findings, supporting evidence, relationships, timeline events and correlations available for review; open evidence details; ask follow-up questions; and explore evidence-backed correlations.
 
 A typical workflow is:
 
@@ -278,7 +278,7 @@ For example:
 
 The investigator should not need to specify which MCP tools to use.
 
-The server provides investigation instructions to the MCP client so that a compatible AI agent can discover the case, search evidence, inspect relevant items and follow evidence-backed leads.
+The server provides investigation instructions to the MCP client so that a compatible AI agent can discover the case, search evidence, inspect relevant items and follow evidence-backed correlations.
 
 ## Available investigation capabilities
 
@@ -291,7 +291,7 @@ The server currently exposes MCP tools for:
 - original evidence content;
 - structured values extracted by IPED;
 - consolidated evidence inspection;
-- entity-centered investigation and evidence lead navigation;
+- entity-centered investigation and evidence correlation navigation;
 - relationship investigation across shared evidence, indexed values and communication metadata;
 - communication participant and network analysis;
 - bounded multi-step evidence path tracing;
@@ -402,3 +402,10 @@ Current version: **0.1.0**
 The current milestone focuses on a read-only investigative workflow over evidence already processed by IPED.
 
 The project is not intended to replace IPED or the forensic examiner. Its purpose is to make evidence already available in IPED easier to investigate through MCP-compatible AI clients.
+
+
+## Terminology
+
+User-facing language follows IPED and digital-forensics terminology whenever an established term exists. The interface uses concepts such as evidence, item, metadata, indexed values, entities, relationships, correlations, bookmarks/tags, hash, timeline, analysis and findings according to their actual technical meaning.
+
+Implementation names such as `lead` may remain internal while APIs are stabilized, but they must not force detective-style vocabulary into the examiner-facing interface. In particular, a repeated value is presented as an observed value available for correlation, not as proof of a relationship. Terms such as evidence, finding and conclusion must not be treated as interchangeable.
