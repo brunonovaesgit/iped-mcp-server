@@ -416,3 +416,11 @@ Implementation names such as `lead` may remain internal while APIs are stabilize
 The MVP is considered ready for a release candidate when the automated acceptance suite keeps the examiner workflow evidence-grounded: the case is discoverable, natural-language investigation returns reviewable IPED items, relationships preserve supporting references, contextual expansion does not add evidence solely because a monetary value repeats, observed monetary differences remain neutral until context supports a conflict, and the interface does not produce forensic conclusions on behalf of the examiner.
 
 This baseline is intentionally narrower than the long-term product backlog. Improvements that are not required to satisfy these acceptance properties belong after the MVP unless they fix a correctness, provenance, security or usability blocker.
+
+Before marking a local build as a release candidate, start the IPED Web API with the intended processed case and run:
+
+```bash
+npm run check:rc
+```
+
+This single gate runs the automated acceptance/test suite and then verifies the live local IPED connection, available source, MCP startup, investigation instructions and registered tools. A passing CI build alone is not sufficient to claim that a specific local IPED installation is ready.
