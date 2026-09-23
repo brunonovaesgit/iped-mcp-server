@@ -111,7 +111,17 @@ export function filterInvestigatorViewEvidence(
   const timeline = view.sections.timeline.filter(item =>
     allowed.has(`${item.sourceId}:${item.itemId}`)
   );
+  const rejectedEvidenceNodeIds = new Set(
+    view.sections.relationships.nodes
+      .filter(node =>
+        node.kind === "EVIDENCE" &&
+        !allowed.has(`${node.sourceId}:${node.itemId}`)
+      )
+      .map(node => node.id)
+  );
   const edges = view.sections.relationships.edges.filter(edge =>
+    !rejectedEvidenceNodeIds.has(edge.from) &&
+    !rejectedEvidenceNodeIds.has(edge.to) &&
     edge.evidence.some(item =>
       allowed.has(`${item.sourceId}:${item.itemId}`)
     )
