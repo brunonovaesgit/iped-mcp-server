@@ -12,6 +12,24 @@ import {
   filterInvestigatorViewEvidence
 } from "./investigator-view.js";
 
+function repeatedAnchorPhrases(texts: string[]) {
+  const counts = new Map<string, { value: string; evidence: Set<number> }>();
+  texts.forEach((text, evidenceIndex) => {
+    const phrases = text.match(/\b[\p{Lu}][\p{L}\p{N}-]+(?:\s+[\p{Lu}][\p{L}\p{N}-]+){1,3}\b/gu) ?? [];
+    for (const raw of phrases) {
+      const value = raw.trim();
+      if (value.length < 6 || /\d[.,]\d/.test(value)) continue;
+      const key = value.toLocaleLowerCase();
+      const entry = counts.get(key) ?? { value, evidence: new Set<number>() };
+      entry.evidence.add(evidenceIndex);
+      counts.set(key, entry);
+    }
+  });
+  return [...counts.values()]
+    .filter(entry => entry.evidence.size >= 2)
+    .map(entry => entry.value);
+}
+
 export class InvestigatorService {
   constructor(
     private readonly iped: IpedClient,
@@ -640,6 +658,15 @@ export class InvestigatorService {
       }
     }
 
+    for (const phrase of repeatedAnchorPhrases(
+      [...loadedAnchorItems.values()].map(item => item.text ?? "")
+    )) {
+      const escapedPhrase = phrase
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      addContextValue("TEXT_PHRASE", phrase, `"${escapedPhrase}"`);
+    }
+
     const queryValues = [...contextValues.values()];
     const investigations = [anchorInvestigation];
     const queryDiagnostics: Array<{
@@ -737,7 +764,15 @@ export class InvestigatorService {
         return true;
       }
 
+      const itemText = (item.text ?? "").toLocaleLowerCase();
+      const matchedTextContext = [...contextValues.values()]
+        .filter(context =>
+          context.type === "TEXT_PHRASE" &&
+          itemText.includes(context.value.toLocaleLowerCase())
+        )
+        .map(context => `TEXT_PHRASE:${context.value}`);
       const matchedContext = [
+        ...matchedTextContext,
         ...(item.entities ?? []).flatMap(entity =>
           contextValues.has(`${entity.type}\u0000${entity.value}`)
             ? [`${entity.type}:${entity.value}`]

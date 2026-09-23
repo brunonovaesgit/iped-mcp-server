@@ -221,6 +221,53 @@ test("lead expansion excludes same-value evidence without established context", 
 });
 
 
+test("contextual expansion uses repeated anchor phrases when IPED has no structured project entity", async () => {
+  const queries = [];
+  const initial = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Carlos Almeida trabalha no Projeto Atlas por 18.750.", entities: [
+      { type: "MONEY", value: "18.750,00", searchQuery: 'Regex\\:MONEY:"18.750,00"' }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "Pagamento do Projeto Atlas para Carlos Almeida: 18.750.", entities: [
+      { type: "MONEY", value: "18.750,00", searchQuery: 'Regex\\:MONEY:"18.750,00"' }
+    ], communication: { from: [], to: [] } }
+  ];
+  const divergent = { sourceId: "case-1", itemId: 3, name: "divergent.txt", text: "Comprovante do Projeto Atlas no valor 17.850.", entities: [
+    { type: "MONEY", value: "17.850,00", searchQuery: 'Regex\\:MONEY:"17.850,00"' }
+  ], communication: { from: [], to: [] } };
+  const unrelated = { sourceId: "case-1", itemId: 4, name: "apollo.txt", text: "Projeto Apollo no valor 18.750.", entities: [
+    { type: "MONEY", value: "18.750,00", searchQuery: 'Regex\\:MONEY:"18.750,00"' }
+  ], communication: { from: [], to: [] } };
+  const make = (question, evidence) => ({
+    matchedEvidence: evidence,
+    matchedEvidenceTruncated: false,
+    matchedEvidenceAvailable: evidence.length,
+    recurringEntities: [{
+      type: "MONEY", value: "18.750,00",
+      evidence: initial.map(item => ({ sourceId: item.sourceId, itemId: item.itemId }))
+    }],
+    recurringCommunicationParticipants: [],
+    investigatorView: view(question, evidence)
+  });
+  const fakeIped = {
+    async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
+    async getEvidence(_sourceId, itemId) {
+      return { sourceId: "case-1", itemId, properties: { "Regex:MONEY": ["18.750,00"] } };
+    },
+    async investigateEvidence(query) {
+      queries.push(query);
+      if (query === '"Projeto Atlas"') return make(query, [divergent]);
+      if (query === "18.750,00") return make(query, [...initial, unrelated]);
+      return make(query, initial);
+    }
+  };
+  const service = new InvestigatorService(fakeIped, new InvestigationSessions(), new AuditLog());
+  const started = await service.begin("Carlos");
+  const expanded = await service.exploreLead(started.workspace.investigationId, "MONEY", "18.750,00");
+  assert.equal(queries.includes('"Projeto Atlas"'), true);
+  assert.equal(expanded.workspace.panels.evidence.some(item => item.itemId === 3), true);
+  assert.equal(expanded.workspace.panels.evidence.some(item => item.itemId === 4), false);
+});
+
 test("contextual expansion enriches loaded anchors from authoritative IPED metadata", async () => {
   const queries = [];
   const initial = [
