@@ -193,7 +193,7 @@ test("lead expansion excludes same-value evidence without established context", 
     }
 ,
     async getEvidenceEntities(sourceId, itemId) {
-      const item = [initialEvidence, expansionEvidence].flat().find(
+      const item = [initialEvidence, expandedEvidence].flat().find(
         candidate => candidate.sourceId === sourceId && candidate.itemId === itemId
       );
       return { entities: item?.entities ?? [] };
