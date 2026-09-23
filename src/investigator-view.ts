@@ -180,7 +180,7 @@ export function filterInvestigatorViewEvidence(
 }
 
 
-function buildObservedInconsistencies(relationships: InvestigationGraphView) {
+function buildObservedValueVariations(relationships: InvestigationGraphView) {
   const moneyNodes = relationships.nodes.filter(
     node => node.kind === "ENTITY" && node.entityType === "MONEY"
   );
@@ -289,7 +289,7 @@ export function buildInvestigationWorkspace(input: {
       leads: input.view.sections.leads
     }),
     panels: {
-      inconsistencies: buildObservedInconsistencies(input.view.sections.relationships),
+      valueVariations: buildObservedValueVariations(input.view.sections.relationships),
       findings: input.view.sections.leads
         .filter(lead => lead.evidence.length > 0)
         .map(lead => ({
