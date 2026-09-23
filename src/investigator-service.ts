@@ -529,13 +529,82 @@ export class InvestigatorService {
       contextValues.set(`${type}\u0000${value}`, { type, value });
     };
 
+    const anchorInvestigation = await this.iped.investigateEvidence(
+      lead.value,
+      current.sourceId
+    );
+    const anchorEvidenceKeys = new Set(
+      lead.evidence.map(
+        reference => `${reference.sourceId}:${reference.itemId}`
+      )
+    );
+    const loadedAnchorItems = new Map(
+      anchorInvestigation.matchedEvidence
+        .filter(item =>
+          anchorEvidenceKeys.has(`${item.sourceId}:${item.itemId}`)
+        )
+        .map(item => [
+          `${item.sourceId}:${item.itemId}`,
+          item
+        ])
+    );
+
     for (const reference of lead.evidence) {
-      const [entities, communication] = await Promise.all([
-        this.iped.getEvidenceEntities(reference.sourceId, reference.itemId),
-        this.iped.getCommunicationParticipants(reference.sourceId, reference.itemId)
-      ]);
-      for (const entity of entities.entities) addContextValue(entity.type, entity.value);
-      for (const participant of [...communication.from, ...communication.to]) {
+      const key = `${reference.sourceId}:${reference.itemId}`;
+      const loaded = loadedAnchorItems.get(key);
+      let entities = loaded?.entities ?? [];
+      let communication = loaded?.communication;
+
+      if (!loaded) {
+        try {
+          const metadata = await this.iped.getEvidence(
+            reference.sourceId,
+            reference.itemId
+          );
+          const properties = metadata.properties ?? {};
+          entities = Object.entries(properties)
+            .filter(([name, values]) =>
+              name.startsWith("Regex:") && Boolean(values?.length)
+            )
+            .flatMap(([name, values]) =>
+              (values ?? []).map(value => ({
+                type: name.slice("Regex:".length),
+                value,
+                searchQuery: value
+              }))
+            );
+          const participantValues = (prefix: string) => [
+            ...(properties[prefix] ?? []),
+            ...(properties[`${prefix}:id`] ?? []),
+            ...(properties[`${prefix}:name`] ?? []),
+            ...(properties[`${prefix}:phoneNumber`] ?? []),
+            ...(properties[`${prefix}:username`] ?? [])
+          ];
+          communication = {
+            evidence: { sourceId: reference.sourceId, itemId: reference.itemId },
+            from: participantValues("Communication:From").map(value => ({
+              value, id: "", name: "", phoneNumber: "", username: ""
+            })),
+            to: participantValues("Communication:To").map(value => ({
+              value, id: "", name: "", phoneNumber: "", username: ""
+            })),
+            conversation: {
+              id: "", name: "", type: ""
+            }
+          };
+        } catch {
+          continue;
+        }
+      }
+
+      for (const entity of entities) {
+        addContextValue(entity.type, entity.value);
+      }
+
+      for (const participant of [
+        ...(communication?.from ?? []),
+        ...(communication?.to ?? [])
+      ]) {
         addContextValue(
           "COMMUNICATION_PARTICIPANT",
           participant.value ?? participant.id ?? participant.phoneNumber ??
@@ -544,9 +613,9 @@ export class InvestigatorService {
       }
     }
 
-    const queryValues = [lead.value, ...[...contextValues.values()].map(item => item.value)];
-    const investigations = [];
-    const seenQueries = new Set<string>();
+    const queryValues = [...[...contextValues.values()].map(item => item.value)];
+    const investigations = [anchorInvestigation];
+    const seenQueries = new Set<string>([lead.value]);
     for (const value of queryValues) {
       if (seenQueries.has(value)) continue;
       seenQueries.add(value);

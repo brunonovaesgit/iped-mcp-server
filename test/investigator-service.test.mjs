@@ -191,16 +191,8 @@ test("lead expansion excludes same-value evidence without established context", 
         ? makeInvestigation(query, expandedEvidence)
         : makeInvestigation(query, initialEvidence);
     }
-,
-    async getEvidenceEntities(sourceId, itemId) {
-      const item = [initialEvidence, expandedEvidence].flat().find(
-        candidate => candidate.sourceId === sourceId && candidate.itemId === itemId
-      );
-      return { entities: item?.entities ?? [] };
-    },
-    async getCommunicationParticipants() {
-      return { from: [], to: [] };
-    }  };
+
+  };
 
   const audit = new AuditLog();
   const sessions = new InvestigationSessions();
@@ -430,20 +422,13 @@ test("correlation expansion keeps anchor context even when bounded search omits 
         ? makeInvestigation(query, boundedExpansion)
         : makeInvestigation(query, initialEvidence);
     },
-    async getEvidenceEntities(sourceId, itemId) {
-      assert.equal(sourceId, "case-1");
-      assert.ok(itemId === 1 || itemId === 2);
+    async getEvidence(sourceId, itemId) {
+      const item = [...initialEvidence, ...boundedExpansion].find(candidate => candidate.sourceId === sourceId && candidate.itemId === itemId);
       return {
-        entities: [
-          { type: "MONEY", value: "18.750,00" },
-          { type: "PROJECT", value: "Atlas" }
-        ]
+        sourceId,
+        itemId,
+        properties: Object.fromEntries((item?.entities ?? []).map(entity => [`Regex:${entity.type}`, [entity.value]]))
       };
-    },
-    async getCommunicationParticipants(sourceId, itemId) {
-      assert.equal(sourceId, "case-1");
-      assert.ok(itemId === 1 || itemId === 2);
-      return { from: [], to: [] };
     }
   };
 
@@ -523,14 +508,13 @@ test("MVP acceptance: contextual expansion preserves provenance and excludes sam
     async investigateEvidence(query) {
       return query === "18.750,00" ? make(query, expansion) : make(query, initial);
     },
-    async getEvidenceEntities(sourceId, itemId) {
-      const item = anchors.get(itemId);
-      assert.equal(sourceId, "mcp-lab");
-      assert.ok(item);
-      return { entities: item.entities };
-    },
-    async getCommunicationParticipants() {
-      return { from: [], to: [] };
+    async getEvidence(sourceId, itemId) {
+      const item = [...initial, ...expansion].find(candidate => candidate.sourceId === sourceId && candidate.itemId === itemId);
+      return {
+        sourceId,
+        itemId,
+        properties: Object.fromEntries((item?.entities ?? []).map(entity => [`Regex:${entity.type}`, [entity.value]]))
+      };
     }
   };
 
