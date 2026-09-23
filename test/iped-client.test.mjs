@@ -1153,3 +1153,14 @@ test("returns hostile evidence text as data without interpreting it", async () =
   );
   assert.equal(result.truncated, false);
 });
+
+
+test("reports the total references returned by IPED when MCP bounds the search result", async () => {
+  const iped = client({ searchResultLimit: 2 });
+
+  const result = await iped.search("anything", "case-test");
+
+  assert.equal(result.matches.length, 2);
+  assert.equal(result.truncated, true);
+  assert.equal(result.totalAvailable, 3);
+});
