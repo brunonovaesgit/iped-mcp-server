@@ -511,11 +511,6 @@ export class InvestigatorService {
     }
 
     const lead = next.lead;
-    const investigation = await this.iped.investigateEvidence(
-      lead.value,
-      current.sourceId
-    );
-
     const priorEvidenceKeys = new Set(
       current.evidence.map(
         reference => `${reference.sourceId}:${reference.itemId}`
@@ -526,101 +521,75 @@ export class InvestigatorService {
         reference => `${reference.sourceId}:${reference.itemId}`
       )
     );
-    const contextValues = new Set<string>();
+    const contextValues = new Map<string, { type: string; value: string }>();
 
-    const addContextFromItem = (item: {
-      entities?: Array<{ type: string; value: string }>;
-      communication?: {
-        from?: Array<Record<string, string | undefined>>;
-        to?: Array<Record<string, string | undefined>>;
-      };
-    }) => {
-      for (const entity of item.entities ?? []) {
-        if (entity.type === lead.type && entity.value === lead.value) {
-          continue;
-        }
-        contextValues.add(`${entity.type}\u0000${entity.value}`);
-      }
-
-      for (const participant of [
-        ...(item.communication?.from ?? []),
-        ...(item.communication?.to ?? [])
-      ]) {
-        const value =
-          participant.value ??
-          participant.id ??
-          participant.phoneNumber ??
-          participant.username ??
-          participant.name;
-        if (value) contextValues.add(`COMMUNICATION_PARTICIPANT\u0000${value}`);
-      }
+    const addContextValue = (type: string, value?: string) => {
+      if (!value) return;
+      if (type === lead.type && value === lead.value) return;
+      contextValues.set(`${type}\u0000${value}`, { type, value });
     };
 
     for (const reference of lead.evidence) {
-      const key = `${reference.sourceId}:${reference.itemId}`;
-      if (investigation.matchedEvidence.some(
-        item => `${item.sourceId}:${item.itemId}` === key
-      )) {
-        continue;
-      }
-
       const [entities, communication] = await Promise.all([
-        this.iped.getEvidenceEntities(
-          reference.sourceId,
-          reference.itemId
-        ),
-        this.iped.getCommunicationParticipants(
-          reference.sourceId,
-          reference.itemId
-        )
+        this.iped.getEvidenceEntities(reference.sourceId, reference.itemId),
+        this.iped.getCommunicationParticipants(reference.sourceId, reference.itemId)
       ]);
-      addContextFromItem({
-        entities: entities.entities,
-        communication
-      });
+      for (const entity of entities.entities) addContextValue(entity.type, entity.value);
+      for (const participant of [...communication.from, ...communication.to]) {
+        addContextValue(
+          "COMMUNICATION_PARTICIPANT",
+          participant.value ?? participant.id ?? participant.phoneNumber ??
+            participant.username ?? participant.name
+        );
+      }
     }
 
-    for (const item of investigation.matchedEvidence) {
-      const key = `${item.sourceId}:${item.itemId}`;
-      if (!priorEvidenceKeys.has(key) && !anchorKeys.has(key)) {
-        continue;
-      }
-
-      addContextFromItem(item);
+    const queryValues = [lead.value, ...[...contextValues.values()].map(item => item.value)];
+    const investigations = [];
+    const seenQueries = new Set<string>();
+    for (const value of queryValues) {
+      if (seenQueries.has(value)) continue;
+      seenQueries.add(value);
+      investigations.push(
+        await this.iped.investigateEvidence(value, current.sourceId)
+      );
     }
 
-    const contextualEvidence = investigation.matchedEvidence.filter(item => {
-      const key = `${item.sourceId}:${item.itemId}`;
-      if (priorEvidenceKeys.has(key) || anchorKeys.has(key)) {
-        return true;
+    const evidenceByKey = new Map<string, (typeof investigations)[number]["matchedEvidence"][number]>();
+    let evidenceSearchTruncated = false;
+    let evidenceSearchAvailable = 0;
+    for (const candidateInvestigation of investigations) {
+      evidenceSearchTruncated ||= Boolean(candidateInvestigation.matchedEvidenceTruncated);
+      evidenceSearchAvailable += candidateInvestigation.matchedEvidenceAvailable ??
+        candidateInvestigation.matchedEvidence.length;
+      for (const item of candidateInvestigation.matchedEvidence) {
+        evidenceByKey.set(`${item.sourceId}:${item.itemId}`, item);
       }
+    }
 
+    const contextualEvidence = [...evidenceByKey.values()].filter(item => {
+      const key = `${item.sourceId}:${item.itemId}`;
+      if (priorEvidenceKeys.has(key) || anchorKeys.has(key)) return true;
       return (item.entities ?? []).some(entity =>
-        !(entity.type === lead.type && entity.value === lead.value) &&
         contextValues.has(`${entity.type}\u0000${entity.value}`)
-      ) || [
-        ...(item.communication?.from ?? []),
-        ...(item.communication?.to ?? [])
-      ].some(participant => {
-        const value =
-          participant.value ??
-          participant.id ??
-          participant.phoneNumber ??
-          participant.username ??
-          participant.name;
-        return value
-          ? contextValues.has(`COMMUNICATION_PARTICIPANT\u0000${value}`)
-          : false;
-      });
+      ) || [...(item.communication?.from ?? []), ...(item.communication?.to ?? [])]
+        .some(participant => {
+          const value = participant.value ?? participant.id ??
+            participant.phoneNumber ?? participant.username ?? participant.name;
+          return value
+            ? contextValues.has(`COMMUNICATION_PARTICIPANT\u0000${value}`)
+            : false;
+        });
     });
 
+    const primaryInvestigation = investigations[0];
     const allowedEvidenceKeys = new Set(
       contextualEvidence.map(
         item => `${item.sourceId}:${item.itemId}`
       )
     );
     const filteredLeads = [
-      ...investigation.recurringEntities.map(entity => ({
+      ...investigations.flatMap(item => item.recurringEntities).map(entity => ({
         type: entity.type,
         value: entity.value,
         evidence: entity.evidence.filter(reference =>
@@ -629,7 +598,7 @@ export class InvestigatorService {
           )
         )
       })),
-      ...investigation.recurringCommunicationParticipants.map(
+      ...investigations.flatMap(item => item.recurringCommunicationParticipants).map(
         participant => ({
           type: "COMMUNICATION_PARTICIPANT",
           value: participant.value,
@@ -655,7 +624,7 @@ export class InvestigatorService {
     });
     const progress = this.investigations.progress(investigationId);
     const contextualView = filterInvestigatorViewEvidence(
-      investigation.investigatorView,
+      primaryInvestigation.investigatorView,
       contextualEvidence.map(item => ({
         sourceId: item.sourceId,
         itemId: item.itemId
@@ -673,8 +642,8 @@ export class InvestigatorService {
         ).length,
         progress
       }),
-      evidenceSearchTruncated: investigation.matchedEvidenceTruncated,
-      evidenceSearchAvailable: investigation.matchedEvidenceAvailable
+      evidenceSearchTruncated,
+      evidenceSearchAvailable
     };
 
     const aiAnalysis = await this.analyzeWorkspaceEvidence({
@@ -695,7 +664,7 @@ export class InvestigatorService {
       leadType: lead.type,
       leadValue: lead.value,
       sourceId: current.sourceId,
-      matchedEvidenceCount: investigation.matchedEvidence.length,
+      matchedEvidenceCount: evidenceByKey.size,
       contextualEvidenceCount: contextualEvidence.length
     });
 
