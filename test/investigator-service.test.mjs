@@ -246,7 +246,10 @@ test("optional contextual query failure does not abort correlation expansion", a
   const fakeIped = {
     async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
     async investigateEvidence(query) {
-      if (query === "Atlas") throw new Error("IPED request failed: 500 Request failed.");
+      if (query.includes("Atlas")) {
+        assert.equal(query, 'Regex\\:PROJECT:"Atlas"');
+        throw new Error("IPED request failed: 500 Request failed.");
+      }
       return make(query, initial);
     }
   };
