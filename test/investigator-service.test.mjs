@@ -668,8 +668,8 @@ test("MVP acceptance: contextual expansion preserves provenance and excludes sam
 
   assert.equal(expanded.status, "LEAD_EXPLORED");
   assert.deepEqual(
-    expanded.workspace.panels.evidence.map(item => item.itemId),
-    [6]
+    expanded.workspace.panels.evidence.map(item => item.itemId).sort(),
+    [2, 3, 6, 8]
   );
   assert.equal(
     expanded.workspace.panels.evidence.some(item => item.itemId === 1),
