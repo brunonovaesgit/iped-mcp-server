@@ -528,6 +528,42 @@ export class InvestigatorService {
     );
     const contextValues = new Set<string>();
 
+    const addContextFromItem = (item: {
+      entities?: Array<{ type: string; value: string }>;
+      communication?: {
+        from?: Array<Record<string, string | undefined>>;
+        to?: Array<Record<string, string | undefined>>;
+      };
+    }) => {
+      addContextFromItem(item);
+    };
+
+    for (const reference of lead.evidence) {
+      const key = `${reference.sourceId}:${reference.itemId}`;
+      if (investigation.matchedEvidence.some(
+        item => `${item.sourceId}:${item.itemId}` === key
+      )) {
+        continue;
+      }
+
+      const item = await this.iped.getEvidence(
+        reference.sourceId,
+        reference.itemId
+      );
+      addContextFromItem({
+        entities: this.iped.evidenceEntitiesFromProperties(
+          reference.sourceId,
+          reference.itemId,
+          item.properties
+        ).entities,
+        communication: this.iped.communicationParticipantsFromProperties(
+          reference.sourceId,
+          reference.itemId,
+          item.properties
+        )
+      });
+    }
+
     for (const item of investigation.matchedEvidence) {
       const key = `${item.sourceId}:${item.itemId}`;
       if (!priorEvidenceKeys.has(key) && !anchorKeys.has(key)) {
