@@ -492,3 +492,41 @@ test("MVP acceptance: examiner workspace remains evidence-grounded and uses neut
   assert.equal("conclusion" in workspace, false);
   assert.equal("guilt" in workspace, false);
 });
+
+
+test("contextual view filtering removes relationships that point to rejected evidence", () => {
+  const evidence = [
+    { sourceId: "case-1", itemId: 1, name: "atlas.txt" },
+    { sourceId: "case-1", itemId: 4, name: "apollo.txt" }
+  ];
+  const graphView = buildInvestigationGraphView(buildInvestigationGraph({
+    evidence,
+    entities: [],
+    communicationParticipants: [],
+    duplicateEvidence: [{
+      hash: "same-hash",
+      evidence: evidence.map(({ sourceId, itemId }) => ({ sourceId, itemId }))
+    }]
+  }));
+  const view = buildInvestigatorView({
+    question: "Investigue Atlas",
+    evidence,
+    graphView
+  });
+  const filtered = filterInvestigatorViewEvidence(view, [
+    { sourceId: "case-1", itemId: 1 }
+  ]);
+
+  assert.deepEqual(
+    filtered.sections.evidence.map(item => item.itemId),
+    [1]
+  );
+  assert.equal(filtered.sections.relationships.edges.length, 0);
+  assert.equal(
+    filtered.sections.relationships.nodes.some(
+      node => node.kind === "EVIDENCE" && node.itemId === 4
+    ),
+    false
+  );
+  assert.equal(filtered.sections.relationships.summary.edgeCount, 0);
+});
