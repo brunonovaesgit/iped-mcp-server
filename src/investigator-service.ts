@@ -189,7 +189,8 @@ export class InvestigatorService {
         ).length,
         progress
       }),
-      evidenceSearchTruncated: investigation.matchedEvidenceTruncated
+      evidenceSearchTruncated: investigation.matchedEvidenceTruncated,
+      evidenceSearchAvailable: investigation.matchedEvidenceAvailable
     };
     const investigatorView = {
       ...investigation.investigatorView,
@@ -391,7 +392,8 @@ export class InvestigatorService {
         ).length,
         progress
       }),
-      evidenceSearchTruncated: investigation.matchedEvidenceTruncated
+      evidenceSearchTruncated: investigation.matchedEvidenceTruncated,
+      evidenceSearchAvailable: investigation.matchedEvidenceAvailable
     };
 
     const aiAnalysis = await this.analyzeWorkspaceEvidence({
@@ -637,7 +639,8 @@ export class InvestigatorService {
         ).length,
         progress
       }),
-      evidenceSearchTruncated: investigation.matchedEvidenceTruncated
+      evidenceSearchTruncated: investigation.matchedEvidenceTruncated,
+      evidenceSearchAvailable: investigation.matchedEvidenceAvailable
     };
 
     const aiAnalysis = await this.analyzeWorkspaceEvidence({
