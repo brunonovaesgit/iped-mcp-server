@@ -181,13 +181,16 @@ export class InvestigatorService {
       ]
     });
     const progress = this.investigations.progress(session.id);
-    const resultState = buildInvestigationResultState({
-      evidenceCount: state.evidence.length,
-      openLeadCount: state.leads.filter(
-        lead => lead.status === "OPEN"
-      ).length,
-      progress
-    });
+    const resultState = {
+      ...buildInvestigationResultState({
+        evidenceCount: state.evidence.length,
+        openLeadCount: state.leads.filter(
+          lead => lead.status === "OPEN"
+        ).length,
+        progress
+      }),
+      evidenceSearchTruncated: investigation.matchedEvidenceTruncated
+    };
     const investigatorView = {
       ...investigation.investigatorView,
       overview: {
@@ -380,13 +383,16 @@ export class InvestigatorService {
       investigation.investigatorView,
       { leads: session.leads, progress }
     );
-    const resultState = buildInvestigationResultState({
-      evidenceCount: investigation.matchedEvidence.length,
-      openLeadCount: session.leads.filter(
-        lead => lead.status === "OPEN"
-      ).length,
-      progress
-    });
+    const resultState = {
+      ...buildInvestigationResultState({
+        evidenceCount: investigation.matchedEvidence.length,
+        openLeadCount: session.leads.filter(
+          lead => lead.status === "OPEN"
+        ).length,
+        progress
+      }),
+      evidenceSearchTruncated: investigation.matchedEvidenceTruncated
+    };
 
     const aiAnalysis = await this.analyzeWorkspaceEvidence({
       investigationId,
@@ -623,13 +629,16 @@ export class InvestigatorService {
       contextualView,
       { leads: session.leads, progress }
     );
-    const resultState = buildInvestigationResultState({
-      evidenceCount: contextualEvidence.length,
-      openLeadCount: session.leads.filter(
-        item => item.status === "OPEN"
-      ).length,
-      progress
-    });
+    const resultState = {
+      ...buildInvestigationResultState({
+        evidenceCount: contextualEvidence.length,
+        openLeadCount: session.leads.filter(
+          item => item.status === "OPEN"
+        ).length,
+        progress
+      }),
+      evidenceSearchTruncated: investigation.matchedEvidenceTruncated
+    };
 
     const aiAnalysis = await this.analyzeWorkspaceEvidence({
       investigationId,

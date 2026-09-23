@@ -312,3 +312,34 @@ test("stale explicit correlation remains not-available even after investigation 
     )
   );
 });
+
+
+test("workspace explicitly reports when the bounded evidence search is truncated", async () => {
+  const evidence = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Carlos", entities: [], communication: { from: [], to: [] } }
+  ];
+  const fakeIped = {
+    async getCaseContext() {
+      return { sources: [{ id: "case-1", name: "Caso" }] };
+    },
+    async investigateEvidence(query) {
+      return {
+        matchedEvidence: evidence,
+        matchedEvidenceTruncated: true,
+        recurringEntities: [],
+        recurringCommunicationParticipants: [],
+        investigatorView: view(query, evidence)
+      };
+    }
+  };
+
+  const service = new InvestigatorService(
+    fakeIped,
+    new InvestigationSessions(),
+    new AuditLog()
+  );
+  const result = await service.begin("Investigue todas as evidências de Carlos");
+
+  assert.equal(result.status, "INVESTIGATION_READY");
+  assert.equal(result.workspace.resultState.evidenceSearchTruncated, true);
+});

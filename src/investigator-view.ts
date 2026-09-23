@@ -269,6 +269,7 @@ export function buildInvestigationWorkspace(input: {
     status: string;
     message: string;
     suggestedAction: string;
+    evidenceSearchTruncated?: boolean;
   };
 }) {
   return {
@@ -280,6 +281,7 @@ export function buildInvestigationWorkspace(input: {
     },
     summary: input.view.overview,
     status: input.resultState,
+    resultState: input.resultState,
     analysis: buildGroundedSummary({
       evidenceCount: input.view.overview.evidenceCount,
       entityCount: input.view.overview.entityCount,
