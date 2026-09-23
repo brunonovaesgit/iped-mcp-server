@@ -458,3 +458,96 @@ test("correlation expansion keeps anchor context even when bounded search omits 
     [1, 2, 3]
   );
 });
+
+
+test("MVP acceptance: contextual expansion preserves provenance and excludes same-value false positives end to end", async () => {
+  const initial = [
+    { sourceId: "mcp-lab", itemId: 2, name: "comprovante-divergente.txt", text: "Projeto Atlas R$ 17.850,00", entities: [
+      { type: "MONEY", value: "17.850,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "mcp-lab", itemId: 3, name: "conversa.txt", text: "Carlos Almeida Projeto Atlas 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" },
+      { type: "PERSON", value: "Carlos Almeida" }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "mcp-lab", itemId: 8, name: "email.txt", text: "Atlas 18.750 ATLAS-2026-0918", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" },
+      { type: "REFERENCE", value: "ATLAS-2026-0918" }
+    ], communication: { from: [], to: [] } }
+  ];
+  const expansion = [
+    { sourceId: "mcp-lab", itemId: 6, name: "pagamento.txt", text: "Orion Tecnologia Atlas 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Atlas" }
+    ], communication: { from: [], to: [] } },
+    { sourceId: "mcp-lab", itemId: 1, name: "carlos-santos.txt", text: "Carlos Santos Apollo 18.750", entities: [
+      { type: "MONEY", value: "18.750,00" },
+      { type: "PROJECT", value: "Apollo" },
+      { type: "PERSON", value: "Carlos Santos" }
+    ], communication: { from: [], to: [] } }
+  ];
+
+  const make = (question, evidence) => ({
+    matchedEvidence: evidence,
+    matchedEvidenceTruncated: false,
+    matchedEvidenceAvailable: evidence.length,
+    recurringEntities: [
+      {
+        type: "MONEY",
+        value: "18.750,00",
+        evidence: evidence
+          .filter(item => item.entities.some(entity => entity.type === "MONEY" && entity.value === "18.750,00"))
+          .map(item => ({ sourceId: item.sourceId, itemId: item.itemId }))
+      }
+    ].filter(item => item.evidence.length > 1),
+    recurringCommunicationParticipants: [],
+    investigatorView: view(question, evidence)
+  });
+
+  const anchors = new Map(initial.map(item => [item.itemId, item]));
+  const fakeIped = {
+    async getCaseContext() {
+      return { sources: [{ id: "mcp-lab", name: "MCP Lab" }] };
+    },
+    async investigateEvidence(query) {
+      return query === "18.750,00" ? make(query, expansion) : make(query, initial);
+    },
+    async getEvidenceEntities(sourceId, itemId) {
+      const item = anchors.get(itemId);
+      assert.equal(sourceId, "mcp-lab");
+      assert.ok(item);
+      return { entities: item.entities };
+    },
+    async getCommunicationParticipants() {
+      return { from: [], to: [] };
+    }
+  };
+
+  const sessions = new InvestigationSessions();
+  const service = new InvestigatorService(fakeIped, sessions, new AuditLog());
+  const started = await service.begin("Investigue todas as evidências relacionadas a Carlos");
+  const id = started.workspace.investigationId;
+
+  assert.deepEqual(
+    started.workspace.panels.evidence.map(item => item.itemId),
+    [2, 3, 8]
+  );
+
+  const expanded = await service.exploreLead(id, "MONEY", "18.750,00");
+
+  assert.equal(expanded.status, "LEAD_EXPLORED");
+  assert.deepEqual(
+    expanded.workspace.panels.evidence.map(item => item.itemId),
+    [6]
+  );
+  assert.equal(
+    expanded.workspace.panels.evidence.some(item => item.itemId === 1),
+    false
+  );
+  assert.deepEqual(
+    sessions.get(id).evidence.map(item => item.itemId),
+    [2, 3, 8, 6]
+  );
+});
