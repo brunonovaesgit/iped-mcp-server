@@ -453,3 +453,42 @@ test("surfaces distinct MONEY graph values as a neutral reviewable variation eve
   assert.deepEqual(workspace.panels.inconsistencies[0].values.map(item => item.value), ["18.750,00", "17.850,00"]);
   assert.deepEqual(workspace.panels.inconsistencies[0].values[1].evidence, [{ sourceId: "case-a", itemId: 3 }]);
 });
+
+
+test("MVP acceptance: examiner workspace remains evidence-grounded and uses neutral forensic semantics", () => {
+  const evidence = [
+    { sourceId: "mcp-lab", itemId: 3, name: "conversa.txt", path: "MCP Lab/conversa.txt", textAvailable: true },
+    { sourceId: "mcp-lab", itemId: 8, name: "email-orion.txt", path: "MCP Lab/email-orion.txt", textAvailable: true },
+    { sourceId: "mcp-lab", itemId: 2, name: "comprovante-divergente.txt", path: "MCP Lab/comprovante-divergente.txt", textAvailable: true }
+  ];
+  const graphView = buildInvestigationGraphView(buildInvestigationGraph({
+    evidence,
+    entities: [
+      { type: "PROJECT", value: "Atlas", evidence: evidence.map(({ sourceId, itemId }) => ({ sourceId, itemId })) },
+      { type: "MONEY", value: "18.750,00", evidence: [{ sourceId: "mcp-lab", itemId: 3 }, { sourceId: "mcp-lab", itemId: 8 }] },
+      { type: "MONEY", value: "17.850,00", evidence: [{ sourceId: "mcp-lab", itemId: 2 }] }
+    ],
+    communicationParticipants: [],
+    duplicateEvidence: []
+  }));
+  const base = buildInvestigatorView({ question: "Investigue Carlos Almeida", evidence, graphView });
+  const view = enrichInvestigatorView(base, {
+    leads: [{ type: "PROJECT", value: "Atlas", evidence: evidence.map(({ sourceId, itemId }) => ({ sourceId, itemId })), status: "OPEN" }],
+    progress: { status: "CONTINUE", reason: "OPEN_LEAD_AVAILABLE", evidenceCount: 3, openLeadCount: 1, expansions: 0 }
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "mvp-acceptance",
+    question: "Investigue Carlos Almeida",
+    sourceId: "mcp-lab",
+    view,
+    resultState: buildInvestigationResultState({ evidenceCount: 3, openLeadCount: 1, progress: view.sections.progress })
+  });
+
+  assert.equal(workspace.status.status, "READY_TO_EXPLORE");
+  assert.equal(workspace.panels.evidence.length, 3);
+  assert.ok(workspace.panels.relationships.edges.every(edge => edge.evidence.length > 0));
+  assert.equal(workspace.panels.inconsistencies[0].classification, "OBSERVED_VALUE_VARIATION");
+  assert.match(workspace.panels.inconsistencies[0].description, /não demonstram inconsistência/);
+  assert.equal("conclusion" in workspace, false);
+  assert.equal("guilt" in workspace, false);
+});
