@@ -621,9 +621,17 @@ export class InvestigatorService {
       if (!value || seenQueries.has(value)) continue;
       seenQueries.add(value);
 
+      const escapedValue = value
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      const query =
+        context.type === "COMMUNICATION_PARTICIPANT"
+          ? `"${escapedValue}"`
+          : `Regex\\:${context.type}:"${escapedValue}"`;
+
       try {
         investigations.push(
-          await this.iped.investigateEvidence(value, current.sourceId)
+          await this.iped.investigateEvidence(query, current.sourceId)
         );
       } catch (error) {
         await this.audit.write("context_correlation_query_failed", {
