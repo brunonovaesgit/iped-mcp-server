@@ -86,7 +86,7 @@ export class InvestigatorService {
             session && progress
               ? {
                   id: session.id,
-                  question: session.question,
+                  question: current.question,
                   focus: session.focus,
                   evidenceCount: session.evidence.length,
                   openLeadCount: session.leads.filter(
@@ -786,6 +786,8 @@ export class InvestigatorService {
         textAvailable: item.textAvailable
       })),
       graphView: {
+        summary: { nodeCount: 0, edgeCount: 0, nodesByKind: {}, edgesByRelationship: {} },
+        legend: investigations[0].investigatorView.sections.relationships.legend,
         nodes: investigations.flatMap(item =>
           item.investigatorView.sections.relationships.nodes
         ),
