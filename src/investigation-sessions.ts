@@ -89,6 +89,10 @@ export class InvestigationSessions {
       state.followUps.push(update.followUp);
     }
 
+    if (update.followUp && !update.expansion) {
+      state.lastExpansion = undefined;
+    }
+
     for (const lead of update.leads ?? []) {
       const existing = state.leads.find(
         item => item.type === lead.type && item.value === lead.value
