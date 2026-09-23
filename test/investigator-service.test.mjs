@@ -265,7 +265,10 @@ test("contextual expansion enriches loaded anchors from authoritative IPED metad
   const started = await service.begin("Carlos");
   const expanded = await service.exploreLead(started.workspace.investigationId, "MONEY", "18.750,00");
   assert.equal(queries.includes('Regex\\:PROJECT:"Atlas"'), true);
-  assert.equal(expanded.workspace.evidence.length, 3);
+  assert.deepEqual(
+    expanded.workspace.panels.evidence.map(item => item.itemId).sort(),
+    [1, 2, 3]
+  );
 });
 
 test("contextual expansion preserves the exact IPED searchQuery supplied by indexed evidence", async () => {
