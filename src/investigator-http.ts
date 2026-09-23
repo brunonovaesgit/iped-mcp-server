@@ -72,7 +72,7 @@ const investigatorHtml = `<!doctype html>
       <button>Continuar investigação</button>
     </form>
     <div class="analysis" id="analysis"></div>
-    <div class="analysis hidden" id="inconsistencies"></div>\n      <div class="analysis hidden" id="aiAnalysis"></div>
+    <div class="analysis hidden" id="valueVariations"></div>\n      <div class="analysis hidden" id="aiAnalysis"></div>
     <div class="summary" id="summary"></div>
     <div class="grid">
       <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
@@ -128,12 +128,12 @@ function renderWorkspace(workspace){
     aiTarget.classList.add("hidden");
     aiTarget.innerHTML="";
   }
-  const inconsistencies=workspace.panels?.inconsistencies||[];
-  const inconsistencyTarget=byId("inconsistencies");
+  const valueVariations=workspace.panels?.valueVariations||[];
+  const inconsistencyTarget=byId("valueVariations");
   if(inconsistencyTarget){
-    if(inconsistencies.length){
+    if(valueVariations.length){
       inconsistencyTarget.classList.remove("hidden");
-      inconsistencyTarget.innerHTML='<h2>Variações monetárias observadas</h2>'+inconsistencies.map(item=>'<div class="observation"><strong>'+escapeHtml(item.type)+'</strong> · '+escapeHtml(item.description)+'</div>').join("");
+      inconsistencyTarget.innerHTML='<h2>Variações monetárias observadas</h2>'+valueVariations.map(item=>'<div class="observation"><strong>'+escapeHtml(item.type)+'</strong> · '+escapeHtml(item.description)+'</div>').join("");
     }else{
       inconsistencyTarget.classList.add("hidden");
       inconsistencyTarget.innerHTML="";
