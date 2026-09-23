@@ -581,12 +581,16 @@ export class InvestigatorService {
             ...(properties[`${prefix}:username`] ?? [])
           ];
           communication = {
+            evidence: { sourceId: reference.sourceId, itemId: reference.itemId },
             from: participantValues("Communication:From").map(value => ({
               value, id: "", name: "", phoneNumber: "", username: ""
             })),
             to: participantValues("Communication:To").map(value => ({
               value, id: "", name: "", phoneNumber: "", username: ""
-            }))
+            })),
+            conversation: {
+              id: undefined, name: undefined, type: undefined
+            }
           };
         } catch {
           continue;
