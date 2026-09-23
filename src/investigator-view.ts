@@ -98,6 +98,78 @@ export function buildInvestigatorView(input: {
 }
 
 
+export function filterInvestigatorViewEvidence(
+  view: ReturnType<typeof buildInvestigatorView>,
+  allowedEvidence: EvidenceReference[]
+) {
+  const allowed = new Set(
+    allowedEvidence.map(item => `${item.sourceId}:${item.itemId}`)
+  );
+  const evidence = view.sections.evidence.filter(item =>
+    allowed.has(`${item.sourceId}:${item.itemId}`)
+  );
+  const timeline = view.sections.timeline.filter(item =>
+    allowed.has(`${item.sourceId}:${item.itemId}`)
+  );
+  const edges = view.sections.relationships.edges.filter(edge =>
+    edge.evidence.some(item =>
+      allowed.has(`${item.sourceId}:${item.itemId}`)
+    )
+  ).map(edge => ({
+    ...edge,
+    evidence: edge.evidence.filter(item =>
+      allowed.has(`${item.sourceId}:${item.itemId}`)
+    )
+  }));
+  const connectedNodeIds = new Set(
+    edges.flatMap(edge => [edge.from, edge.to])
+  );
+  const nodes = view.sections.relationships.nodes.filter(node =>
+    node.kind === "EVIDENCE"
+      ? allowed.has(`${node.sourceId}:${node.itemId}`)
+      : connectedNodeIds.has(node.id)
+  );
+  const nodesByKind: Record<string, number> = {};
+  for (const node of nodes) {
+    nodesByKind[node.kind] = (nodesByKind[node.kind] ?? 0) + 1;
+  }
+  const edgesByRelationship: Record<string, number> = {};
+  for (const edge of edges) {
+    edgesByRelationship[edge.relationship] =
+      (edgesByRelationship[edge.relationship] ?? 0) + 1;
+  }
+
+  return {
+    ...view,
+    overview: {
+      ...view.overview,
+      evidenceCount: evidence.length,
+      relationshipCount: edges.length,
+      entityCount: nodesByKind.ENTITY ?? 0,
+      communicationParticipantCount:
+        nodesByKind.COMMUNICATION_PARTICIPANT ?? 0,
+      timelineEventCount: timeline.length
+    },
+    sections: {
+      ...view.sections,
+      evidence,
+      timeline,
+      relationships: {
+        ...view.sections.relationships,
+        summary: {
+          nodeCount: nodes.length,
+          edgeCount: edges.length,
+          nodesByKind,
+          edgesByRelationship
+        },
+        nodes,
+        edges
+      }
+    }
+  };
+}
+
+
 function buildObservedInconsistencies(relationships: InvestigationGraphView) {
   const moneyNodes = relationships.nodes.filter(
     node => node.kind === "ENTITY" && node.entityType === "MONEY"
