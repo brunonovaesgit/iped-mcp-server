@@ -123,9 +123,9 @@ function buildObservedInconsistencies(relationships: InvestigationGraphView) {
   if (distinct.length < 2) return [];
 
   return [{
-    classification: "OBSERVED_INCONSISTENCY" as const,
+    classification: "OBSERVED_VALUE_VARIATION" as const,
     type: "MONEY",
-    description: `Foram observados ${distinct.length} valores monetários distintos nas evidências recuperadas: ${distinct.map(item => item.value).join(", ")}. A divergência deve ser verificada nas evidências; o sistema não infere qual valor é correto.`,
+    description: `Foram observados ${distinct.length} valores monetários distintos nas evidências recuperadas: ${distinct.map(item => item.value).join(", ")}. Valores diferentes, isoladamente, não demonstram inconsistência; a relação entre eles deve ser validada pelo contexto e pelas evidências de suporte.`,
     values: distinct
   }];
 }

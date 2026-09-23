@@ -420,7 +420,7 @@ test("keeps the complete investigator workspace grounded and reviewable", () => 
 });
 
 
-test("surfaces distinct MONEY graph values as a reviewable inconsistency even when only one is an investigation lead", () => {
+test("surfaces distinct MONEY graph values as a neutral reviewable variation even when only one is an investigation lead", () => {
   const evidence = [
     { sourceId: "case-a", itemId: 1 },
     { sourceId: "case-a", itemId: 2 },
@@ -448,6 +448,8 @@ test("surfaces distinct MONEY graph values as a reviewable inconsistency even wh
   });
   assert.equal(workspace.panels.leads.length, 1);
   assert.equal(workspace.panels.inconsistencies.length, 1);
+  assert.equal(workspace.panels.inconsistencies[0].classification, "OBSERVED_VALUE_VARIATION");
+  assert.match(workspace.panels.inconsistencies[0].description, /não demonstram inconsistência/);
   assert.deepEqual(workspace.panels.inconsistencies[0].values.map(item => item.value), ["18.750,00", "17.850,00"]);
   assert.deepEqual(workspace.panels.inconsistencies[0].values[1].evidence, [{ sourceId: "case-a", itemId: 3 }]);
 });

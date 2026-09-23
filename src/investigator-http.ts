@@ -133,7 +133,7 @@ function renderWorkspace(workspace){
   if(inconsistencyTarget){
     if(inconsistencies.length){
       inconsistencyTarget.classList.remove("hidden");
-      inconsistencyTarget.innerHTML='<h2>Inconsistências observadas</h2>'+inconsistencies.map(item=>'<div class="observation"><strong>'+escapeHtml(item.type)+'</strong> · '+escapeHtml(item.description)+'</div>').join("");
+      inconsistencyTarget.innerHTML='<h2>Variações monetárias observadas</h2>'+inconsistencies.map(item=>'<div class="observation"><strong>'+escapeHtml(item.type)+'</strong> · '+escapeHtml(item.description)+'</div>').join("");
     }else{
       inconsistencyTarget.classList.add("hidden");
       inconsistencyTarget.innerHTML="";
