@@ -582,10 +582,10 @@ export class InvestigatorService {
           ];
           communication = {
             from: participantValues("Communication:From").map(value => ({
-              value, id: undefined, name: undefined, phoneNumber: undefined, username: undefined
+              value, id: "", name: "", phoneNumber: "", username: ""
             })),
             to: participantValues("Communication:To").map(value => ({
-              value, id: undefined, name: undefined, phoneNumber: undefined, username: undefined
+              value, id: "", name: "", phoneNumber: "", username: ""
             }))
           };
         } catch {
