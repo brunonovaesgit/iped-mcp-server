@@ -430,16 +430,6 @@ export class InvestigatorService {
     leadType?: string,
     leadValue?: string
   ) {
-    const decision = this.investigations.shouldExpand(investigationId);
-
-    if (!decision.expand) {
-      return {
-        status: "INVESTIGATION_STOPPED" as const,
-        reason: decision.reason,
-        progress: this.investigations.progress(investigationId)
-      };
-    }
-
     const current = this.investigations.get(investigationId);
 
     if (!current) {
@@ -449,6 +439,35 @@ export class InvestigatorService {
     }
 
     const explicitSelection = Boolean(leadType && leadValue);
+    const decision = this.investigations.shouldExpand(investigationId);
+
+    if (!decision.expand) {
+      if (
+        explicitSelection &&
+        !this.investigations.lead(
+          investigationId,
+          leadType!,
+          leadValue!
+        )
+      ) {
+        await this.audit.write("explore_investigation_lead_not_available", {
+          investigationId,
+          leadType,
+          leadValue
+        });
+        return {
+          status: "CORRELATION_NOT_AVAILABLE" as const,
+          reason: "REQUESTED_CORRELATION_IS_NOT_OPEN" as const,
+          progress: this.investigations.progress(investigationId)
+        };
+      }
+
+      return {
+        status: "INVESTIGATION_STOPPED" as const,
+        reason: decision.reason,
+        progress: this.investigations.progress(investigationId)
+      };
+    }
     const selected =
       explicitSelection
         ? this.investigations.lead(

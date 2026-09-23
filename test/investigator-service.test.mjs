@@ -265,3 +265,50 @@ test("explicit correlation selection never falls through to a different open cor
     )
   );
 });
+
+
+test("stale explicit correlation remains not-available even after investigation expansion stops", async () => {
+  const evidence = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas", entities: [], communication: { from: [], to: [] } }
+  ];
+  const fakeIped = {
+    async getCaseContext() {
+      return { sources: [{ id: "case-1", name: "Caso" }] };
+    },
+    async investigateEvidence(query) {
+      return {
+        matchedEvidence: evidence,
+        recurringEntities: [
+          { type: "PROJECT", value: "Atlas", evidence: [{ sourceId: "case-1", itemId: 1 }] }
+        ],
+        recurringCommunicationParticipants: [],
+        investigatorView: view(query, evidence)
+      };
+    }
+  };
+
+  const audit = new AuditLog();
+  const sessions = new InvestigationSessions();
+  const service = new InvestigatorService(fakeIped, sessions, audit);
+  const started = await service.begin("Investigue Atlas");
+  const id = started.workspace.investigationId;
+
+  sessions.record(id, {
+    expansion: true,
+    expansionQuery: "Atlas",
+    evidence: [],
+    exploredLead: { type: "PROJECT", value: "Atlas" }
+  });
+
+  assert.equal(sessions.shouldExpand(id).reason, "NO_NEW_EVIDENCE");
+
+  const result = await service.exploreLead(id, "PROJECT", "Atlas");
+
+  assert.equal(result.status, "CORRELATION_NOT_AVAILABLE");
+  assert.equal(result.reason, "REQUESTED_CORRELATION_IS_NOT_OPEN");
+  assert.ok(
+    audit.entries().some(
+      entry => entry.action === "explore_investigation_lead_not_available"
+    )
+  );
+});
