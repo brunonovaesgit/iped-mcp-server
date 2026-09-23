@@ -12,6 +12,7 @@
     "investigator:dev": "tsx src/investigator-http.ts",
     "check": "npm run build --silent && node dist/check.js",
     "check:rc": "npm run test --silent && node dist/check.js",
+    "diagnose:correlation": "node dist/correlation-diagnostic.js",
     "test": "npm run build --silent && node --test test/*.test.mjs",
     "preinvestigator": "npm run build --silent"
   },
