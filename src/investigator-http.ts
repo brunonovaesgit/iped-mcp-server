@@ -144,7 +144,11 @@ function renderWorkspace(workspace){
   byId("analysis").innerHTML='<h2>Síntese da investigação</h2><p>'+escapeHtml(analysis.headline||"")+'</p>'+observations+(analysis.communication?'<p>'+escapeHtml(analysis.communication)+'</p>':"")+(analysis.limitation?'<p class="meta">'+escapeHtml(analysis.limitation)+'</p>':"");
   const s=workspace.summary||{};
   if(workspace.resultState?.evidenceSearchTruncated){
-    byId("analysis").innerHTML+='<p class="meta"><b>Limite da busca atingido.</b> O conjunto exibido não deve ser interpretado como exaustivo.</p>';
+    const available=workspace.resultState.evidenceSearchAvailable;
+    const detail=Number.isFinite(available)
+      ? ' O IPED retornou '+escapeHtml(available)+' referência(s) para esta busca; apenas o subconjunto limitado foi analisado nesta etapa.'
+      : '';
+    byId("analysis").innerHTML+='<p class="meta"><b>Limite da busca atingido.</b>'+detail+' O conjunto exibido não deve ser interpretado como exaustivo.</p>';
   }
   const metrics=[["Evidências",s.evidenceCount],["Entidades",s.entityCount],["Relações",s.relationshipCount],["Comunicações",s.communicationParticipantCount],["Correlações pendentes",s.openLeadCount]];
   byId("summary").innerHTML=metrics.map(([label,value])=>'<div class="metric"><b>'+escapeHtml(value??0)+'</b><span>'+label+'</span></div>').join("");
