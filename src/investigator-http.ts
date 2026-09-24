@@ -161,8 +161,9 @@ function renderWorkspace(workspace){
     }
   }
   const analysis=workspace.analysis||{};
-  const observations=(analysis.observations||[]).map(item=>'<div class="observation">'+escapeHtml(item.text)+'<div class="meta">'+(item.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>').join("");
+  const observations=(analysis.observations||[]).map(item=>'<div class="observation">'+escapeHtml(item.text)+'<div>'+(item.evidence||[]).map(e=>'<button type="button" class="evidenceButton analysisEvidenceButton" data-source="'+escapeHtml(e.sourceId)+'" data-item="'+escapeHtml(e.itemId)+'">'+escapeHtml(e.sourceId)+':'+escapeHtml(e.itemId)+'</button>').join(" · ")+'</div></div>').join("");
   byId("analysis").innerHTML='<h2>Síntese da investigação</h2><p>'+escapeHtml(analysis.headline||"")+'</p>'+observations+(analysis.communication?'<p>'+escapeHtml(analysis.communication)+'</p>':"")+(analysis.limitation?'<p class="meta">'+escapeHtml(analysis.limitation)+'</p>':"");
+  byId("analysis").querySelectorAll(".analysisEvidenceButton").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
   const s=workspace.summary||{};
   if(workspace.resultState?.evidenceSearchTruncated){
     const available=workspace.resultState.evidenceSearchAvailable;
