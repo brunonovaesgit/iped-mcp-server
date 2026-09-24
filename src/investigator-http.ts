@@ -3,7 +3,6 @@ import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { spawn, type ChildProcess } from "node:child_process";
 import { AuditLog } from "./audit-log.js";
 import { getConfig } from "./config.js";
 import { IpedClient } from "./iped-client.js";
@@ -22,17 +21,6 @@ const ai = createAiAnalyzer({
 });
 const investigator = new InvestigatorService(iped, investigations, audit, ai);
 const port = Number(process.env.INVESTIGATOR_PORT ?? 3333);
-let managedIped: ChildProcess | undefined;
-async function connectExistingIped(ipedHomeInput: string, casePathInput: string, sourceIdInput?: string) {
- const ipedHome=resolve(ipedHomeInput), casePath=resolve(casePathInput); await access(join(ipedHome,"lib"),constants.R_OK); await access(casePath,constants.R_OK);
- const sourceId=sourceIdInput?.trim()||basename(casePath)||"iped-case", temp=await mkdtemp(join(tmpdir(),"iped-mcp-")), sourcesFile=join(temp,"sources.json");
- await writeFile(sourcesFile,JSON.stringify([{id:sourceId,path:casePath}],null,2)); if(managedIped&&managedIped.exitCode===null)managedIped.kill();
- managedIped=spawn("java",["-cp",join(ipedHome,"lib","*"),"iped.engine.webapi.Main","--host=127.0.0.1","--port=8080",`--sources=${sourcesFile}`],{cwd:ipedHome,stdio:"ignore",env:process.env});
- await new Promise(done=>setTimeout(done,1800)); if(managedIped.exitCode!==null)throw new Error("O IPED não iniciou. Verifique a instalação e o Java.");
- const response=await fetch("http://127.0.0.1:8080/sources",{signal:AbortSignal.timeout(5000)}); if(!response.ok)throw new Error(`IPED respondeu HTTP ${response.status}`);
- return {sourceId,url:"http://127.0.0.1:8080"};
-}
-
 const investigatorHtml = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -74,7 +62,7 @@ const investigatorHtml = `<!doctype html>
   <section class="hero">
     <h1>O que você quer investigar neste caso?</h1>
     <p>Descreva o fato, pessoa, organização, comunicação ou relação que deseja analisar.</p>
-    <div id="onboarding" class="analysis hidden"><h2>Conectar ao seu IPED</h2><p>Informe a instalação do IPED e um caso já processado. Nenhuma evidência será enviada, importada ou modificada.</p><input id="ipedHome" placeholder="Pasta da instalação/release do IPED" style="width:100%;margin:6px 0"><input id="casePath" placeholder="Pasta do caso já processado pelo IPED" style="width:100%;margin:6px 0"><input id="caseId" placeholder="Nome do caso (opcional)" style="width:100%;margin:6px 0"><button type="button" id="connectIped">Conectar ao IPED</button><div class="status" id="connectStatus"></div></div><div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
+    <div id="onboarding" class="analysis hidden"><h2>Conectar ao seu IPED</h2><p>Seu caso continua no IPED. Para conectá-lo, use o comando <b>npm run connect:iped</b> descrito no README. Nenhuma evidência é enviada, importada ou modificada.</p></div><div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
     <form id="questionForm">
       <input id="question" autocomplete="off" placeholder="Ex.: investigue relações e comunicações envolvendo Carlos Almeida">
       <button id="startButton">Investigar</button>
@@ -113,10 +101,7 @@ window.addEventListener("error",event=>{
   if(status) status.textContent="A interface encontrou um erro: "+(event.message||"erro desconhecido");
 });
 let activeInvestigationId;
-async function connectIped(){const status=byId("connectStatus");status.textContent="Conectando...";try{const response=await fetch("/api/connect-iped",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({ipedHome:byId("ipedHome").value,casePath:byId("casePath").value,sourceId:byId("caseId").value})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Falha na conexão");status.textContent="✓ Caso conectado.";byId("onboarding").classList.add("hidden");await loadHome();}catch(error){status.textContent="Não foi possível conectar: "+error.message;}}
-let selectedSourceId;
 const byId=id=>document.getElementById(id);
-byId("connectIped").addEventListener("click",connectIped);
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 function items(target,values,render){
   byId(target).innerHTML=values?.length?values.map(render).join(""):'<div class="empty">Nenhum item para exibir.</div>';
@@ -360,12 +345,6 @@ const server = createServer(async (request, response) => {
       });
       response.end(investigatorHtml);
       return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/connect-iped") {
-      const input=await body(request), ipedHome=typeof input.ipedHome==="string"?input.ipedHome.trim():"", casePath=typeof input.casePath==="string"?input.casePath.trim():"", sourceId=typeof input.sourceId==="string"?input.sourceId.trim():undefined;
-      if(!ipedHome||!casePath)return json(response,400,{error:"Informe a pasta do IPED e a pasta do caso processado."});
-      try{return json(response,200,await connectExistingIped(ipedHome,casePath,sourceId));}catch(error){return json(response,400,{error:error instanceof Error?error.message:String(error)});}
     }
 
     if (request.method === "GET" && url.pathname === "/api/home") {
