@@ -105,6 +105,7 @@ export function buildInvestigatorView(input: {
         input.leads?.filter(lead => lead.status === "OPEN").length ?? 0
     },
     sections: {
+      retrievalAmbiguities: buildRetrievalAmbiguities(input.question, input.evidence),
       evidence: input.evidence.map(item => ({
         sourceId: item.sourceId,
         itemId: item.itemId,
@@ -329,10 +330,7 @@ export function buildInvestigationWorkspace(input: {
       leads: input.view.sections.leads
     }),
     panels: {
-      retrievalAmbiguities: buildRetrievalAmbiguities(
-        input.question,
-        input.view.sections.evidence
-      ),
+      retrievalAmbiguities: input.view.sections.retrievalAmbiguities,
       valueVariations: buildObservedValueVariations(input.view.sections.relationships),
       findings: input.view.sections.leads
         .filter(lead => lead.evidence.length > 0)
