@@ -58,8 +58,20 @@ jobs:
         shell: bash
         run: |
           test -x "package/IPED Investigator.app/Contents/MacOS/iped-investigator"
+          test -x "package/IPED Investigator.app/Contents/Resources/app/runtime/bin/node"
+          test -f "package/IPED Investigator.app/Contents/Resources/app/dist/launch.js"
+          test -f "package/IPED Investigator.app/Contents/Resources/app/dist/connect-iped.js"
+          test -f "package/IPED Investigator.app/Contents/Resources/app/dist/investigator-http.js"
           codesign --verify --deep --strict "package/IPED Investigator.app"
           plutil -lint "package/IPED Investigator.app/Contents/Info.plist"
+          ROOT="$PWD/package/IPED Investigator.app/Contents/Resources/app"
+          "$ROOT/runtime/bin/node" --version
+          cd "$ROOT"
+          "$ROOT/runtime/bin/node" --check dist/launch.js
+          "$ROOT/runtime/bin/node" --check dist/connect-iped.js
+          "$ROOT/runtime/bin/node" --check dist/investigator-http.js
+          cd "$GITHUB_WORKSPACE"
+          unzip -t iped-investigator-macos-arm64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: iped-investigator-macos-arm64
