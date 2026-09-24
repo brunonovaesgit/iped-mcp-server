@@ -57,3 +57,12 @@ test("graph supports direct navigation with modifier-wheel zoom and drag pan", (
   assert.ok(investigatorHtml.includes("graphBox.scrollLeft=startLeft"));
   assert.ok(investigatorHtml.includes("graphBox.scrollTop=startTop"));
 });
+
+
+test("a unique graph search result is focused and centered without removing other nodes", () => {
+  assert.ok(investigatorHtml.includes("const focusGraphNode=nodeId=>"));
+  assert.ok(investigatorHtml.includes("if(query&&matches===1)"));
+  assert.ok(investigatorHtml.includes("focusGraphNode(match.dataset.node)"));
+  assert.ok(investigatorHtml.includes('behavior:"smooth"'));
+  assert.ok(investigatorHtml.includes("nodeEl.dispatchEvent(new Event"));
+});
