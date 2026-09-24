@@ -1,4 +1,4 @@
-name: Build self-contained macOS package
+name: Build self-contained macOS app
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   package:
-    name: Self-contained macOS package
+    name: Self-contained macOS app
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,19 +20,48 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Assemble self-contained package
+      - name: Assemble IPED Investigator.app
         shell: bash
         run: |
           set -eu
-          mkdir -p package/iped-investigator/runtime
-          cp -R dist node_modules package.json package-lock.json README.md .env.example package/iped-investigator/
+          APP="package/IPED Investigator.app"
+          RES="$APP/Contents/Resources/app"
+          MACOS="$APP/Contents/MacOS"
+          mkdir -p "$RES/runtime" "$MACOS"
+          cp -R dist node_modules package.json package-lock.json README.md .env.example "$RES/"
           curl -fsSL "https://nodejs.org/dist/v22.20.0/node-v22.20.0-darwin-arm64.tar.gz" -o node-runtime.tgz
-          tar -xzf node-runtime.tgz --strip-components=1 -C package/iped-investigator/runtime
-          printf '%s\n' '#!/bin/sh' 'set -eu' 'cd "$(dirname "$0")"' 'exec ./runtime/bin/node dist/launch.js' > package/iped-investigator/START.command
-          chmod +x package/iped-investigator/START.command
-          tar -czf iped-investigator-macos-arm64.tgz -C package iped-investigator
+          tar -xzf node-runtime.tgz --strip-components=1 -C "$RES/runtime"
+          cat > "$APP/Contents/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>CFBundleName</key><string>IPED Investigator</string>
+          <key>CFBundleDisplayName</key><string>IPED Investigator</string>
+          <key>CFBundleIdentifier</key><string>br.com.novaes.iped-investigator</string>
+          <key>CFBundleVersion</key><string>0.1.0</string>
+          <key>CFBundleShortVersionString</key><string>0.1.0</string>
+          <key>CFBundleExecutable</key><string>iped-investigator</string>
+          <key>LSMinimumSystemVersion</key><string>11.0</string>
+          </dict></plist>
+          EOF
+          cat > "$MACOS/iped-investigator" <<'EOF'
+          #!/bin/sh
+          set -eu
+          ROOT="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
+          cd "$ROOT"
+          exec "$ROOT/runtime/bin/node" "$ROOT/dist/launch.js"
+          EOF
+          chmod +x "$MACOS/iped-investigator"
+          codesign --force --deep --sign - "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" iped-investigator-macos-arm64.zip
+      - name: Verify app bundle
+        shell: bash
+        run: |
+          test -x "package/IPED Investigator.app/Contents/MacOS/iped-investigator"
+          codesign --verify --deep --strict "package/IPED Investigator.app"
+          plutil -lint "package/IPED Investigator.app/Contents/Info.plist"
       - uses: actions/upload-artifact@v4
         with:
           name: iped-investigator-macos-arm64
-          path: iped-investigator-macos-arm64.tgz
+          path: iped-investigator-macos-arm64.zip
           if-no-files-found: error

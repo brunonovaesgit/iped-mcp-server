@@ -59,9 +59,9 @@ Original evidence is never modified by this server.
 
 ## Distribution for non-developers
 
-The project now builds a **self-contained macOS Investigator package** in GitHub Actions. It contains the compiled application, locked JavaScript dependencies and a private Node.js runtime used only by the Investigator. A tester therefore does not need Git, TypeScript, a repository clone, `npm install`, or a system-wide Node.js installation after receiving the artifact.
+The project now builds a **self-contained macOS `IPED Investigator.app`** in GitHub Actions. It contains the compiled application, locked JavaScript dependencies and a private Node.js runtime used only by the Investigator. A tester therefore does not need Git, TypeScript, a repository clone, `npm install`, or a system-wide Node.js installation after receiving the artifact.
 
-The packaged Node.js runtime is isolated inside the Investigator directory and does not replace or alter any Node.js installation already present on the examiner's computer. The package deliberately does not bundle or modify IPED, Java or the examiner's evidence. IPED and the forensic case remain outside the application package.
+The packaged Node.js runtime is isolated inside the application bundle and does not replace or alter any Node.js installation already present on the examiner's computer. The package deliberately does not bundle or modify IPED, Java or the examiner's evidence. IPED and the forensic case remain outside the application package.
 
 For source-based development, use the requirements below.
 
@@ -72,7 +72,7 @@ There are two layers to prepare: this Node.js project and IPED itself.
 ### Required for this project
 
 - Git, when installing from source by cloning the repository;
-- Node.js 20 or newer, including npm, only for source-based installation/development; the self-contained macOS package includes its own private runtime;
+- Node.js 20 or newer, including npm, only for source-based installation/development; the self-contained macOS app includes its own private runtime;
 - a standard IPED 4.x environment with its Web API available;
 - at least one case already processed by IPED.
 
@@ -284,9 +284,9 @@ The manual Web API procedure remains documented below for administrators, troubl
 
 ## Start without npm commands
 
-For a less technical first-run experience, the repository includes launch files at its root:
+For source checkouts, the repository includes launch files at its root. For distributed macOS builds, prefer opening **IPED Investigator.app** from the generated ZIP:
 
-- **macOS:** double-click `IPED-Investigator.command` (the first time, macOS may require opening it from Finder's context menu depending on local security settings).
+- **macOS source checkout:** double-click `IPED-Investigator.command`.
 - **Windows:** double-click `IPED-Investigator.cmd`.
 
 The launcher checks whether Node.js/npm are available, installs this project's JavaScript dependencies on the first run when needed, and then starts the same guided IPED/case discovery flow. It does not install or modify IPED and does not import evidence.
