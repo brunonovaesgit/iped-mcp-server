@@ -252,7 +252,7 @@ function buildObservedValueVariations(relationships: InvestigationGraphView) {
   }];
 }
 
-function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;itemId:number;name?:string;path?:string;textAvailable?:boolean;fileType?:string}>) {
+function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;itemId:number;name?:string;path?:string;textAvailable?:boolean;fileType?:string}>, resultState?: {evidenceSearchTruncated?:boolean;evidenceSearchAvailable?:number}) {
   const normalized=question.toLocaleLowerCase("pt-BR");
   const asksList=/\b(liste|listar|lista|quais|mostre|mostrar)\b/.test(normalized);
   const asksFiles=/\b(arquivo|arquivos|item|itens|evidência|evidencias|evidências)\b/.test(normalized);
@@ -266,7 +266,9 @@ function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;it
   };
   return {
     kind:"EVIDENCE_LIST" as const,
-    headline:`Foram encontrados ${evidence.length} item(ns) correspondente(s) à pergunta.`,
+    headline:resultState?.evidenceSearchTruncated
+      ? `A busca encontrou ${Number.isFinite(resultState.evidenceSearchAvailable) ? resultState.evidenceSearchAvailable : "mais"} item(ns); esta etapa analisou e exibe ${evidence.length}. A lista é parcial.`
+      : `Foram encontrados ${evidence.length} item(ns) correspondente(s) à pergunta.`,
     columns:["Item","Tipo","Caminho","Referência"],
     rows:evidence.map(item=>({
       item:item.name||`Item ${item.itemId}`,
@@ -348,7 +350,7 @@ export function buildInvestigationWorkspace(input: {
     summary: input.view.overview,
     status: input.resultState,
     resultState: input.resultState,
-    directAnswer: buildDirectAnswer(input.question, input.view.sections.evidence),
+    directAnswer: buildDirectAnswer(input.question, input.view.sections.evidence, input.resultState),
     analysis: buildGroundedSummary({
       evidenceCount: input.view.overview.evidenceCount,
       entityCount: input.view.overview.entityCount,

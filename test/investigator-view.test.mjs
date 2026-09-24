@@ -643,3 +643,23 @@ test("direct evidence-list answer prefers IPED file type metadata and preserves 
   assert.equal(workspace.directAnswer.rows[0].path, "/mail/message.bin");
   assert.equal(workspace.directAnswer.rows[0].reference, "case-a:10");
 });
+
+
+test("direct evidence answer explicitly reports a partial list when IPED search is truncated", () => {
+  const view = buildInvestigatorView({
+    question: "Liste os itens e informe o tipo e caminho",
+    evidence: [{ sourceId: "case-a", itemId: 1, name: "a.txt", path: "/a.txt", fileType: "text/plain" }],
+    graphView: { summary: { nodeCount: 0, edgeCount: 0, nodesByKind: {}, edgesByRelationship: {} }, legend: [], nodes: [], edges: [] },
+    timeline: []
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "inv-1",
+    question: "Liste os itens e informe o tipo e caminho",
+    view,
+    resultState: { status: "READY", message: "ok", suggestedAction: "review", evidenceSearchTruncated: true, evidenceSearchAvailable: 37 }
+  });
+  assert.equal(workspace.directAnswer?.kind, "EVIDENCE_LIST");
+  assert.match(workspace.directAnswer?.headline ?? "", /37/);
+  assert.match(workspace.directAnswer?.headline ?? "", /exibe 1/);
+  assert.match(workspace.directAnswer?.headline ?? "", /parcial/i);
+});
