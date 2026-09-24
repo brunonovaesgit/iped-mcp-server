@@ -244,6 +244,15 @@ function renderGraph(graph){
       }
     });
     graphSearchResults.addEventListener("change",()=>{if(graphSearchResults.value)focusGraphNode(graphSearchResults.value);});
+    graphSearch.addEventListener("keydown",event=>{
+      if(event.key!=="Enter")return;
+      const options=[...graphSearchResults.options].filter(option=>option.value);
+      if(!options.length)return;
+      event.preventDefault();
+      const current=options.findIndex(option=>option.value===graphSearchResults.value);
+      const next=options[(current+1)%options.length];
+      graphSearchResults.value=next.value;focusGraphNode(next.value);
+    });
     const applyZoom=()=>viewport.setAttribute("transform","scale("+scale+")");
     graphBox.addEventListener("wheel",event=>{
       if(!(event.ctrlKey||event.metaKey)) return;
