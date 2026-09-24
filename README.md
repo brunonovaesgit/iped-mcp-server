@@ -57,14 +57,22 @@ Its investigation instructions require AI clients to:
 
 Original evidence is never modified by this server.
 
+## Distribution for non-developers
+
+The project now builds a **portable Investigator package** in GitHub Actions. The package contains the compiled application and its locked JavaScript dependencies, so a tester does not need Git, TypeScript, a repository clone or an `npm install` step after receiving the artifact.
+
+The portable package still requires a compatible Node.js runtime on the machine. It deliberately does not bundle or modify IPED, Java or the examiner's evidence. This keeps IPED and the forensic case outside the application package.
+
+For source-based development, use the requirements below.
+
 ## Requirements
 
 There are two layers to prepare: this Node.js project and IPED itself.
 
 ### Required for this project
 
-- Git, to clone the repository;
-- Node.js 20 or newer, including npm;
+- Git, when installing from source by cloning the repository;
+- Node.js 20 or newer, including npm for source-based installation; a portable package can be produced with dependencies already included;
 - a standard IPED 4.x environment with its Web API available;
 - at least one case already processed by IPED.
 
