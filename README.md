@@ -224,6 +224,50 @@ npm start
 
 In normal use, an MCP client starts this process automatically.
 
+## Plug the MCP into an existing IPED case
+
+If you already use IPED, **you do not need to import, upload, copy or reprocess your evidence for this project**. This MCP has no evidence-ingestion POST workflow. It reads the case that IPED has already processed.
+
+The intended adoption path is:
+
+```text
+Your existing evidence
+        ↓
+Your normal IPED processing
+        ↓
+Existing processed IPED case
+        ↓
+IPED local Web API (read access)
+        ↓
+IPED MCP Server / Investigator
+```
+
+The Web API is not a separate "web edition" of IPED. It is the programmatic interface used to expose an existing processed case to this MCP.
+
+For the easiest local connection, identify only two directories:
+
+- **IPED release**: the IPED directory containing `lib/`;
+- **processed case**: the output/case directory that your normal IPED workflow already created.
+
+Then run, from this repository:
+
+```bash
+npm run connect:iped -- --iped-home "/path/to/iped-release" --case "/path/to/existing-processed-case" --id "my-case"
+```
+
+The command validates both paths, creates the temporary source configuration and starts IPED's Web API locally at `127.0.0.1:8080`. It does **not** POST evidence, import files, alter the case or duplicate the evidence. Keep that terminal open.
+
+In a second terminal:
+
+```bash
+npm run check
+npm run investigator
+```
+
+Then open `http://127.0.0.1:3333`.
+
+The manual Web API procedure remains documented below for administrators, troubleshooting and reproducibility.
+
 ## Starting the IPED Web API
 
 The Investigator does not open an IPED case by itself. IPED must first process the evidence, and the IPED Web API must be running and exposing the processed result as a source.
@@ -289,7 +333,7 @@ A new tester should be able to reach the Investigator without private knowledge 
 1. Install/verify Git and Node.js 20+.
 2. Obtain a standard IPED 4.x release, or build IPED from source with its documented Java/Maven toolchain.
 3. Process non-sensitive test evidence with IPED and locate the processed output directory.
-4. Start the IPED Web API for that processed output and verify `/sources`.
+4. Connect that existing processed case with `npm run connect:iped -- --iped-home ... --case ...`, or use the manual Web API procedure, and verify `/sources`.
 5. Clone this repository and run `npm install`.
 6. Copy `.env.example` to `.env`; change `IPED_URL` only if the API is not at the default local address.
 7. Run `npm run check`. Do not continue until it reports `Environment ready.`.
