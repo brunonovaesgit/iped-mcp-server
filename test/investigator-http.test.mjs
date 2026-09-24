@@ -83,3 +83,12 @@ test("Enter cycles through multiple graph search matches", () => {
   assert.ok(investigatorHtml.includes("(current+1)%options.length"));
   assert.ok(investigatorHtml.includes("focusGraphNode(next.value)"));
 });
+
+
+test("Escape clears graph search and restores the complete network view", () => {
+  assert.ok(investigatorHtml.includes('event.key==="Escape"'));
+  assert.ok(investigatorHtml.includes('graphSearch.value=""'));
+  assert.ok(investigatorHtml.includes('graphSearch.dispatchEvent(new Event("input"))'));
+  assert.ok(investigatorHtml.includes('el.style.opacity=""'));
+  assert.ok(investigatorHtml.includes('detail.innerHTML=""'));
+});
