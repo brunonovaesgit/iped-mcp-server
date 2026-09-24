@@ -571,3 +571,37 @@ test("examiner workspace contract does not label neutral monetary variation as i
     "OBSERVED_VALUE_VARIATION"
   );
 });
+
+test("workspace surfaces distinct names from a broad person query without merging identities", () => {
+  const view = buildInvestigatorView({
+    question: "Investigue todas as evidências relacionadas a Carlos",
+    evidence: [
+      { sourceId: "case", itemId: 1, text: "Carlos Almeida atua no Projeto Atlas" },
+      { sourceId: "case", itemId: 2, text: "Mensagem de Carlos Almeida sobre Atlas" },
+      { sourceId: "case", itemId: 3, text: "Carlos Santos atua no Projeto Apollo" }
+    ],
+    graphView: buildInvestigationGraphView(buildInvestigationGraph({
+      evidence: [
+        { sourceId: "case", itemId: 1 },
+        { sourceId: "case", itemId: 2 },
+        { sourceId: "case", itemId: 3 }
+      ],
+      entities: [],
+      communicationParticipants: [],
+      duplicateEvidence: []
+    }))
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "inv",
+    question: "Investigue todas as evidências relacionadas a Carlos",
+    sourceId: "case",
+    view,
+    resultState: { status: "EVIDENCE_FOUND", message: "ok", suggestedAction: "REVIEW_EVIDENCE" }
+  });
+  assert.equal(workspace.panels.retrievalAmbiguities.length, 1);
+  const candidates = workspace.panels.retrievalAmbiguities[0].candidates;
+  assert.deepEqual(candidates.map(item => item.value).sort(), ["Carlos Almeida", "Carlos Santos"]);
+  assert.deepEqual(candidates.find(item => item.value === "Carlos Santos").evidence, [
+    { sourceId: "case", itemId: 3 }
+  ]);
+});

@@ -72,6 +72,7 @@ const investigatorHtml = `<!doctype html>
       <button>Continuar investigação</button>
     </form>
     <div class="analysis" id="analysis"></div>
+    <div class="analysis hidden" id="retrievalAmbiguities"></div>
     <div class="analysis hidden" id="valueVariations"></div>\n      <div class="analysis hidden" id="aiAnalysis"></div>
     <div class="summary" id="summary"></div>
     <div class="grid">
@@ -106,6 +107,18 @@ function items(target,values,render){
 function renderWorkspace(workspace){
   activeInvestigationId=workspace.investigationId;
   byId("workspace").classList.remove("hidden");
+  const ambiguityTarget=byId("retrievalAmbiguities");
+  const ambiguities=workspace.panels?.retrievalAmbiguities||[];
+  if(ambiguities.length){
+    ambiguityTarget.classList.remove("hidden");
+    ambiguityTarget.innerHTML='<h2>Ambiguidade nos resultados da busca</h2>'
+      +ambiguities.map(group=>'<p>'+escapeHtml(group.description)+'</p>'
+        +group.candidates.map(candidate=>'<div class="observation"><strong>'+escapeHtml(candidate.value)+'</strong> · '
+          +candidate.evidence.map(ref=>'['+escapeHtml(ref.sourceId)+':'+escapeHtml(ref.itemId)+']').join(' ')+'</div>').join('')).join('');
+  }else{
+    ambiguityTarget.classList.add("hidden");
+    ambiguityTarget.innerHTML="";
+  }
   const aiAnalysis=workspace.aiAnalysis;
   const aiTarget=byId("aiAnalysis");
   if(aiAnalysis?.enabled){
