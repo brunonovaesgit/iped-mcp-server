@@ -274,7 +274,9 @@ function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;it
       item:item.name||`Item ${item.itemId}`,
       type:item.fileType||extension(item.name,item.path),
       path:item.path||"",
-      reference:`${item.sourceId}:${item.itemId}`
+      reference:`${item.sourceId}:${item.itemId}`,
+      sourceId:item.sourceId,
+      itemId:item.itemId
     }))
   };
 }
