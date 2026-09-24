@@ -208,10 +208,10 @@ function renderGraph(graph){
     }
     const edges=(graph.edges||[]).map(edge=>{const a=positions.get(edge.from),b=positions.get(edge.to);if(!a||!b)return"";return '<line class="edge" data-edge="'+escapeHtml(edge.id)+'" x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'"></line>';}).join("");
     const nodes=graph.nodes.map(node=>{const p=positions.get(node.id),kind=node.kind==="EVIDENCE"?"evidence":node.kind==="COMMUNICATION_PARTICIPANT"?"communication":"entity";const label=String(node.label||"");return '<g class="node '+kind+'" data-node="'+escapeHtml(node.id)+'" transform="translate('+p.x+' '+p.y+')"><circle r="14"></circle><title>'+escapeHtml(label)+'</title><text x="20" y="4">'+escapeHtml(label.length>30?label.slice(0,29)+"…":label)+'</text></g>';}).join("");
-    target.innerHTML='<div class="graphToolbar"><span class="meta">'+escapeHtml(nodeCount)+' nós · '+escapeHtml(edgeCount)+' relações</span><label class="meta">Visualização <select data-graph-layout><option value="radial">Radial</option><option value="grid">Grade</option><option value="wide">Ampla</option><option value="hierarchical">Evidências × entidades</option></select></label><label class="meta">Localizar <input type="search" data-graph-search placeholder="Nome, valor ou tipo" aria-label="Localizar nó no grafo"></label><span class="meta" data-graph-search-status></span><button type="button" data-graph-action="minus">−</button><button type="button" data-graph-action="reset">100%</button><button type="button" data-graph-action="plus">+</button><button type="button" data-graph-action="full">Tela cheia</button></div><div class="graph"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'"><g class="viewport">'+edges+nodes+'</g></svg></div>';
+    target.innerHTML='<div class="graphToolbar"><span class="meta">'+escapeHtml(nodeCount)+' nós · '+escapeHtml(edgeCount)+' relações</span><label class="meta">Visualização <select data-graph-layout><option value="radial">Radial</option><option value="grid">Grade</option><option value="wide">Ampla</option><option value="hierarchical">Evidências × entidades</option></select></label><label class="meta">Localizar <input type="search" data-graph-search placeholder="Nome, valor ou tipo" aria-label="Localizar nó no grafo"></label><span class="meta" data-graph-search-status></span><select data-graph-search-results aria-label="Resultados localizados" class="hidden"><option value="">Escolha um nó...</option></select><button type="button" data-graph-action="minus">−</button><button type="button" data-graph-action="reset">100%</button><button type="button" data-graph-action="plus">+</button><button type="button" data-graph-action="full">Tela cheia</button></div><div class="graph"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'"><g class="viewport">'+edges+nodes+'</g></svg></div>';
     target.querySelector("[data-graph-layout]").value=layout;
     const graphBox=target.querySelector(".graph"),viewport=target.querySelector(".viewport");let scale=1;
-    const graphSearch=target.querySelector("[data-graph-search]"),graphSearchStatus=target.querySelector("[data-graph-search-status]");
+    const graphSearch=target.querySelector("[data-graph-search]"),graphSearchStatus=target.querySelector("[data-graph-search-status]"),graphSearchResults=target.querySelector("[data-graph-search-results]");
     const focusGraphNode=nodeId=>{
       const nodeEl=[...target.querySelectorAll(".node")].find(el=>el.dataset.node===nodeId);
       if(!nodeEl)return;
@@ -235,11 +235,15 @@ function renderGraph(graph){
       });
       target.querySelectorAll(".edge").forEach(el=>el.style.opacity=query?".08":"");
       graphSearchStatus.textContent=query?(matches+" nó(s) localizado(s)"):"";
+      const matchingNodes=query?graph.nodes.filter(node=>[node.label,node.kind,node.entityType].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR").includes(query)):[];
+      graphSearchResults.innerHTML='<option value="">'+(matches>1?"Escolha um dos "+matches+" nós...":"Escolha um nó...")+'</option>'+matchingNodes.map(node=>'<option value="'+escapeHtml(node.id)+'">'+escapeHtml(node.label||node.id)+'</option>').join("");
+      graphSearchResults.classList.toggle("hidden",matches<=1);
       if(query&&matches===1){
         const match=[...target.querySelectorAll(".node")].find(el=>el.style.opacity!=="0.12");
         if(match) focusGraphNode(match.dataset.node);
       }
     });
+    graphSearchResults.addEventListener("change",()=>{if(graphSearchResults.value)focusGraphNode(graphSearchResults.value);});
     const applyZoom=()=>viewport.setAttribute("transform","scale("+scale+")");
     graphBox.addEventListener("wheel",event=>{
       if(!(event.ctrlKey||event.metaKey)) return;
