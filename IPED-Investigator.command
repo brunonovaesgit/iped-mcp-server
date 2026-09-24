@@ -15,7 +15,7 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 if [ ! -d node_modules ]; then
-  printf '\nPreparando o IPED Investigator pela primeira vez...\n'
+  printf '\nPreparando o IPED MCP pela primeira vez...\n'
   npm install
 fi
 npm run launch
