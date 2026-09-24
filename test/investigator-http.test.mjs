@@ -218,3 +218,10 @@ test("large graph minimap is an overlay outside the scrollable canvas", () => {
   assert.ok(investigatorHtml.includes(".graphMiniMap{position:absolute"));
   assert.equal(investigatorHtml.includes(".graphMiniMap{position:sticky"), false);
 });
+
+
+test("fullscreen expands the graph shell so its minimap remains available", () => {
+  assert.ok(investigatorHtml.includes(".graphShell.fullscreen"));
+  assert.ok(investigatorHtml.includes('graphBox.closest(".graphShell")'));
+  assert.ok(investigatorHtml.includes('graphShell.classList.toggle("fullscreen")'));
+});
