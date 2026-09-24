@@ -152,3 +152,10 @@ test("graph zoom resizes the SVG canvas so enlarged networks remain scrollable i
   assert.ok(investigatorHtml.includes("viewport.removeAttribute"));
   assert.equal(investigatorHtml.includes('viewport.setAttribute("transform","scale("+scale+")")'), false);
 });
+
+
+test("observed findings expose their supporting IPED evidence as navigable references", () => {
+  assert.ok(investigatorHtml.includes("findingEvidenceButton"));
+  assert.ok(investigatorHtml.includes('data-source="'+escapeHtml(e.sourceId)'));
+  assert.ok(investigatorHtml.includes('data-item="'+escapeHtml(e.itemId)'));
+});
