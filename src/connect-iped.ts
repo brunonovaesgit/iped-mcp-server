@@ -1,8 +1,11 @@
 import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, delimiter, join, resolve } from "node:path";
-import { spawn } from "node:child_process";
+import { basename, join, resolve } from "node:path";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 type Options = { ipedHome?: string; casePath?: string; id?: string; host: string; port: string };
 
@@ -36,6 +39,22 @@ async function requirePath(path: string, label: string): Promise<void> {
   catch { throw new Error(`${label} not found or not readable: ${path}`); }
 }
 
+async function javaExecutable(): Promise<string> {
+  const candidates = [process.env.JAVA_HOME ? join(process.env.JAVA_HOME, "bin", "java") : "", "/usr/bin/java", "/opt/homebrew/bin/java", "/usr/local/bin/java"].filter(Boolean);
+  for (const candidate of candidates) {
+    try { await access(candidate, constants.X_OK); return candidate; } catch {}
+  }
+  if (process.platform === "darwin") {
+    try {
+      const { stdout } = await execFileAsync("/usr/libexec/java_home", []);
+      const candidate = join(stdout.trim(), "bin", "java");
+      await access(candidate, constants.X_OK);
+      return candidate;
+    } catch {}
+  }
+  throw new Error("Java não encontrado. O IPED precisa de uma instalação Java compatível para iniciar a Web API.");
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   if (!options.ipedHome || !options.casePath) usage();
@@ -59,7 +78,9 @@ async function main(): Promise<void> {
   console.log(`Web API      : http://${options.host}:${options.port}`);
   console.log("\nNo evidence is uploaded or modified. Keep this terminal open.\n");
 
-  const child = spawn("java", [
+  const java = await javaExecutable();
+  console.log(`Java          : ${java}`);
+  const child = spawn(java, [
     "-cp", classpath,
     "iped.engine.webapi.Main",
     `--host=${options.host}`,
