@@ -196,3 +196,10 @@ test("evidence-to-entity layout separates forensic entity types into adaptive la
   assert.ok(investigatorHtml.includes("laneEntries.length*190+100"));
   assert.ok(investigatorHtml.includes("laneIndex*190"));
 });
+
+
+test("hierarchical forensic lanes are visibly labeled", () => {
+  assert.ok(investigatorHtml.includes("laneLabels"));
+  assert.ok(investigatorHtml.includes("laneLabel"));
+  assert.ok(investigatorHtml.includes("78+index*190"));
+});
