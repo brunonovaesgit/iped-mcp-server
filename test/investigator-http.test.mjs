@@ -100,3 +100,12 @@ test("graph exposes its keyboard and zoom navigation shortcuts to investigators"
   assert.ok(investigatorHtml.includes("Ctrl/Cmd + roda: zoom"));
   assert.ok(investigatorHtml.includes("data-graph-search-hint"));
 });
+
+
+test("graph keeps a complete clickable minimap for orientation on large canvases", () => {
+  assert.ok(investigatorHtml.includes("graphMiniMap"));
+  assert.ok(investigatorHtml.includes("Visão geral da rede"));
+  assert.ok(investigatorHtml.includes('miniMap.addEventListener("click"'));
+  assert.ok(investigatorHtml.includes("ratioX*graphBox.scrollWidth"));
+  assert.ok(investigatorHtml.includes("graph.nodes.map(node=>"));
+});
