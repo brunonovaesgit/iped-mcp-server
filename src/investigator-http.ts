@@ -245,6 +245,11 @@ function renderGraph(graph){
     });
     graphSearchResults.addEventListener("change",()=>{if(graphSearchResults.value)focusGraphNode(graphSearchResults.value);});
     graphSearch.addEventListener("keydown",event=>{
+      if(event.key==="Escape"){
+        event.preventDefault();graphSearch.value="";graphSearch.dispatchEvent(new Event("input"));
+        target.querySelectorAll(".node,.edge").forEach(el=>{el.style.opacity="";el.style.strokeWidth="";});
+        detail.innerHTML="";graphSearch.focus();return;
+      }
       if(event.key!=="Enter")return;
       const options=[...graphSearchResults.options].filter(option=>option.value);
       if(!options.length)return;
