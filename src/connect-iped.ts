@@ -80,19 +80,49 @@ async function main(): Promise<void> {
 
   const java = await javaExecutable();
   console.log(`Java          : ${java}`);
-  const child = spawn(java, [
+  const javaArgs = [
     "-cp", classpath,
     "iped.engine.webapi.Main",
     `--host=${options.host}`,
     `--port=${options.port}`,
     `--sources=${sourcesFile}`
-  ], { cwd: ipedHome, stdio: "inherit", env: process.env });
+  ];
+  console.log(`Java command  : ${java} ${javaArgs.map(arg => JSON.stringify(arg)).join(" ")}`);
+  console.log(`Sources file  : ${sourcesFile}`);
 
+  const child = spawn(java, javaArgs, {
+    cwd: ipedHome,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: process.env
+  });
+
+  let stdout = "", stderr = "";
+  const keepTail = (current: string, chunk: Buffer | string) => (current + chunk.toString()).slice(-12000);
+  child.stdout?.on("data", chunk => {
+    stdout = keepTail(stdout, chunk);
+    process.stdout.write(chunk);
+  });
+  child.stderr?.on("data", chunk => {
+    stderr = keepTail(stderr, chunk);
+    process.stderr.write(chunk);
+  });
   child.on("error", error => {
     console.error(`Unable to start Java/IPED: ${error.message}`);
     process.exitCode = 1;
   });
-  child.on("exit", code => { process.exitCode = code ?? 0; });
+  child.on("exit", (code, signal) => {
+    if ((code ?? 0) !== 0 || signal) {
+      console.error("\n--- IPED Web API startup diagnostics ---");
+      console.error(`Exit code      : ${code ?? "null"}`);
+      console.error(`Signal         : ${signal ?? "none"}`);
+      console.error(`Working dir    : ${ipedHome}`);
+      console.error(`Classpath      : ${classpath}`);
+      if (stderr.trim()) console.error("\nLast stderr:\n" + stderr.trim());
+      if (stdout.trim()) console.error("\nLast stdout:\n" + stdout.trim());
+      console.error("--- end diagnostics ---\n");
+    }
+    process.exitCode = code ?? (signal ? 1 : 0);
+  });
 }
 
 main().catch(error => {
