@@ -189,3 +189,10 @@ test("investigation leads expose the evidence that caused each correlation lead"
 test("graph search result selector disambiguates repeated labels by type", () => {
   assert.ok(investigatorHtml.includes('(node.label||node.id)+" · "+(node.entityType||node.kind)'));
 });
+
+
+test("evidence-to-entity layout separates forensic entity types into adaptive lanes", () => {
+  assert.ok(investigatorHtml.includes('node.kind==="EVIDENCE"?"EVIDENCE":(node.entityType||node.kind)'));
+  assert.ok(investigatorHtml.includes("laneEntries.length*190+100"));
+  assert.ok(investigatorHtml.includes("laneIndex*190"));
+});
