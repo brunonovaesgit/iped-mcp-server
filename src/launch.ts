@@ -25,7 +25,14 @@ async function nativeError(message:string){
  try{await execFileAsync("osascript",["-e",`display alert "IPED Investigator" message "${escaped}" as critical buttons {"OK"} default button "OK"`]);}catch{}
 }
 async function readable(path:string,label:string){try{await access(resolve(path),constants.R_OK);}catch{throw new Error(`${label} não encontrado ou sem permissão de leitura: ${path}`);}}
-async function looksLikeIped(path:string){try{await access(join(path,"lib"),constants.R_OK);return true;}catch{return false;}}
+async function looksLikeIped(path:string){try{await access(join(path,"lib"),constants.R_OK);await access(join(path,"lib","iped-webapi.jar"),constants.R_OK);return true;}catch{return false;}}
+async function looksLikeProcessedCase(path:string){
+ const candidates=[join(path,"iped"),path];
+ for(const root of candidates){
+  try{await access(join(root,"index"),constants.R_OK);await access(join(root,"data"),constants.R_OK);return true;}catch{}
+ }
+ return false;
+}
 async function directories(root:string){try{return (await readdir(root,{withFileTypes:true})).filter(x=>x.isDirectory()).map(x=>join(root,x.name));}catch{return [];}}
 async function findIpedCandidates(){
  const roots=[join(process.cwd(),".."),join(process.cwd(),"../IPED"),join(process.env.HOME||"","Documents"),join(process.env.HOME||"","Downloads")];
@@ -69,16 +76,16 @@ async function ask():Promise<Answers>{
    ? (await nativeFolder("Selecione a pasta do caso já processado pelo IPED"))!
    : (await choose(rl,"Caso IPED já processado",detectedCases)).trim();
   if(!casePath)throw new Error("O caso processado é obrigatório."); await readable(casePath,"Caso processado");
-  const entries=await readdir(resolve(casePath)).catch(()=>[]);if(entries.length===0)throw new Error("A pasta selecionada está vazia e não parece conter um caso processado pelo IPED.");
-  console.log(`✓ Pasta do caso acessível: ${basename(resolve(casePath))}`);
+  if(!await looksLikeProcessedCase(resolve(casePath)))throw new Error("A pasta escolhida não parece ser um caso processado pelo IPED. Selecione a pasta de resultado que contém iped/index e iped/data.");
+  console.log(`✓ Caso IPED reconhecido: ${basename(resolve(casePath))}`);
   const id=process.platform==="darwin"?undefined:(await rl.question(`Nome do caso [${basename(resolve(casePath))}]: `)).trim()||undefined;
   return {ipedHome,casePath,id};
  }finally{rl.close();}
 }
-async function waitForSource(expected:string,connector:ReturnType<typeof spawn>){
+async function waitForSource(expected:string,connector:ReturnType<typeof spawn>,diagnostics:()=>string){
  const deadline=Date.now()+15000;let last="";
  while(Date.now()<deadline){
-  if(connector.exitCode!==null)throw new Error("O IPED não conseguiu abrir o caso selecionado.");
+  if(connector.exitCode!==null){const detail=diagnostics().trim();throw new Error("O IPED não conseguiu abrir o caso selecionado."+ (detail ? "\n\nDetalhes técnicos:\n"+detail.slice(-3500) : ""));}
   try{const response=await fetch("http://127.0.0.1:8080/sources");if(response.ok){last=await response.text();const parsed=JSON.parse(last);const ids=Array.isArray(parsed)?parsed.map((x:any)=>typeof x==="string"?x:x?.id).filter(Boolean):[];if(ids.includes(expected))return ids;}}catch{}
   await new Promise(done=>setTimeout(done,400));
  }
@@ -102,9 +109,13 @@ async function main(){
  const answers=await ask();const node=process.execPath;const sourceId=answers.id||basename(resolve(answers.casePath))||"iped-case";
  console.log("\n✓ IPED validado\n✓ Caso localizado\nIniciando conexão...");
  const args=[resolve("dist/connect-iped.js"),"--iped-home",resolve(answers.ipedHome),"--case",resolve(answers.casePath)];if(answers.id)args.push("--id",answers.id);
- const connector=spawn(node,args,{stdio:"inherit",env:process.env});connector.on("error",e=>{console.error("Falha ao iniciar conexão:",e.message);process.exitCode=1;});
+ const connector=spawn(node,args,{stdio:["ignore","pipe","pipe"],env:process.env});let connectorLog="";
+ const append=(chunk:Buffer|string)=>{connectorLog=(connectorLog+chunk.toString()).slice(-12000);};
+ connector.stdout?.on("data",chunk=>{append(chunk);process.stdout.write(chunk);});
+ connector.stderr?.on("data",chunk=>{append(chunk);process.stderr.write(chunk);});
+ connector.on("error",e=>{append("Falha ao iniciar conexão: "+e.message);console.error("Falha ao iniciar conexão:",e.message);process.exitCode=1;});
  console.log("Validando o caso diretamente com o IPED...");
- await waitForSource(sourceId,connector);
+ await waitForSource(sourceId,connector,()=>connectorLog);
  await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
  console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
  const investigator=spawn(node,[resolve("dist/investigator-http.js")],{stdio:"inherit",env:process.env});
