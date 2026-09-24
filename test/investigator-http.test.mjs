@@ -142,3 +142,13 @@ test("direct evidence-list answers navigate back to the exact IPED evidence", ()
   assert.ok(investigatorHtml.includes('data-item="'+escapeHtml(r.itemId)'));
   assert.ok(investigatorHtml.includes("openEvidence(button.dataset.source,button.dataset.item)"));
 });
+
+
+test("graph zoom resizes the SVG canvas so enlarged networks remain scrollable instead of clipped", () => {
+  assert.ok(investigatorHtml.includes('const graphSvg=viewport.closest("svg")'));
+  assert.ok(investigatorHtml.includes('graphSvg.setAttribute("width",String(Math.max(1,width*scale)))'));
+  assert.ok(investigatorHtml.includes('graphSvg.setAttribute("height",String(Math.max(1,height*scale)))'));
+  assert.ok(investigatorHtml.includes('graphSvg.setAttribute("viewBox","0 0 "+width+" "+height)'));
+  assert.ok(investigatorHtml.includes("viewport.removeAttribute"));
+  assert.equal(investigatorHtml.includes('viewport.setAttribute("transform","scale("+scale+")")'), false);
+});
