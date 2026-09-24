@@ -171,3 +171,10 @@ test("investigation synthesis observations link to their exact supporting eviden
   assert.ok(investigatorHtml.includes("analysisEvidenceButton"));
   assert.ok(investigatorHtml.includes('byId("analysis").querySelectorAll(".analysisEvidenceButton")'));
 });
+
+
+test("AI-assisted findings navigate to their cited IPED evidence", () => {
+  assert.ok(investigatorHtml.includes("aiEvidenceButton"));
+  assert.ok(investigatorHtml.includes('aiTarget.querySelectorAll(".aiEvidenceButton")'));
+  assert.ok(investigatorHtml.includes('const parts=String(reference).split(":")'));
+});
