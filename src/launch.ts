@@ -100,7 +100,7 @@ async function waitForSource(expected:string,connector:ReturnType<typeof spawn>,
  const deadline=Date.now()+15000;let last="";
  while(Date.now()<deadline){
   if(connector.exitCode!==null){const detail=diagnostics().trim();throw new Error("O IPED não conseguiu abrir o caso selecionado."+ (detail ? "\n\nDetalhes técnicos:\n"+detail.slice(-3500) : ""));}
-  try{const response=await fetch(`http://127.0.0.1:${port}/sources`);if(response.ok){last=await response.text();const parsed=JSON.parse(last);const ids=Array.isArray(parsed)?parsed.map((x:any)=>typeof x==="string"?x:x?.id).filter(Boolean):[];if(ids.includes(expected))return ids;}}catch{}
+  try{const response=await fetch(`http://127.0.0.1:${port}/sources`);if(response.ok){last=await response.text();const parsed=JSON.parse(last);const sources=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.data)?parsed.data:[]);const ids=sources.map((x:any)=>typeof x==="string"?x:x?.id).filter(Boolean);if(ids.includes(expected))return ids;}}catch{}
   await new Promise(done=>setTimeout(done,400));
  }
  throw new Error(`O IPED não confirmou o caso selecionado em 15 segundos${last?`. Resposta recebida: ${last.slice(0,160)}`:"."}`);
