@@ -59,11 +59,67 @@ Original evidence is never modified by this server.
 
 ## Requirements
 
-- Node.js 20 or newer
-- IPED with its Web API available
-- An MCP-compatible AI client
+There are two layers to prepare: this Node.js project and IPED itself.
 
-The server communicates with the standard IPED Web API and does not require patches to IPED.
+### Required for this project
+
+- Git, to clone the repository;
+- Node.js 20 or newer, including npm;
+- a standard IPED 4.x environment with its Web API available;
+- at least one case already processed by IPED.
+
+An external MCP-compatible AI client is **optional** when using the included Investigator web interface. It is required only if you want to connect this server to another MCP client.
+
+All JavaScript packages used by this project are declared in `package.json` and locked in `package-lock.json`. Running `npm install` installs the project dependencies; no global npm packages are required.
+
+### Required when building IPED 4.x from source
+
+This repository does not vendor or modify IPED. Follow the upstream IPED documentation for the IPED version you use. For the IPED 4.x line used while developing this MVP, upstream documents these build requirements:
+
+- Git;
+- Maven;
+- Java JDK 11 with JavaFX. Upstream gives Liberica OpenJDK 11 Full JDK as an example;
+- `JAVA_HOME` pointing to that Java 11 installation.
+
+IPED 4.x uses Java 11; do not assume that a newer system JDK is compatible with every IPED 4.x component. Optional IPED features can have additional native/Python dependencies; they are IPED features and are not required by this MCP server itself.
+
+Upstream project and build instructions: https://github.com/sepinf-inc/IPED
+
+### Build IPED from source (one reproducible option)
+
+If you do not already have a usable IPED 4.x release:
+
+```bash
+git clone https://github.com/sepinf-inc/IPED.git
+cd IPED
+mvn clean install
+```
+
+A successful upstream build creates a release directory under `target/release/`. Use the generated release that matches the IPED source revision you built.
+
+Before building, verify the tools that matter:
+
+```bash
+git --version
+java -version
+mvn -version
+node --version
+npm --version
+```
+
+For the IPED 4.x build described above, `java -version` / `mvn -version` should resolve to Java 11.
+
+### Process a test case in IPED
+
+The MCP layer reads an **already processed IPED case**; it does not replace IPED evidence processing.
+
+Use IPED's own processing instructions and configuration for the evidence format and operating system you are testing. After processing, identify the resulting case/output directory. That processed output directory is the path supplied to the Web API in **Starting the IPED Web API** below.
+
+For first-time IPED use, follow the upstream Beginner's Start Guide linked from the IPED project. Keep this repository's validation separate from validation of optional IPED processing modules.
+
+### Platform note
+
+IPED upstream describes the project as multiplatform and specifically tests Windows and Linux. This MCP project is Node.js-based and was also developed/tested locally on macOS, but that does not imply that every optional IPED processing/viewer module is supported identically on macOS. For a third-party reproducibility test, record the operating system, Node version, Java version, IPED revision/version and whether IPED was prebuilt or built from source.
 
 ## Installation
 
@@ -225,6 +281,23 @@ AI_MODEL=your-local-model
 ```
 
 Do not configure an external AI endpoint with real forensic evidence unless the evidence owner and applicable policy explicitly permit that transfer.
+
+## From-zero reproducibility checklist
+
+A new tester should be able to reach the Investigator without private knowledge of the development machine:
+
+1. Install/verify Git and Node.js 20+.
+2. Obtain a standard IPED 4.x release, or build IPED from source with its documented Java/Maven toolchain.
+3. Process non-sensitive test evidence with IPED and locate the processed output directory.
+4. Start the IPED Web API for that processed output and verify `/sources`.
+5. Clone this repository and run `npm install`.
+6. Copy `.env.example` to `.env`; change `IPED_URL` only if the API is not at the default local address.
+7. Run `npm run check`. Do not continue until it reports `Environment ready.`.
+8. Run `npm run investigator` and open `http://127.0.0.1:3333`.
+9. Ask a natural-language investigative question that should match the tester's own case.
+10. Optionally configure an authorized AI endpoint; the base deterministic workflow does not require it.
+
+For reproducibility feedback, report the OS, Node/npm versions, Java version, IPED version/revision, the failing command, and the complete error message. Never attach real sensitive evidence merely to report an installation problem.
 
 ## Quick start
 
