@@ -133,3 +133,12 @@ test("fit-to-view is not constrained by the interactive zoom floor on very large
   assert.ok(investigatorHtml.includes("Math.max(.05,Math.min(1"));
   assert.ok(investigatorHtml.includes('scale=Math.max(.35,scale-.2)'));
 });
+
+
+test("direct evidence-list answers navigate back to the exact IPED evidence", () => {
+  assert.ok(investigatorHtml.includes("directEvidenceButton"));
+  assert.ok(investigatorHtml.includes(">Abrir evidência</button>"));
+  assert.ok(investigatorHtml.includes('data-source="'+escapeHtml(r.sourceId)'));
+  assert.ok(investigatorHtml.includes('data-item="'+escapeHtml(r.itemId)'));
+  assert.ok(investigatorHtml.includes("openEvidence(button.dataset.source,button.dataset.item)"));
+});
