@@ -1,4 +1,4 @@
-import { access, readdir, stat } from "node:fs/promises";
+import { access, readdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -12,7 +12,13 @@ async function directories(root:string){try{return (await readdir(root,{withFile
 async function findIpedCandidates(){
  const roots=[join(process.cwd(),".."),join(process.cwd(),"../IPED"),join(process.env.HOME||"","Documents"),join(process.env.HOME||"","Downloads")];
  const found:string[]=[];
- for(const root of roots){if(await looksLikeIped(root))found.push(resolve(root));for(const child of await directories(root)){if(await looksLikeIped(child))found.push(resolve(child));for(const nested of await directories(child)){if(await looksLikeIped(nested))found.push(resolve(nested));}}
+ for(const root of roots){
+  if(await looksLikeIped(root))found.push(resolve(root));
+  for(const child of await directories(root)){
+   if(await looksLikeIped(child))found.push(resolve(child));
+   for(const nested of await directories(child)){if(await looksLikeIped(nested))found.push(resolve(nested));}
+  }
+ }
  return [...new Set(found)].slice(0,8);
 }
 async function choose(rl:ReturnType<typeof createInterface>,label:string,candidates:string[]){
@@ -21,7 +27,12 @@ async function choose(rl:ReturnType<typeof createInterface>,label:string,candida
 }
 async function caseCandidates(ipedHome:string){
  const roots=[join(process.cwd(),"../mcp-lab"),join(process.cwd(),".."),join(ipedHome,"..")],found:string[]=[];
- for(const root of roots){for(const d of await directories(root)){const name=basename(d).toLowerCase();if(name==="resultado"||name==="output"||name.includes("case")||name.includes("caso"))found.push(resolve(d));for(const n of await directories(d)){const nn=basename(n).toLowerCase();if(nn==="resultado"||nn==="output")found.push(resolve(n));}}
+ for(const root of roots){
+  for(const d of await directories(root)){
+   const name=basename(d).toLowerCase();if(name==="resultado"||name==="output"||name.includes("case")||name.includes("caso"))found.push(resolve(d));
+   for(const n of await directories(d)){const nn=basename(n).toLowerCase();if(nn==="resultado"||nn==="output")found.push(resolve(n));}
+  }
+ }
  return [...new Set(found)].slice(0,10);
 }
 async function ask():Promise<Answers>{
