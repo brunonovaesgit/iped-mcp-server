@@ -79,6 +79,20 @@ async function waitForSource(expected:string,connector:ReturnType<typeof spawn>)
  }
  throw new Error(`O IPED não confirmou o caso selecionado em 15 segundos${last?`. Resposta recebida: ${last.slice(0,160)}`:"."}`);
 }
+async function waitForInvestigator(child:ReturnType<typeof spawn>){
+ const url="http://127.0.0.1:3333";const deadline=Date.now()+15000;
+ while(Date.now()<deadline){
+  if(child.exitCode!==null)throw new Error("O Investigator terminou antes de ficar disponível.");
+  try{const response=await fetch(url);if(response.ok)return url;}catch{}
+  await new Promise(done=>setTimeout(done,300));
+ }
+ throw new Error("O Investigator não ficou disponível em 15 segundos.");
+}
+async function openBrowser(url:string){
+ if(process.platform==="darwin"){await execFileAsync("open",[url]);return;}
+ if(process.platform==="win32"){spawn("cmd",["/c","start","",url],{detached:true,stdio:"ignore"}).unref();return;}
+ spawn("xdg-open",[url],{detached:true,stdio:"ignore"}).unref();
+}
 async function main(){
  const answers=await ask();const node=process.execPath;const sourceId=answers.id||basename(resolve(answers.casePath))||"iped-case";
  console.log("\n✓ IPED validado\n✓ Caso localizado\nIniciando conexão...");
@@ -89,6 +103,9 @@ async function main(){
  await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
  console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
  const investigator=spawn(node,[resolve("dist/investigator-http.js")],{stdio:"inherit",env:process.env});
+ const investigatorUrl=await waitForInvestigator(investigator);
+ await openBrowser(investigatorUrl);
+ console.log(`✓ Investigator aberto no navegador: ${investigatorUrl}`);
  const stop=()=>{if(connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector.exitCode===null)connector.kill();process.exitCode=code??0;});
 }
 main().catch(async error=>{const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nSelecione novamente a instalação do IPED e o caso processado.");process.exit(1);});
