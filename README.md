@@ -168,9 +168,67 @@ npm start
 
 In normal use, an MCP client starts this process automatically.
 
+## Starting the IPED Web API
+
+The Investigator does not open an IPED case by itself. IPED must first process the evidence, and the IPED Web API must be running and exposing the processed result as a source.
+
+The examples below assume that you already have an IPED release directory and an IPED-processed case. The exact directories are local to each machine; do not copy another user's absolute paths.
+
+1. Locate the IPED release directory. It must contain `lib/` and the IPED runtime files.
+
+2. Locate the **processed IPED output directory** for the case you want to investigate. Do not point the Web API at the original evidence directory.
+
+3. Create a source-definition JSON file. For one case:
+
+```json
+[
+  {
+    "id": "my-case",
+    "path": "/absolute/path/to/processed-iped-case"
+  }
+]
+```
+
+On macOS/Linux, for example:
+
+```bash
+printf '[{"id":"my-case","path":"/absolute/path/to/processed-iped-case"}]\n' > /tmp/iped-sources.json
+```
+
+4. From the IPED release directory, start the Web API:
+
+```bash
+java -cp "lib/*" iped.engine.webapi.Main --host=127.0.0.1 --port=8080 --sources=/tmp/iped-sources.json
+```
+
+Keep this terminal open. The API is running only while this Java process remains running.
+
+5. In another terminal, verify that IPED exposes the case:
+
+```bash
+curl http://127.0.0.1:8080/sources
+```
+
+The response must contain the source id configured above (for example, `my-case`). If this fails, do not start the Investigator yet; fix the IPED Web API first.
+
+The default configuration intentionally binds IPED to `127.0.0.1`. Do not expose a forensic case API to a network merely to let another person test it. Each tester should run IPED and this project on their own test machine/case unless an appropriately secured environment has been designed.
+
+### Optional local AI analysis
+
+The deterministic investigation workflow does not require an AI provider. To enable the optional assisted-analysis panel, configure an authorized OpenAI-compatible endpoint in `.env`. A local endpoint avoids sending evidence to an external service.
+
+For example, with a local OpenAI-compatible service:
+
+```env
+AI_BASE_URL=http://127.0.0.1:11434/v1
+AI_MODEL=your-local-model
+```
+
+Do not configure an external AI endpoint with real forensic evidence unless the evidence owner and applicable policy explicitly permit that transfer.
+
 ## Quick start
 
-For a first local test with a case already processed by IPED:
+For a first local test, first complete **Starting the IPED Web API** above and leave that Java process running. Then, in a second terminal:
 
 ```bash
 git clone https://github.com/brunonovaesgit/iped-mcp-server.git
@@ -182,6 +240,8 @@ npm run investigator
 ```
 
 Then open `http://127.0.0.1:3333` and start with an investigative question.
+
+For a different tester or machine, repeat the whole installation and IPED Web API procedure locally. If this GitHub repository is private, the tester must first be granted repository access; alternatively distribute a reviewed release artifact through an approved channel.
 
 `npm run check` verifies Node.js, configuration, connectivity with the IPED Web API, availability of case sources, MCP startup, investigation instructions and registered tools before the interface is started.
 
@@ -417,13 +477,15 @@ The MVP is considered ready for a release candidate when the automated acceptanc
 
 This baseline is intentionally narrower than the long-term product backlog. Improvements that are not required to satisfy these acceptance properties belong after the MVP unless they fix a correctness, provenance, security or usability blocker.
 
-Before marking a local build as a release candidate, start the IPED Web API with the intended processed case and run:
+Before marking a local build as a release candidate, start the IPED Web API with the intended processed **`mcp-lab` acceptance fixture** and run:
 
 ```bash
 npm run check:rc
 ```
 
-This single gate runs the automated acceptance/test suite, verifies the live local IPED connection, available source, MCP startup, investigation instructions and registered tools, and executes the live `mcp-lab` contextual-correlation acceptance scenario. The live gate must surface distinct identities returned by the broad `Carlos` query without merging them, and must admit the divergent contextual evidence through established context rather than repeated monetary value alone. A passing CI build alone is not sufficient to claim that a specific local IPED installation is ready.
+The `check:rc` command is a maintainer/release gate, not a generic command for arbitrary third-party cases: its live acceptance contains assertions for the project's `mcp-lab` fixture. For an external tester using another processed case, use `npm run check` and then `npm run investigator`.
+
+With the acceptance fixture, this single gate runs the automated acceptance/test suite, verifies the live local IPED connection, available source, MCP startup, investigation instructions and registered tools, and executes the live `mcp-lab` contextual-correlation acceptance scenario. The live gate must surface distinct identities returned by the broad `Carlos` query without merging them, and must admit the divergent contextual evidence through established context rather than repeated monetary value alone. A passing CI build alone is not sufficient to claim that a specific local IPED installation is ready.
 
 ### MVP reference release
 
