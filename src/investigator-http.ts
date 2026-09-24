@@ -21,7 +21,7 @@ const ai = createAiAnalyzer({
 });
 const investigator = new InvestigatorService(iped, investigations, audit, ai);
 const port = Number(process.env.INVESTIGATOR_PORT ?? 3333);
-const investigatorHtml = `<!doctype html>
+export const investigatorHtml = `<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
