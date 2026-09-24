@@ -25,11 +25,48 @@ type TimelineEvent = {
   timestamp: string;
 };
 
+function buildRetrievalAmbiguities(
+  question: string,
+  evidence: Array<{ sourceId: string; itemId: number; name?: string; text?: string }>
+) {
+  const tokens = new Set(
+    question.toLocaleLowerCase().match(/[\p{L}]{3,}/gu) ?? []
+  );
+  const names = new Map<string, {
+    value: string;
+    evidence: EvidenceReference[];
+  }>();
+  for (const item of evidence) {
+    const phrases = item.text?.match(
+      /\b[\p{Lu}][\p{Ll}]+(?:[ \t]+[\p{Lu}][\p{Ll}]+){1,3}\b/gu
+    ) ?? [];
+    for (const value of new Set(phrases)) {
+      const parts = value.toLocaleLowerCase().split(/[ \t]+/);
+      if (!parts.some(part => tokens.has(part))) continue;
+      const key = value.toLocaleLowerCase();
+      const entry = names.get(key) ?? { value, evidence: [] };
+      if (!entry.evidence.some(ref => ref.sourceId === item.sourceId && ref.itemId === item.itemId)) {
+        entry.evidence.push({ sourceId: item.sourceId, itemId: item.itemId });
+      }
+      names.set(key, entry);
+    }
+  }
+  const candidates = [...names.values()].filter(item => item.evidence.length > 0);
+  if (candidates.length < 2) return [];
+  return [{
+    classification: "RETRIEVAL_AMBIGUITY" as const,
+    description:
+      "A busca textual recuperou nomes distintos que compartilham um termo da pergunta. Eles permanecem separados e nenhuma identidade comum é inferida.",
+    candidates
+  }];
+}
+
 export function buildInvestigatorView(input: {
   question: string;
   evidence: Array<EvidenceReference & {
     name?: string;
     path?: string;
+    text?: string;
     textAvailable?: boolean;
   }>;
   graphView: InvestigationGraphView;
@@ -292,6 +329,10 @@ export function buildInvestigationWorkspace(input: {
       leads: input.view.sections.leads
     }),
     panels: {
+      retrievalAmbiguities: buildRetrievalAmbiguities(
+        input.question,
+        input.view.sections.evidence
+      ),
       valueVariations: buildObservedValueVariations(input.view.sections.relationships),
       findings: input.view.sections.leads
         .filter(lead => lead.evidence.length > 0)
