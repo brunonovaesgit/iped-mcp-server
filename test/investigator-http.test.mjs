@@ -118,3 +118,12 @@ test("graph minimap shows and updates the current viewport", () => {
   assert.ok(investigatorHtml.includes("graphBox.scrollLeft/fullW*width"));
   assert.ok(investigatorHtml.includes("graphBox.clientWidth/fullW*width"));
 });
+
+
+test("graph can fit the complete network into the available viewport", () => {
+  assert.ok(investigatorHtml.includes('data-graph-action="fit"'));
+  assert.ok(investigatorHtml.includes(">Ajustar</button>"));
+  assert.ok(investigatorHtml.includes("availableW/width"));
+  assert.ok(investigatorHtml.includes("availableH/height"));
+  assert.ok(investigatorHtml.includes("Math.max(.35,Math.min(1"));
+});
