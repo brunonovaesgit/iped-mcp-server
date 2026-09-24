@@ -424,3 +424,9 @@ npm run check:rc
 ```
 
 This single gate runs the automated acceptance/test suite, verifies the live local IPED connection, available source, MCP startup, investigation instructions and registered tools, and executes the live `mcp-lab` contextual-correlation acceptance scenario. The live gate must surface distinct identities returned by the broad `Carlos` query without merging them, and must admit the divergent contextual evidence through established context rather than repeated monetary value alone. A passing CI build alone is not sufficient to claim that a specific local IPED installation is ready.
+
+### MVP scope freeze
+
+The MVP feature scope is frozen at this baseline. Until the release-candidate gate passes, changes should be limited to defects that block correctness, provenance, security, usability, or the acceptance gate itself. New investigative capabilities, additional heuristics, UI enhancements, integrations, and broader automation belong to the post-MVP backlog.
+
+Once `npm run check:rc` passes against the intended local `mcp-lab` case, that exact revision is the reference implementation for the MVP article.
