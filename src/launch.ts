@@ -80,15 +80,15 @@ async function waitForSource(expected:string,connector:ReturnType<typeof spawn>)
  throw new Error(`O IPED não confirmou o caso selecionado em 15 segundos${last?`. Resposta recebida: ${last.slice(0,160)}`:"."}`);
 }
 async function main(){
- const answers=await ask();const npm=process.platform==="win32"?"npm.cmd":"npm";const sourceId=answers.id||basename(resolve(answers.casePath))||"iped-case";
+ const answers=await ask();const node=process.execPath;const sourceId=answers.id||basename(resolve(answers.casePath))||"iped-case";
  console.log("\n✓ IPED validado\n✓ Caso localizado\nIniciando conexão...");
- const args=["run","connect:iped","--","--iped-home",resolve(answers.ipedHome),"--case",resolve(answers.casePath)];if(answers.id)args.push("--id",answers.id);
- const connector=spawn(npm,args,{stdio:"inherit",env:process.env});connector.on("error",e=>{console.error("Falha ao iniciar conexão:",e.message);process.exitCode=1;});
+ const args=[resolve("dist/connect-iped.js"),"--iped-home",resolve(answers.ipedHome),"--case",resolve(answers.casePath)];if(answers.id)args.push("--id",answers.id);
+ const connector=spawn(node,args,{stdio:"inherit",env:process.env});connector.on("error",e=>{console.error("Falha ao iniciar conexão:",e.message);process.exitCode=1;});
  console.log("Validando o caso diretamente com o IPED...");
  await waitForSource(sourceId,connector);
  await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
  console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
- const investigator=spawn(npm,["run","investigator"],{stdio:"inherit",env:process.env});
+ const investigator=spawn(node,[resolve("dist/investigator-http.js")],{stdio:"inherit",env:process.env});
  const stop=()=>{if(connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector.exitCode===null)connector.kill();process.exitCode=code??0;});
 }
 main().catch(async error=>{const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nSelecione novamente a instalação do IPED e o caso processado.");process.exit(1);});
