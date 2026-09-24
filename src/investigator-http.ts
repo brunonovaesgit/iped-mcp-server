@@ -274,7 +274,14 @@ function renderGraph(graph){
       const next=options[(current+1)%options.length];
       graphSearchResults.value=next.value;focusGraphNode(next.value);
     });
-    const applyZoom=()=>viewport.setAttribute("transform","scale("+scale+")");
+    const graphSvg=viewport.closest("svg");
+    const applyZoom=()=>{
+      viewport.removeAttribute("transform");
+      graphSvg.setAttribute("width",String(Math.max(1,width*scale)));
+      graphSvg.setAttribute("height",String(Math.max(1,height*scale)));
+      graphSvg.setAttribute("viewBox","0 0 "+width+" "+height);
+      updateMiniViewport();
+    };
     graphBox.addEventListener("wheel",event=>{
       if(!(event.ctrlKey||event.metaKey)) return;
       event.preventDefault();
