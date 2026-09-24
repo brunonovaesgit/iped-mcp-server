@@ -53,6 +53,7 @@ export const investigatorHtml = `<!doctype html>
     .drawerHeader{display:flex;justify-content:space-between;gap:16px;align-items:start}.drawerHeader button{padding:7px 11px}.evidenceText{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.5;background:#f7f9fb;padding:14px;border-radius:8px;max-height:46vh;overflow:auto}.property{padding:7px 0;border-top:1px solid #edf0f3}
     .empty{color:#7a8490;font-size:14px}.hidden{display:none}
     @media(max-width:800px){.summary{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}form{flex-direction:column}}
+    @media print{header,.hero,#followUpForm,.graphToolbar,.graphMiniMap,.drawer{display:none!important}main{max-width:none;padding:0}.analysis,.panel,.metric{break-inside:avoid;border-color:#bbb}.graphShell,.graph{overflow:visible!important;height:auto!important;min-height:0!important}.graph svg{max-width:100%;height:auto}.grid{display:block}.panel{margin:12px 0}.visualPanel{width:100%}button{display:none!important}}
   </style>
 </head>
 <body>
