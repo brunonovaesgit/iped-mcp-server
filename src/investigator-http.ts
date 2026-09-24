@@ -26,7 +26,7 @@ export const investigatorHtml = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>IPED Investigator</title>
+  <title>IPED MCP</title>
   <style>
     :root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#17202a;background:#f4f6f8}
     *{box-sizing:border-box} body{margin:0} button,input{font:inherit}
@@ -57,7 +57,7 @@ export const investigatorHtml = `<!doctype html>
   </style>
 </head>
 <body>
-<header><strong>IPED Investigator</strong><span id="connection">Conectando ao IPED...</span></header>
+<header><strong>IPED MCP</strong><span id="connection">Conectando ao IPED...</span></header>
 <main>
   <section class="hero">
     <h1>O que você quer investigar neste caso?</h1>
@@ -585,6 +585,6 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, "127.0.0.1", () => {
   process.stdout.write(
-    `IPED Investigator available at http://127.0.0.1:${port}\n`
+    `IPED MCP available at http://127.0.0.1:${port}\n`
   );
 });
