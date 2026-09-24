@@ -226,6 +226,24 @@ function renderGraph(graph){
       graphSearchStatus.textContent=query?(matches+" nó(s) localizado(s)"):"";
     });
     const applyZoom=()=>viewport.setAttribute("transform","scale("+scale+")");
+    graphBox.addEventListener("wheel",event=>{
+      if(!(event.ctrlKey||event.metaKey)) return;
+      event.preventDefault();
+      scale=Math.max(.35,Math.min(2.5,scale+(event.deltaY<0?.12:-.12)));
+      applyZoom();
+    },{passive:false});
+    let dragging=false,startX=0,startY=0,startLeft=0,startTop=0;
+    graphBox.addEventListener("pointerdown",event=>{
+      if(event.target.closest("button,input,select,.node,.edge")) return;
+      dragging=true;startX=event.clientX;startY=event.clientY;startLeft=graphBox.scrollLeft;startTop=graphBox.scrollTop;
+      graphBox.setPointerCapture(event.pointerId);graphBox.style.cursor="grabbing";
+    });
+    graphBox.addEventListener("pointermove",event=>{
+      if(!dragging)return;
+      graphBox.scrollLeft=startLeft-(event.clientX-startX);graphBox.scrollTop=startTop-(event.clientY-startY);
+    });
+    const stopDrag=event=>{if(!dragging)return;dragging=false;graphBox.style.cursor="";if(graphBox.hasPointerCapture(event.pointerId))graphBox.releasePointerCapture(event.pointerId);};
+    graphBox.addEventListener("pointerup",stopDrag);graphBox.addEventListener("pointercancel",stopDrag);
     target.querySelector("[data-graph-layout]").addEventListener("change",event=>{layout=event.currentTarget.value;draw();});
     target.querySelector('[data-graph-action="plus"]').addEventListener("click",()=>{scale=Math.min(2.5,scale+.2);applyZoom();});
     target.querySelector('[data-graph-action="minus"]').addEventListener("click",()=>{scale=Math.max(.35,scale-.2);applyZoom();});
