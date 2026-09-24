@@ -27,3 +27,13 @@ test("timeline keeps provenance visible and navigates to the exact evidence item
   assert.ok(investigatorHtml.includes("t.itemId"));
   assert.ok(investigatorHtml.includes("openEvidence(button.dataset.source,button.dataset.item)"));
 });
+
+
+test("graph nodes and relationships expose supporting IPED evidence navigation", () => {
+  assert.ok(investigatorHtml.includes("graphEvidenceButton"));
+  assert.ok(investigatorHtml.includes("Abrir '+escapeHtml(e.sourceId)+':'+escapeHtml(e.itemId)"));
+  assert.ok(investigatorHtml.includes("e.sourceId"));
+  assert.ok(investigatorHtml.includes("e.itemId"));
+  const navigationHook = 'openEvidence(button.dataset.source,button.dataset.item)';
+  assert.ok(investigatorHtml.split(navigationHook).length >= 3);
+});
