@@ -1,4 +1,4 @@
-name: Build portable package
+name: Build self-contained macOS package
 
 on:
   workflow_dispatch:
@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   package:
-    name: Portable package
-    runs-on: ubuntu-latest
+    name: Self-contained macOS package
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,15 +20,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Assemble package
+      - name: Assemble self-contained package
+        shell: bash
         run: |
-          mkdir -p package/iped-investigator
-          cp -R dist node_modules package.json package-lock.json README.md .env.example IPED-Investigator.command IPED-Investigator.cmd package/iped-investigator/
-          printf '%s\n' '#!/bin/sh' 'set -eu' 'cd "$(dirname "$0")"' 'node dist/launch.js' > package/iped-investigator/START.command
-          chmod +x package/iped-investigator/START.command IPED-Investigator.command
-          tar -czf iped-investigator-portable.tgz -C package iped-investigator
+          set -eu
+          mkdir -p package/iped-investigator/runtime
+          cp -R dist node_modules package.json package-lock.json README.md .env.example package/iped-investigator/
+          curl -fsSL "https://nodejs.org/dist/v22.20.0/node-v22.20.0-darwin-arm64.tar.gz" -o node-runtime.tgz
+          tar -xzf node-runtime.tgz --strip-components=1 -C package/iped-investigator/runtime
+          printf '%s\n' '#!/bin/sh' 'set -eu' 'cd "$(dirname "$0")"' 'exec ./runtime/bin/node dist/launch.js' > package/iped-investigator/START.command
+          chmod +x package/iped-investigator/START.command
+          tar -czf iped-investigator-macos-arm64.tgz -C package iped-investigator
       - uses: actions/upload-artifact@v4
         with:
-          name: iped-investigator-portable
-          path: iped-investigator-portable.tgz
+          name: iped-investigator-macos-arm64
+          path: iped-investigator-macos-arm64.tgz
           if-no-files-found: error
