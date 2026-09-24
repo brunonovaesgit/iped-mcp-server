@@ -143,7 +143,8 @@ async function main(){
  if(!connector)throw new Error("Não foi possível iniciar a conexão com o IPED.");
  await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
  console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
- const investigatorEnv={...process.env,IPED_URL:`http://127.0.0.1:${ipedPort}`};\n const investigator=spawn(node,[resolve("dist/investigator-http.js")],{stdio:"inherit",env:investigatorEnv});
+ const investigatorEnv={...process.env,IPED_URL:`http://127.0.0.1:${ipedPort}`};
+ const investigator=spawn(node,[resolve("dist/investigator-http.js")],{stdio:"inherit",env:investigatorEnv});
  const investigatorUrl=await waitForInvestigator(investigator);
  await openBrowser(investigatorUrl);
  console.log(`✓ Investigator aberto no navegador: ${investigatorUrl}`);
