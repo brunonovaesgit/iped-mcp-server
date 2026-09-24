@@ -42,10 +42,10 @@ export const investigatorHtml = `<!doctype html>
     .analysis{background:white;border:1px solid #dfe4ea;border-radius:12px;padding:22px;margin:20px 0}.analysis h2{margin:0 0 10px;font-size:18px}.analysis p{line-height:1.55}.analysis .observation{border-top:1px solid #edf0f3;padding:10px 0}.analysis .observation:first-of-type{border-top:0}
     .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:20px 0}
     .metric{background:white;border:1px solid #dfe4ea;border-radius:10px;padding:16px}.metric b{display:block;font-size:22px}.metric span{font-size:12px;color:#68727e}
-    .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.panel h2{margin-top:0;font-size:17px}
+    .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.panel h2{margin-top:0;font-size:17px}.visualPanel{grid-column:1/-1}
     .item{border-top:1px solid #edf0f3;padding:12px 0}.item:first-of-type{border-top:0}
     .meta{font-size:12px;color:#68727e}.lead{display:flex;justify-content:space-between;gap:12px;align-items:center}
-    .graphToolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.graphToolbar button,.graphToolbar select{padding:7px 10px;font-size:12px}.graphToolbar .meta{margin-right:auto}\n    .graph{position:relative;min-height:420px;max-height:72vh;overflow:auto;border:1px solid #edf0f3;border-radius:8px;margin-top:10px;background:#fff}\n    .graph svg{display:block}.graph.fullscreen{position:fixed;inset:16px;z-index:40;max-height:none;height:calc(100vh - 32px);background:white;box-shadow:0 10px 50px #0005}.graph.fullscreen svg{min-width:100%}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}
+    .graphToolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.graphToolbar button,.graphToolbar select{padding:7px 10px;font-size:12px}.graphToolbar .meta{margin-right:auto}\n    .graph{position:relative;min-height:520px;overflow:auto;border:1px solid #edf0f3;border-radius:8px;margin-top:10px;background:#fff}\n    .graph svg{display:block}.graph.fullscreen{position:fixed;inset:16px;z-index:40;max-height:none;height:calc(100vh - 32px);background:white;box-shadow:0 10px 50px #0005}.graph.fullscreen svg{min-width:100%}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}
     .graph .node{cursor:pointer}.graph .node circle{fill:white;stroke:#52677b;stroke-width:2}.graph .node.evidence circle{stroke:#263b50}.graph .node.communication circle{stroke:#68727e}
     .graph .edge{cursor:pointer}.graph .edge:hover{stroke-width:3}.graphDetail{margin-top:10px;padding:10px;background:#f7f9fb;border-radius:7px;font-size:12px}
     .evidenceButton{background:none;color:#263b50;padding:0;text-align:left;font-weight:700}.evidenceButton:hover{text-decoration:underline}
@@ -81,8 +81,8 @@ export const investigatorHtml = `<!doctype html>
       <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
       <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
       <div class="panel"><h2>Valores e entidades correlacionáveis</h2><div id="leads"></div></div>
-      <div class="panel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
-      <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
+      <div class="panel visualPanel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
+      <div class="panel visualPanel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
     </div>
   </section>
 </main>
