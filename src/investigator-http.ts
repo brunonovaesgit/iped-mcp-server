@@ -45,8 +45,7 @@ const investigatorHtml = `<!doctype html>
     .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.panel h2{margin-top:0;font-size:17px}
     .item{border-top:1px solid #edf0f3;padding:12px 0}.item:first-of-type{border-top:0}
     .meta{font-size:12px;color:#68727e}.lead{display:flex;justify-content:space-between;gap:12px;align-items:center}
-    .graph{position:relative;min-height:360px;overflow:auto;border:1px solid #edf0f3;border-radius:8px;margin-top:12px}
-    .graph svg{display:block;min-width:620px}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}
+    .graphToolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.graphToolbar button{padding:7px 10px;font-size:12px}.graphToolbar .meta{margin-right:auto}\n    .graph{position:relative;min-height:420px;max-height:72vh;overflow:auto;border:1px solid #edf0f3;border-radius:8px;margin-top:10px;background:#fff}\n    .graph svg{display:block}.graph.fullscreen{position:fixed;inset:16px;z-index:40;max-height:none;height:calc(100vh - 32px);background:white;box-shadow:0 10px 50px #0005}.graph.fullscreen svg{min-width:100%}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}
     .graph .node{cursor:pointer}.graph .node circle{fill:white;stroke:#52677b;stroke-width:2}.graph .node.evidence circle{stroke:#263b50}.graph .node.communication circle{stroke:#68727e}
     .graph .edge{cursor:pointer}.graph .edge:hover{stroke-width:3}.graphDetail{margin-top:10px;padding:10px;background:#f7f9fb;border-radius:7px;font-size:12px}
     .evidenceButton{background:none;color:#263b50;padding:0;text-align:left;font-weight:700}.evidenceButton:hover{text-decoration:underline}
@@ -180,39 +179,31 @@ function renderGraph(graph){
   const target=byId("relationships"),detail=byId("relationshipDetail");
   detail.innerHTML="";
   if(!graph?.nodes?.length){target.innerHTML='<div class="empty">Nenhuma relação para exibir.</div>';return}
-  const width=620,height=Math.max(360,Math.ceil(graph.nodes.length/8)*130);
-  const centerX=width/2,centerY=height/2,radius=Math.min(width,height)*.36;
+  const nodeCount=graph.summary?.nodeCount??graph.nodes.length,edgeCount=graph.summary?.edgeCount??(graph.edges?.length||0);
+  const layout=nodeCount<=18?"radial":nodeCount<=60?"grid":"wide";
+  const cols=layout==="radial"?0:Math.max(4,Math.ceil(Math.sqrt(nodeCount*1.5)));
+  const cellW=190,cellH=105;
+  const width=layout==="radial"?Math.max(820,nodeCount*48):Math.max(900,cols*cellW);
+  const rows=layout==="radial"?1:Math.ceil(nodeCount/cols);
+  const height=layout==="radial"?Math.max(620,nodeCount*28):Math.max(620,rows*cellH+120);
   const positions=new Map();
-  graph.nodes.forEach((node,index)=>{
-    const angle=(Math.PI*2*index)/graph.nodes.length-Math.PI/2;
-    positions.set(node.id,{x:centerX+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius});
-  });
-  const edges=(graph.edges||[]).map(edge=>{
-    const a=positions.get(edge.from),b=positions.get(edge.to);if(!a||!b)return"";
-    return '<line class="edge" data-edge="'+escapeHtml(edge.id)+'" x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'"></line>';
-  }).join("");
-  const nodes=graph.nodes.map(node=>{
-    const p=positions.get(node.id),kind=node.kind==="EVIDENCE"?"evidence":node.kind==="COMMUNICATION_PARTICIPANT"?"communication":"entity";
-    const label=String(node.label||"").slice(0,24);
-    return '<g class="node '+kind+'" data-node="'+escapeHtml(node.id)+'" transform="translate('+p.x+' '+p.y+')"><circle r="15"></circle><text x="20" y="4">'+escapeHtml(label)+'</text></g>';
-  }).join("");
-  const nodeCount=graph.summary && graph.summary.nodeCount !== undefined
-    ? graph.summary.nodeCount
-    : graph.nodes.length;
-  const edgeCount=graph.summary && graph.summary.edgeCount !== undefined
-    ? graph.summary.edgeCount
-    : (graph.edges ? graph.edges.length : 0);
-  target.innerHTML='<div class="meta">'+escapeHtml(nodeCount)+' nós · '+escapeHtml(edgeCount)+' relações observadas</div><div class="graph"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'">'+edges+nodes+'</svg></div>';
-  target.querySelectorAll(".node").forEach(el=>el.addEventListener("click",()=>{
-    const node=graph.nodes.find(n=>n.id===el.dataset.node);if(!node)return;
-    const supporting=(graph.edges||[]).filter(e=>e.from===node.id||e.to===node.id).flatMap(e=>e.evidence||[]);
-    const unique=[...new Map(supporting.map(e=>[e.sourceId+":"+e.itemId,e])).values()];
-    detail.innerHTML='<div class="graphDetail"><b>'+escapeHtml(node.label)+'</b><div class="meta">'+escapeHtml(node.kind)+(node.entityType?" · "+escapeHtml(node.entityType):"")+'</div><div>'+unique.length+' evidência(s) de suporte</div></div>';
-  }));
-  target.querySelectorAll(".edge").forEach(el=>el.addEventListener("click",()=>{
-    const edge=(graph.edges||[]).find(e=>e.id===el.dataset.edge);if(!edge)return;
-    detail.innerHTML='<div class="graphDetail"><b>'+escapeHtml(edge.relationship)+'</b><div>'+escapeHtml(edge.interpretation||"Relação observada nas evidências.")+'</div><div class="meta">'+(edge.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>';
-  }));
+  if(layout==="radial"){
+    const cx=width/2,cy=height/2,r=Math.max(210,Math.min(width,height)*.36);
+    graph.nodes.forEach((node,index)=>{const a=Math.PI*2*index/nodeCount-Math.PI/2;positions.set(node.id,{x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r});});
+  }else{
+    graph.nodes.forEach((node,index)=>{const row=Math.floor(index/cols),col=index%cols;positions.set(node.id,{x:95+col*cellW,y:70+row*cellH});});
+  }
+  const edges=(graph.edges||[]).map(edge=>{const a=positions.get(edge.from),b=positions.get(edge.to);if(!a||!b)return"";return '<line class="edge" data-edge="'+escapeHtml(edge.id)+'" x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'"></line>';}).join("");
+  const nodes=graph.nodes.map(node=>{const p=positions.get(node.id),kind=node.kind==="EVIDENCE"?"evidence":node.kind==="COMMUNICATION_PARTICIPANT"?"communication":"entity";const label=String(node.label||"");return '<g class="node '+kind+'" data-node="'+escapeHtml(node.id)+'" transform="translate('+p.x+' '+p.y+')"><circle r="14"></circle><title>'+escapeHtml(label)+'</title><text x="20" y="4">'+escapeHtml(label.length>30?label.slice(0,29)+"…":label)+'</text></g>';}).join("");
+  target.innerHTML='<div class="graphToolbar"><span class="meta">'+escapeHtml(nodeCount)+' nós · '+escapeHtml(edgeCount)+' relações · layout '+escapeHtml(layout)+'</span><button type="button" data-graph-action="minus">−</button><button type="button" data-graph-action="reset">100%</button><button type="button" data-graph-action="plus">+</button><button type="button" data-graph-action="full">Tela cheia</button></div><div class="graph"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'"><g class="viewport">'+edges+nodes+'</g></svg></div>';
+  const graphBox=target.querySelector(".graph"),viewport=target.querySelector(".viewport");let scale=1;
+  const applyZoom=()=>viewport.setAttribute("transform","scale("+scale+")");
+  target.querySelector('[data-graph-action="plus"]').addEventListener("click",()=>{scale=Math.min(2.5,scale+.2);applyZoom();});
+  target.querySelector('[data-graph-action="minus"]').addEventListener("click",()=>{scale=Math.max(.45,scale-.2);applyZoom();});
+  target.querySelector('[data-graph-action="reset"]').addEventListener("click",()=>{scale=1;applyZoom();graphBox.scrollTo({left:0,top:0});});
+  target.querySelector('[data-graph-action="full"]').addEventListener("click",event=>{graphBox.classList.toggle("fullscreen");event.currentTarget.textContent=graphBox.classList.contains("fullscreen")?"Sair da tela cheia":"Tela cheia";});
+  target.querySelectorAll(".node").forEach(el=>el.addEventListener("click",()=>{const node=graph.nodes.find(n=>n.id===el.dataset.node);if(!node)return;target.querySelectorAll(".node").forEach(n=>n.style.opacity="0.2");target.querySelectorAll(".edge").forEach(e=>e.style.opacity="0.12");el.style.opacity="1";const connected=new Set([node.id]);(graph.edges||[]).forEach(edge=>{if(edge.from===node.id||edge.to===node.id){connected.add(edge.from);connected.add(edge.to);const edgeEl=target.querySelector('[data-edge="'+CSS.escape(edge.id)+'"]');if(edgeEl){edgeEl.style.opacity="1";edgeEl.style.strokeWidth="3";}}});target.querySelectorAll(".node").forEach(n=>{if(connected.has(n.dataset.node))n.style.opacity="1";});const supporting=(graph.edges||[]).filter(e=>e.from===node.id||e.to===node.id).flatMap(e=>e.evidence||[]);const unique=[...new Map(supporting.map(e=>[e.sourceId+":"+e.itemId,e])).values()];detail.innerHTML='<div class="graphDetail"><b>'+escapeHtml(node.label)+'</b><div class="meta">'+escapeHtml(node.kind)+(node.entityType?" · "+escapeHtml(node.entityType):"")+'</div><div>'+unique.length+' evidência(s) de suporte</div><button type="button" id="clearGraphFocus">Mostrar toda a rede</button></div>';byId("clearGraphFocus").addEventListener("click",()=>{target.querySelectorAll(".node,.edge").forEach(n=>{n.style.opacity="";n.style.strokeWidth="";});detail.innerHTML="";});}));
+  target.querySelectorAll(".edge").forEach(el=>el.addEventListener("click",()=>{const edge=(graph.edges||[]).find(e=>e.id===el.dataset.edge);if(!edge)return;detail.innerHTML='<div class="graphDetail"><b>'+escapeHtml(edge.relationship)+'</b><div>'+escapeHtml(edge.interpretation||"Relação observada nas evidências.")+'</div><div class="meta">'+(edge.evidence||[]).map(e=>escapeHtml(e.sourceId)+":"+escapeHtml(e.itemId)).join(" · ")+'</div></div>';}));
 }
 async function openEvidence(sourceId,itemId){
   byId("evidenceDrawer").classList.remove("hidden");
