@@ -184,3 +184,8 @@ test("investigation leads expose the evidence that caused each correlation lead"
   assert.ok(investigatorHtml.includes("leadEvidenceButton"));
   assert.ok(investigatorHtml.includes("(l.evidence||[]).map"));
 });
+
+
+test("graph search result selector disambiguates repeated labels by type", () => {
+  assert.ok(investigatorHtml.includes('(node.label||node.id)+" · "+(node.entityType||node.kind)'));
+});
