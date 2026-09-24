@@ -37,3 +37,13 @@ test("graph nodes and relationships expose supporting IPED evidence navigation",
   const navigationHook = 'openEvidence(button.dataset.source,button.dataset.item)';
   assert.ok(investigatorHtml.split(navigationHook).length >= 3);
 });
+
+
+test("large graphs can locate nodes without removing evidence from the graph", () => {
+  assert.ok(investigatorHtml.includes("data-graph-search"));
+  assert.ok(investigatorHtml.includes("Localizar"));
+  assert.ok(investigatorHtml.includes("Nome, valor ou tipo"));
+  assert.ok(investigatorHtml.includes('haystack.includes(query)'));
+  assert.ok(investigatorHtml.includes('el.style.opacity=matched?"":".12"'));
+  assert.ok(!investigatorHtml.includes("graph.nodes.filter(node=>"));
+});
