@@ -66,3 +66,12 @@ test("a unique graph search result is focused and centered without removing othe
   assert.ok(investigatorHtml.includes('behavior:"smooth"'));
   assert.ok(investigatorHtml.includes("nodeEl.dispatchEvent(new Event"));
 });
+
+
+test("multiple graph search matches remain selectable and focusable", () => {
+  assert.ok(investigatorHtml.includes("data-graph-search-results"));
+  assert.ok(investigatorHtml.includes("Escolha um dos "));
+  assert.ok(investigatorHtml.includes("matchingNodes.map"));
+  assert.ok(investigatorHtml.includes('graphSearchResults.addEventListener("change"'));
+  assert.ok(investigatorHtml.includes("focusGraphNode(graphSearchResults.value)"));
+});
