@@ -159,3 +159,9 @@ test("observed findings expose their supporting IPED evidence as navigable refer
   assert.ok(investigatorHtml.includes('data-source="'+escapeHtml(e.sourceId)'));
   assert.ok(investigatorHtml.includes('data-item="'+escapeHtml(e.itemId)'));
 });
+
+
+test("retrieval ambiguities keep every candidate traceable to exact IPED evidence", () => {
+  assert.ok(investigatorHtml.includes("ambiguityEvidenceButton"));
+  assert.ok(investigatorHtml.includes('ambiguityTarget.querySelectorAll(".ambiguityEvidenceButton")'));
+});

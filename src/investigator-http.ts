@@ -121,7 +121,8 @@ function renderWorkspace(workspace){
     ambiguityTarget.innerHTML='<h2>Ambiguidade nos resultados da busca</h2>'
       +ambiguities.map(group=>'<p>'+escapeHtml(group.description)+'</p>'
         +group.candidates.map(candidate=>'<div class="observation"><strong>'+escapeHtml(candidate.value)+'</strong> · '
-          +candidate.evidence.map(ref=>'['+escapeHtml(ref.sourceId)+':'+escapeHtml(ref.itemId)+']').join(' ')+'</div>').join('')).join('');
+          +candidate.evidence.map(ref=>'<button type="button" class="evidenceButton ambiguityEvidenceButton" data-source="'+escapeHtml(ref.sourceId)+'" data-item="'+escapeHtml(ref.itemId)+'">['+escapeHtml(ref.sourceId)+':'+escapeHtml(ref.itemId)+']</button>').join(' ')+'</div>').join('')).join('');
+    ambiguityTarget.querySelectorAll(".ambiguityEvidenceButton").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
   }else{
     ambiguityTarget.classList.add("hidden");
     ambiguityTarget.innerHTML="";
