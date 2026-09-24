@@ -841,7 +841,8 @@ export class InvestigatorService {
         itemId: item.itemId,
         name: item.name,
         path: item.path,
-        textAvailable: item.textAvailable
+        textAvailable: item.textAvailable,
+        fileType: item.fileType
       })),
       graphView: {
         summary: { nodeCount: 0, edgeCount: 0, nodesByKind: {}, edgesByRelationship: {} },

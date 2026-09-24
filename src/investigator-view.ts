@@ -68,6 +68,7 @@ export function buildInvestigatorView(input: {
     path?: string;
     text?: string;
     textAvailable?: boolean;
+    fileType?: string;
   }>;
   graphView: InvestigationGraphView;
   timeline?: TimelineEvent[];
@@ -112,6 +113,7 @@ export function buildInvestigatorView(input: {
         name: item.name,
         path: item.path,
         textAvailable: item.textAvailable,
+        fileType: item.fileType,
         actions: ["OPEN_EVIDENCE"]
       })),
       relationships: {
@@ -250,7 +252,7 @@ function buildObservedValueVariations(relationships: InvestigationGraphView) {
   }];
 }
 
-function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;itemId:number;name?:string;path?:string;textAvailable?:boolean}>) {
+function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;itemId:number;name?:string;path?:string;textAvailable?:boolean;fileType?:string}>) {
   const normalized=question.toLocaleLowerCase("pt-BR");
   const asksList=/\b(liste|listar|lista|quais|mostre|mostrar)\b/.test(normalized);
   const asksFiles=/\b(arquivo|arquivos|item|itens|evidência|evidencias|evidências)\b/.test(normalized);
@@ -268,7 +270,7 @@ function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;it
     columns:["Item","Tipo","Caminho","Referência"],
     rows:evidence.map(item=>({
       item:item.name||`Item ${item.itemId}`,
-      type:extension(item.name,item.path),
+      type:item.fileType||extension(item.name,item.path),
       path:item.path||"",
       reference:`${item.sourceId}:${item.itemId}`
     }))
