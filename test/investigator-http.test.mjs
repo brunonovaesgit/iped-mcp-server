@@ -165,3 +165,9 @@ test("retrieval ambiguities keep every candidate traceable to exact IPED evidenc
   assert.ok(investigatorHtml.includes("ambiguityEvidenceButton"));
   assert.ok(investigatorHtml.includes('ambiguityTarget.querySelectorAll(".ambiguityEvidenceButton")'));
 });
+
+
+test("investigation synthesis observations link to their exact supporting evidence", () => {
+  assert.ok(investigatorHtml.includes("analysisEvidenceButton"));
+  assert.ok(investigatorHtml.includes('byId("analysis").querySelectorAll(".analysisEvidenceButton")'));
+});
