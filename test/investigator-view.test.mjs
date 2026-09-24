@@ -580,7 +580,16 @@ test("workspace surfaces distinct names from a broad person query without mergin
       { sourceId: "case", itemId: 2, text: "Mensagem de Carlos Almeida sobre Atlas" },
       { sourceId: "case", itemId: 3, text: "Carlos Santos atua no Projeto Apollo" }
     ],
-    graphView: emptyGraphView()
+    graphView: buildInvestigationGraphView(buildInvestigationGraph({
+      evidence: [
+        { sourceId: "case", itemId: 1 },
+        { sourceId: "case", itemId: 2 },
+        { sourceId: "case", itemId: 3 }
+      ],
+      entities: [],
+      communicationParticipants: [],
+      duplicateEvidence: []
+    }))
   });
   const workspace = buildInvestigationWorkspace({
     investigationId: "inv",
