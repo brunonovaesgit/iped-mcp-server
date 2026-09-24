@@ -105,8 +105,8 @@ async function waitForSource(expected:string,connector:ReturnType<typeof spawn>,
  }
  throw new Error(`O IPED não confirmou o caso selecionado em 15 segundos${last?`. Resposta recebida: ${last.slice(0,160)}`:"."}`);
 }
-async function waitForInvestigator(child:ReturnType<typeof spawn>){
- const url="http://127.0.0.1:3333";const deadline=Date.now()+15000;
+async function waitForInvestigator(child:ReturnType<typeof spawn>,port:number){
+ const url=`http://127.0.0.1:${port}`;const deadline=Date.now()+15000;
  while(Date.now()<deadline){
   if(child.exitCode!==null)throw new Error("O Investigator terminou antes de ficar disponível.");
   try{const response=await fetch(url);if(response.ok)return url;}catch{}
@@ -142,10 +142,11 @@ async function main(){
  }
  if(!connector)throw new Error("Não foi possível iniciar a conexão com o IPED.");
  await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
- console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
- const investigatorEnv={...process.env,IPED_URL:`http://127.0.0.1:${ipedPort}`};
+ const investigatorPort=await freeLocalPort();
+ console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:${investigatorPort}\n`);
+ const investigatorEnv={...process.env,IPED_URL:`http://127.0.0.1:${ipedPort}`,INVESTIGATOR_PORT:String(investigatorPort)};
  const investigator=spawn(node,[resolve("dist/investigator-http.js")],{stdio:"inherit",env:investigatorEnv});
- const investigatorUrl=await waitForInvestigator(investigator);
+ const investigatorUrl=await waitForInvestigator(investigator,investigatorPort);
  await openBrowser(investigatorUrl);
  console.log(`✓ Investigator aberto no navegador: ${investigatorUrl}`);
  const stop=()=>{if(connector&&connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector&&connector.exitCode===null)connector.kill();process.exitCode=code??0;});
