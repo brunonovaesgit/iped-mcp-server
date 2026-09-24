@@ -17,3 +17,13 @@ test("relationship graph renders the complete node collection without a UI cap",
   assert.equal(investigatorHtml.includes("graph.nodes.slice("), false);
   assert.ok(investigatorHtml.includes("graph.nodes.map("));
 });
+
+
+test("timeline keeps provenance visible and navigates to the exact evidence item", () => {
+  assert.ok(investigatorHtml.includes("timelineEvidenceButton"));
+  assert.ok(investigatorHtml.includes("Abrir evidência"));
+  assert.ok(investigatorHtml.includes("t.path"));
+  assert.ok(investigatorHtml.includes("t.sourceId"));
+  assert.ok(investigatorHtml.includes("t.itemId"));
+  assert.ok(investigatorHtml.includes("openEvidence(button.dataset.source,button.dataset.item)"));
+});
