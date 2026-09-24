@@ -20,7 +20,7 @@ if errorlevel 1 (
 )
 if not exist node_modules (
   echo.
-  echo Preparando o IPED Investigator pela primeira vez...
+  echo Preparando o IPED MCP pela primeira vez...
   call npm install
   if errorlevel 1 (
     pause
