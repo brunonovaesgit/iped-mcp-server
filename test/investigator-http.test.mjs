@@ -47,3 +47,13 @@ test("large graphs can locate nodes without removing evidence from the graph", (
   assert.ok(investigatorHtml.includes('el.style.opacity=matched?"":".12"'));
   assert.ok(!investigatorHtml.includes("graph.nodes.filter(node=>"));
 });
+
+
+test("graph supports direct navigation with modifier-wheel zoom and drag pan", () => {
+  assert.ok(investigatorHtml.includes('graphBox.addEventListener("wheel"'));
+  assert.ok(investigatorHtml.includes("event.ctrlKey||event.metaKey"));
+  assert.ok(investigatorHtml.includes('graphBox.addEventListener("pointerdown"'));
+  assert.ok(investigatorHtml.includes('graphBox.addEventListener("pointermove"'));
+  assert.ok(investigatorHtml.includes("graphBox.scrollLeft=startLeft"));
+  assert.ok(investigatorHtml.includes("graphBox.scrollTop=startTop"));
+});
