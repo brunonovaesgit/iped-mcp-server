@@ -8,10 +8,11 @@ import { stdin as input, stdout as output } from "node:process";
 
 const execFileAsync=promisify(execFile);
 type Answers={ipedHome:string;casePath:string;id?:string};
+class UserCancelled extends Error{}
 async function nativeFolder(prompt:string){
  if(process.platform!=="darwin")return undefined;
  const script=`POSIX path of (choose folder with prompt "${prompt.replaceAll('"','\\\"')}")`;
- try{const {stdout}=await execFileAsync("osascript",["-e",script]);return stdout.trim().replace(/\/$/,"");}catch{return undefined;}
+ try{const {stdout}=await execFileAsync("osascript",["-e",script]);return stdout.trim().replace(/\/$/,"");}catch{throw new UserCancelled("Seleção cancelada.");}
 }
 async function nativeAlert(title:string,message:string){
  if(process.platform!=="darwin")return;
@@ -58,15 +59,19 @@ async function ask():Promise<Answers>{
   console.log("\nIPED Investigator — início guiado\n");
   console.log("Seu caso permanece no IPED. Nenhuma evidência será importada, copiada ou alterada.");
   const detectedIped=await findIpedCandidates();
-  const ipedHome=(process.platform==="darwin"?(await nativeFolder("Selecione a pasta principal da instalação do IPED")):undefined) ?? (await choose(rl,"Instalação do IPED",detectedIped)).trim();
+  const ipedHome=process.platform==="darwin"
+   ? (await nativeFolder("Selecione a pasta principal da instalação do IPED"))!
+   : (await choose(rl,"Instalação do IPED",detectedIped)).trim();
   if(!ipedHome)throw new Error("A instalação do IPED é obrigatória."); if(!await looksLikeIped(resolve(ipedHome)))throw new Error("A pasta escolhida não parece ser uma release do IPED (diretório lib não encontrado).");
   console.log(`✓ Instalação válida do IPED: ${basename(resolve(ipedHome))}`);
   const detectedCases=await caseCandidates(resolve(ipedHome));
-  const casePath=(process.platform==="darwin"?(await nativeFolder("Selecione a pasta do caso já processado pelo IPED")):undefined) ?? (await choose(rl,"Caso IPED já processado",detectedCases)).trim();
+  const casePath=process.platform==="darwin"
+   ? (await nativeFolder("Selecione a pasta do caso já processado pelo IPED"))!
+   : (await choose(rl,"Caso IPED já processado",detectedCases)).trim();
   if(!casePath)throw new Error("O caso processado é obrigatório."); await readable(casePath,"Caso processado");
   const entries=await readdir(resolve(casePath)).catch(()=>[]);if(entries.length===0)throw new Error("A pasta selecionada está vazia e não parece conter um caso processado pelo IPED.");
   console.log(`✓ Pasta do caso acessível: ${basename(resolve(casePath))}`);
-  const id=(await rl.question(`Nome do caso [${basename(resolve(casePath))}]: `)).trim()||undefined;
+  const id=process.platform==="darwin"?undefined:(await rl.question(`Nome do caso [${basename(resolve(casePath))}]: `)).trim()||undefined;
   return {ipedHome,casePath,id};
  }finally{rl.close();}
 }
@@ -108,4 +113,4 @@ async function main(){
  console.log(`✓ Investigator aberto no navegador: ${investigatorUrl}`);
  const stop=()=>{if(connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector.exitCode===null)connector.kill();process.exitCode=code??0;});
 }
-main().catch(async error=>{const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nSelecione novamente a instalação do IPED e o caso processado.");process.exit(1);});
+main().catch(async error=>{if(error instanceof UserCancelled){console.log("\nSeleção cancelada pelo usuário.");process.exit(0);}const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nAbra novamente o IPED Investigator para escolher outra pasta.");process.exit(1);});
