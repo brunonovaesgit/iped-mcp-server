@@ -244,6 +244,20 @@ IPED MCP Server / Investigator
 
 The Web API is not a separate "web edition" of IPED. It is the programmatic interface used to expose an existing processed case to this MCP.
 
+### Recommended: connect from the Investigator
+
+Start the Investigator first:
+
+```bash
+npm run investigator
+```
+
+Open `http://127.0.0.1:3333`. If no IPED source is available, the interface now shows **Conectar ao seu IPED**. Enter the IPED release directory and the existing processed-case directory, then click **Conectar ao IPED**. The application validates the paths, creates the temporary source configuration and starts the local IPED Web API for you.
+
+This guided flow does not upload, copy, import or reprocess evidence. The case remains where IPED created it.
+
+### Command-line alternative
+
 For the easiest local connection, identify only two directories:
 
 - **IPED release**: the IPED directory containing `lib/`;
