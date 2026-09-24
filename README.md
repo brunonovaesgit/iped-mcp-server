@@ -274,6 +274,17 @@ Then open `http://127.0.0.1:3333`.
 
 The manual Web API procedure remains documented below for administrators, troubleshooting and reproducibility.
 
+## Start without npm commands
+
+For a less technical first-run experience, the repository includes launch files at its root:
+
+- **macOS:** double-click `IPED-Investigator.command` (the first time, macOS may require opening it from Finder's context menu depending on local security settings).
+- **Windows:** double-click `IPED-Investigator.cmd`.
+
+The launcher checks whether Node.js/npm are available, installs this project's JavaScript dependencies on the first run when needed, and then starts the same guided IPED/case discovery flow. It does not install or modify IPED and does not import evidence.
+
+The terminal-based `npm run launch` remains available for developers, automation and troubleshooting.
+
 ## Easiest way to start
 
 For normal use, the examiner does not need to create JSON files or type the Java Web API command. From the project directory run:
