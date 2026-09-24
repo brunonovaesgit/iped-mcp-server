@@ -832,7 +832,14 @@ export class InvestigatorService {
     const combinedTimeline = uniqueBy(
       investigations.flatMap(item => item.investigatorView.sections.timeline),
       event => event.sourceId + ":" + event.itemId + ":" + event.event + ":" + event.timestamp
-    );
+    ).sort((left, right) => {
+      const leftTime = Date.parse(left.timestamp);
+      const rightTime = Date.parse(right.timestamp);
+      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+        return left.timestamp.localeCompare(right.timestamp);
+      }
+      return leftTime - rightTime;
+    });
 
     const combinedInvestigatorView = buildInvestigatorView({
       question: current.question,
