@@ -203,3 +203,11 @@ test("hierarchical forensic lanes are visibly labeled", () => {
   assert.ok(investigatorHtml.includes("laneLabel"));
   assert.ok(investigatorHtml.includes("78+index*190"));
 });
+
+
+test("graph minimap viewport stays synchronized across resize and fullscreen changes", () => {
+  assert.ok(investigatorHtml.includes('window.addEventListener("resize",updateMiniViewport'));
+  assert.ok(investigatorHtml.includes("new ResizeObserver(updateMiniViewport)"));
+  assert.ok(investigatorHtml.includes("graphResizeObserver?.observe(graphBox)"));
+  assert.ok(investigatorHtml.includes("requestAnimationFrame(updateMiniViewport)"));
+});
