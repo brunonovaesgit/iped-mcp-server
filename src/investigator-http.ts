@@ -73,7 +73,7 @@ const investigatorHtml = `<!doctype html>
       <input id="followUp" autocomplete="off" placeholder="Pergunte algo sobre esta investigação">
       <button>Continuar investigação</button>
     </form>
-    <div class="analysis" id="analysis"></div>
+    <div class="analysis hidden" id="directAnswer"></div>\n    <div class="analysis" id="analysis"></div>
     <div class="analysis hidden" id="retrievalAmbiguities"></div>
     <div class="analysis hidden" id="valueVariations"></div>\n      <div class="analysis hidden" id="aiAnalysis"></div>
     <div class="summary" id="summary"></div>
@@ -108,6 +108,11 @@ function items(target,values,render){
 function renderWorkspace(workspace){
   activeInvestigationId=workspace.investigationId;
   byId("workspace").classList.remove("hidden");
+  const directTarget=byId("directAnswer"),direct=workspace.directAnswer;
+  if(direct?.kind==="EVIDENCE_LIST"){
+    directTarget.classList.remove("hidden");
+    directTarget.innerHTML='<h2>Resposta à pergunta</h2><p>'+escapeHtml(direct.headline)+'</p><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>'+direct.columns.map(c=>'<th style="text-align:left;padding:9px;border-bottom:1px solid #dfe4ea">'+escapeHtml(c)+'</th>').join("")+'</tr></thead><tbody>'+direct.rows.map(r=>'<tr><td style="padding:9px;border-bottom:1px solid #edf0f3">'+escapeHtml(r.item)+'</td><td style="padding:9px;border-bottom:1px solid #edf0f3">'+escapeHtml(r.type)+'</td><td style="padding:9px;border-bottom:1px solid #edf0f3">'+escapeHtml(r.path)+'</td><td style="padding:9px;border-bottom:1px solid #edf0f3">'+escapeHtml(r.reference)+'</td></tr>').join("")+'</tbody></table></div>';
+  }else{directTarget.classList.add("hidden");directTarget.innerHTML="";}
   const ambiguityTarget=byId("retrievalAmbiguities");
   const ambiguities=workspace.panels?.retrievalAmbiguities||[];
   if(ambiguities.length){

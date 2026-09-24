@@ -250,6 +250,31 @@ function buildObservedValueVariations(relationships: InvestigationGraphView) {
   }];
 }
 
+function buildDirectAnswer(question: string, evidence: Array<{sourceId:string;itemId:number;name?:string;path?:string;textAvailable?:boolean}>) {
+  const normalized=question.toLocaleLowerCase("pt-BR");
+  const asksList=/\b(liste|listar|lista|quais|mostre|mostrar)\b/.test(normalized);
+  const asksFiles=/\b(arquivo|arquivos|item|itens|evidência|evidencias|evidências)\b/.test(normalized);
+  const asksPath=/\b(caminho|path|localização|localizacao)\b/.test(normalized);
+  const asksType=/\b(tipo|tipos|extensão|extensao|formato)\b/.test(normalized);
+  if(!(asksList&&asksFiles&&(asksPath||asksType))) return undefined;
+  const extension=(name?:string,path?:string)=>{
+    const value=(name||path||"").split("/").pop()||"";
+    const dot=value.lastIndexOf(".");
+    return dot>0?value.slice(dot+1).toLocaleUpperCase("pt-BR"):"Sem extensão";
+  };
+  return {
+    kind:"EVIDENCE_LIST" as const,
+    headline:`Foram encontrados ${evidence.length} item(ns) correspondente(s) à pergunta.`,
+    columns:["Item","Tipo","Caminho","Referência"],
+    rows:evidence.map(item=>({
+      item:item.name||`Item ${item.itemId}`,
+      type:extension(item.name,item.path),
+      path:item.path||"",
+      reference:`${item.sourceId}:${item.itemId}`
+    }))
+  };
+}
+
 function buildGroundedSummary(input: {
   evidenceCount: number;
   entityCount: number;
@@ -321,6 +346,7 @@ export function buildInvestigationWorkspace(input: {
     summary: input.view.overview,
     status: input.resultState,
     resultState: input.resultState,
+    directAnswer: buildDirectAnswer(input.question, input.view.sections.evidence),
     analysis: buildGroundedSummary({
       evidenceCount: input.view.overview.evidenceCount,
       entityCount: input.view.overview.entityCount,
