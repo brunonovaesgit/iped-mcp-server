@@ -11,6 +11,14 @@ const service = new InvestigatorService(new IpedClient(config), sessions, audit)
 const started = await service.begin("Investigue todas as evidências relacionadas a Carlos", "mcp-lab");
 const investigationId = started.workspace?.investigationId;
 if (!investigationId) throw new Error("MVP live acceptance failed: investigation did not start");
+const ambiguities = started.workspace?.panels.retrievalAmbiguities ?? [];
+const carlosAmbiguity = ambiguities.find((group: any) =>
+  group.candidates?.some((candidate: any) => candidate.value === "Carlos Almeida") &&
+  group.candidates?.some((candidate: any) => candidate.value === "Carlos Santos")
+);
+if (!carlosAmbiguity) {
+  throw new Error("MVP live acceptance failed: broad Carlos retrieval did not surface distinct identities");
+}
 const lead = sessions.get(investigationId)?.leads.find(
   item => item.status === "OPEN" && item.type === "MONEY" && item.value === "18.750,00"
 );
@@ -39,6 +47,7 @@ console.log(JSON.stringify({
   status: "MVP_LIVE_ACCEPTANCE_PASSED",
   initialEvidenceCount: started.workspace?.panels.evidence.length,
   finalEvidenceCount: expanded.workspace.panels.evidence.length,
+  retrievalAmbiguity: carlosAmbiguity.candidates.map((candidate: any) => candidate.value),
   divergentEvidence: "mcp-lab:2",
   divergentReason: divergent.reason,
   textContexts: textContexts.map((item: any) => item.value)
