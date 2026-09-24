@@ -819,6 +819,21 @@ export class InvestigatorService {
       candidates: candidateDiagnostics
     });
 
+    const uniqueBy = <T>(values: T[], key: (value: T) => string) =>
+      [...new Map(values.map(value => [key(value), value])).values()];
+    const combinedNodes = uniqueBy(
+      investigations.flatMap(item => item.investigatorView.sections.relationships.nodes),
+      node => node.id
+    );
+    const combinedEdges = uniqueBy(
+      investigations.flatMap(item => item.investigatorView.sections.relationships.edges),
+      edge => edge.id
+    );
+    const combinedTimeline = uniqueBy(
+      investigations.flatMap(item => item.investigatorView.sections.timeline),
+      event => event.sourceId + ":" + event.itemId + ":" + event.event + ":" + event.timestamp
+    );
+
     const combinedInvestigatorView = buildInvestigatorView({
       question: current.question,
       evidence: contextualEvidence.map(item => ({
@@ -831,16 +846,10 @@ export class InvestigatorService {
       graphView: {
         summary: { nodeCount: 0, edgeCount: 0, nodesByKind: {}, edgesByRelationship: {} },
         legend: investigations[0].investigatorView.sections.relationships.legend,
-        nodes: investigations.flatMap(item =>
-          item.investigatorView.sections.relationships.nodes
-        ),
-        edges: investigations.flatMap(item =>
-          item.investigatorView.sections.relationships.edges
-        )
+        nodes: combinedNodes,
+        edges: combinedEdges
       },
-      timeline: investigations.flatMap(item =>
-        item.investigatorView.sections.timeline
-      )
+      timeline: combinedTimeline
     });
     const allowedEvidenceKeys = new Set(
       contextualEvidence.map(
