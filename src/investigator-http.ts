@@ -132,7 +132,7 @@ function renderWorkspace(workspace){
   if(aiAnalysis?.enabled){
     aiTarget.classList.remove("hidden");
     const findings=(aiAnalysis.findings||[]).map(finding=>{
-      const refs=(finding.evidence||[]).map(reference=>'<span class="meta">['+escapeHtml(reference)+']</span>').join(" ");
+      const refs=(finding.evidence||[]).map(reference=>{const parts=String(reference).split(":");const itemId=parts.pop(),sourceId=parts.join(":");return '<button type="button" class="evidenceButton aiEvidenceButton" data-source="'+escapeHtml(sourceId)+'" data-item="'+escapeHtml(itemId)+'">['+escapeHtml(reference)+']</button>';}).join(" ");
       return '<div class="observation"><strong>'+escapeHtml(finding.kind)+'</strong> · '+escapeHtml(finding.statement)+'<div>'+refs+'</div></div>';
     }).join("");
     const limitations=(aiAnalysis.limitations||[]).map(item=>'<li>'+escapeHtml(item)+'</li>').join("");
@@ -142,6 +142,7 @@ function renderWorkspace(workspace){
       +(limitations?'<h3>Limitações</h3><ul>'+limitations+'</ul>':'')
       +(nextSteps?'<h3>Próximos passos</h3><ul>'+nextSteps+'</ul>':'')
       +'<p class="meta">Análise derivada · modelo '+escapeHtml(aiAnalysis.model||"configurado")+' · cada achado deve ser validado nas evidências citadas.</p>';
+    aiTarget.querySelectorAll(".aiEvidenceButton").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
   }else if(aiAnalysis?.reason&&aiAnalysis.reason!=="AI analysis is not configured."){
     aiTarget.classList.remove("hidden");
     aiTarget.innerHTML='<h2>Análise assistida por IA não apresentada</h2><p>A resposta produzida pelo modelo não atingiu os critérios de rastreabilidade e sustentação nas evidências.</p><p class="meta">Os achados objetivos do IPED permanecem disponíveis abaixo. A resposta rejeitada não é exibida.</p>';
