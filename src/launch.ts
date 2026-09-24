@@ -20,8 +20,8 @@ async function nativeAlert(title:string,message:string){
 }
 async function nativeError(message:string){
  if(process.platform!=="darwin")return;
- const esc=message.replaceAll("\\","\\\\").replaceAll('"','\\\"').replaceAll("\n","\\n");
- try{await execFileAsync("osascript",["-e",`display alert "IPED Investigator" message "${esc(message)}" as critical buttons {"OK"} default button "OK"`]);}catch{}
+ const escaped=message.replaceAll("\\","\\\\").replaceAll('"','\\\"').replaceAll("\n","\\n");
+ try{await execFileAsync("osascript",["-e",`display alert "IPED Investigator" message "${escaped}" as critical buttons {"OK"} default button "OK"`]);}catch{}
 }
 async function readable(path:string,label:string){try{await access(resolve(path),constants.R_OK);}catch{throw new Error(`${label} não encontrado ou sem permissão de leitura: ${path}`);}}
 async function looksLikeIped(path:string){try{await access(join(path,"lib"),constants.R_OK);return true;}catch{return false;}}
