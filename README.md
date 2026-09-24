@@ -425,6 +425,12 @@ npm run check:rc
 
 This single gate runs the automated acceptance/test suite, verifies the live local IPED connection, available source, MCP startup, investigation instructions and registered tools, and executes the live `mcp-lab` contextual-correlation acceptance scenario. The live gate must surface distinct identities returned by the broad `Carlos` query without merging them, and must admit the divergent contextual evidence through established context rather than repeated monetary value alone. A passing CI build alone is not sufficient to claim that a specific local IPED installation is ready.
 
+### MVP reference release
+
+The MVP acceptance gate passed against the intended local `mcp-lab` case on 2026-09-23 (America/Sao_Paulo), with 108 automated tests passing, the IPED Web API reachable, one source available, the MCP server starting with 38 tools, explicit retrieval ambiguity for Carlos Almeida / Carlos Santos, and contextual admission of divergent evidence `mcp-lab:2` through established context.
+
+This revision is the frozen reference implementation for the MVP article. Subsequent capabilities belong to the post-MVP backlog unless they correct a defect in the frozen behavior.
+
 ### MVP scope freeze
 
 The MVP feature scope is frozen at this baseline. Until the release-candidate gate passes, changes should be limited to defects that block correctness, provenance, security, usability, or the acceptance gate itself. New investigative capabilities, additional heuristics, UI enhancements, integrations, and broader automation belong to the post-MVP backlog.
