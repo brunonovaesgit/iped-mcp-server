@@ -13,6 +13,16 @@ async function nativeFolder(prompt:string){
  const script=`POSIX path of (choose folder with prompt "${prompt.replaceAll('"','\\\"')}")`;
  try{const {stdout}=await execFileAsync("osascript",["-e",script]);return stdout.trim().replace(/\/$/,"");}catch{return undefined;}
 }
+async function nativeAlert(title:string,message:string){
+ if(process.platform!=="darwin")return;
+ const esc=(v:string)=>v.replaceAll("\\","\\\\").replaceAll('"','\\\"').replaceAll("\n","\\n");
+ try{await execFileAsync("osascript",["-e",`display alert "${esc(title)}" message "${esc(message)}" as informational buttons {"OK"} default button "OK"`]);}catch{}
+}
+async function nativeError(message:string){
+ if(process.platform!=="darwin")return;
+ const esc=message.replaceAll("\\","\\\\").replaceAll('"','\\\"').replaceAll("\n","\\n");
+ try{await execFileAsync("osascript",["-e",`display alert "IPED Investigator" message "${esc(message)}" as critical buttons {"OK"} default button "OK"`]);}catch{}
+}
 async function readable(path:string,label:string){try{await access(resolve(path),constants.R_OK);}catch{throw new Error(`${label} não encontrado ou sem permissão de leitura: ${path}`);}}
 async function looksLikeIped(path:string){try{await access(join(path,"lib"),constants.R_OK);return true;}catch{return false;}}
 async function directories(root:string){try{return (await readdir(root,{withFileTypes:true})).filter(x=>x.isDirectory()).map(x=>join(root,x.name));}catch{return [];}}
@@ -76,8 +86,9 @@ async function main(){
  const connector=spawn(npm,args,{stdio:"inherit",env:process.env});connector.on("error",e=>{console.error("Falha ao iniciar conexão:",e.message);process.exitCode=1;});
  console.log("Validando o caso diretamente com o IPED...");
  await waitForSource(sourceId,connector);
+ await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
  console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
  const investigator=spawn(npm,["run","investigator"],{stdio:"inherit",env:process.env});
  const stop=()=>{if(connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector.exitCode===null)connector.kill();process.exitCode=code??0;});
 }
-main().catch(error=>{console.error("\n"+(error instanceof Error?error.message:String(error)));process.exit(1);});
+main().catch(async error=>{const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nSelecione novamente a instalação do IPED e o caso processado.");process.exit(1);});
