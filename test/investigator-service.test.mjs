@@ -758,3 +758,39 @@ test("MVP acceptance: contextual expansion preserves provenance and excludes sam
     [2, 3, 8, 6]
   );
 });
+
+
+test("expanded investigation deduplicates graph nodes, edges and timeline events from overlapping contextual searches", async () => {
+  const evidence = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }], communication: { from: [], to: [] } }
+  ];
+  const make = question => {
+    const base = view(question, evidence);
+    base.sections.timeline = [
+      { sourceId: "case-1", itemId: 1, name: "a.txt", event: "created", timestamp: "2026-01-01T00:00:00Z" }
+    ];
+    return {
+      matchedEvidence: evidence,
+      recurringEntities: [{ type: "MONEY", value: "18.750,00", evidence: evidence.map(item => ({ sourceId: item.sourceId, itemId: item.itemId })) }],
+      recurringCommunicationParticipants: [],
+      investigatorView: base
+    };
+  };
+  const fakeIped = {
+    async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
+    async investigateEvidence(query) { return make(query); },
+    async getEvidence(sourceId, itemId) {
+      return { sourceId, itemId, properties: { "Regex:MONEY": ["18.750,00"] } };
+    }
+  };
+  const service = new InvestigatorService(fakeIped, new InvestigationSessions(), new AuditLog());
+  const started = await service.begin("Investigue Atlas");
+  const expanded = await service.exploreLead(started.workspace.investigationId, "MONEY", "18.750,00");
+
+  const nodeIds = expanded.workspace.panels.relationships.nodes.map(node => node.id);
+  const edgeIds = expanded.workspace.panels.relationships.edges.map(edge => edge.id);
+  assert.equal(new Set(nodeIds).size, nodeIds.length);
+  assert.equal(new Set(edgeIds).size, edgeIds.length);
+  assert.equal(expanded.workspace.panels.timeline.length, 1);
+});
