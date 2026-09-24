@@ -423,4 +423,4 @@ Before marking a local build as a release candidate, start the IPED Web API with
 npm run check:rc
 ```
 
-This single gate runs the automated acceptance/test suite, verifies the live local IPED connection, available source, MCP startup, investigation instructions and registered tools, and executes the live `mcp-lab` contextual-correlation acceptance scenario. The live gate must admit the divergent contextual evidence through established context rather than repeated monetary value alone. A passing CI build alone is not sufficient to claim that a specific local IPED installation is ready.
+This single gate runs the automated acceptance/test suite, verifies the live local IPED connection, available source, MCP startup, investigation instructions and registered tools, and executes the live `mcp-lab` contextual-correlation acceptance scenario. The live gate must surface distinct identities returned by the broad `Carlos` query without merging them, and must admit the divergent contextual evidence through established context rather than repeated monetary value alone. A passing CI build alone is not sufficient to claim that a specific local IPED installation is ready.
