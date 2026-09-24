@@ -92,3 +92,11 @@ test("Escape clears graph search and restores the complete network view", () => 
   assert.ok(investigatorHtml.includes('el.style.opacity=""'));
   assert.ok(investigatorHtml.includes('detail.innerHTML=""'));
 });
+
+
+test("graph exposes its keyboard and zoom navigation shortcuts to investigators", () => {
+  assert.ok(investigatorHtml.includes("Enter: próximo"));
+  assert.ok(investigatorHtml.includes("Esc: limpar"));
+  assert.ok(investigatorHtml.includes("Ctrl/Cmd + roda: zoom"));
+  assert.ok(investigatorHtml.includes("data-graph-search-hint"));
+});
