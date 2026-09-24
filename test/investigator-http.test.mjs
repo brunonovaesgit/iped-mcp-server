@@ -225,3 +225,11 @@ test("fullscreen expands the graph shell so its minimap remains available", () =
   assert.ok(investigatorHtml.includes('graphBox.closest(".graphShell")'));
   assert.ok(investigatorHtml.includes('graphShell.classList.toggle("fullscreen")'));
 });
+
+
+test("printed investigation avoids scroll clipping and navigation chrome", () => {
+  assert.ok(investigatorHtml.includes("@media print"));
+  assert.ok(investigatorHtml.includes(".graphMiniMap,.drawer{display:none!important}"));
+  assert.ok(investigatorHtml.includes(".graphShell,.graph{overflow:visible!important"));
+  assert.ok(investigatorHtml.includes(".graph svg{max-width:100%;height:auto}"));
+});
