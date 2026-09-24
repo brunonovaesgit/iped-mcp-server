@@ -298,7 +298,7 @@ function renderGraph(graph){
     target.querySelector('[data-graph-action="reset"]').addEventListener("click",()=>{scale=1;applyZoom();graphBox.scrollTo({left:0,top:0});});
     target.querySelector('[data-graph-action="fit"]').addEventListener("click",()=>{
       const availableW=Math.max(1,graphBox.clientWidth-24),availableH=Math.max(1,graphBox.clientHeight-24);
-      scale=Math.max(.35,Math.min(1,availableW/width,availableH/height));
+      scale=Math.max(.05,Math.min(1,availableW/width,availableH/height));
       applyZoom();graphBox.scrollTo({left:0,top:0,behavior:"smooth"});
     });
     target.querySelector('[data-graph-action="full"]').addEventListener("click",event=>{graphBox.classList.toggle("fullscreen");event.currentTarget.textContent=graphBox.classList.contains("fullscreen")?"Sair da tela cheia":"Tela cheia";});

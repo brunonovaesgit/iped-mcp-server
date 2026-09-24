@@ -125,5 +125,11 @@ test("graph can fit the complete network into the available viewport", () => {
   assert.ok(investigatorHtml.includes(">Ajustar</button>"));
   assert.ok(investigatorHtml.includes("availableW/width"));
   assert.ok(investigatorHtml.includes("availableH/height"));
-  assert.ok(investigatorHtml.includes("Math.max(.35,Math.min(1"));
+  assert.ok(investigatorHtml.includes("Math.max(.05,Math.min(1"));
+});
+
+
+test("fit-to-view is not constrained by the interactive zoom floor on very large graphs", () => {
+  assert.ok(investigatorHtml.includes("Math.max(.05,Math.min(1"));
+  assert.ok(investigatorHtml.includes('scale=Math.max(.35,scale-.2)'));
 });
