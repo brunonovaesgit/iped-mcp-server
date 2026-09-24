@@ -70,7 +70,8 @@ async function main(): Promise<void> {
   const sourcesFile = join(temp, "sources.json");
   await writeFile(sourcesFile, JSON.stringify([{ id: sourceId, path: casePath }], null, 2));
 
-  const classpath = join(libPath, "*");
+  const webApiJar = join(libPath, "iped-webapi.jar");
+  await requirePath(webApiJar, "IPED Web API");
   console.log("Connecting MCP to an existing IPED processed case");
   console.log(`IPED release : ${ipedHome}`);
   console.log(`Processed case: ${casePath}`);
@@ -81,8 +82,7 @@ async function main(): Promise<void> {
   const java = await javaExecutable();
   console.log(`Java          : ${java}`);
   const javaArgs = [
-    "-cp", classpath,
-    "iped.engine.webapi.Main",
+    "-jar", webApiJar,
     `--host=${options.host}`,
     `--port=${options.port}`,
     `--sources=${sourcesFile}`
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
       console.error(`Exit code      : ${code ?? "null"}`);
       console.error(`Signal         : ${signal ?? "none"}`);
       console.error(`Working dir    : ${ipedHome}`);
-      console.error(`Classpath      : ${classpath}`);
+      console.error(`Web API jar    : ${webApiJar}`);
       if (stderr.trim()) console.error("\nLast stderr:\n" + stderr.trim());
       if (stdout.trim()) console.error("\nLast stdout:\n" + stdout.trim());
       console.error("--- end diagnostics ---\n");
