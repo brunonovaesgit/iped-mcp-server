@@ -794,3 +794,37 @@ test("expanded investigation deduplicates graph nodes, edges and timeline events
   assert.equal(new Set(edgeIds).size, edgeIds.length);
   assert.equal(expanded.workspace.panels.timeline.length, 1);
 });
+
+
+test("expanded investigation timeline remains globally chronological after contextual searches are combined", async () => {
+  const evidence = [
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }], communication: { from: [], to: [] } }
+  ];
+  const make = (question, timestamp, itemId) => {
+    const base = view(question, evidence);
+    base.sections.timeline = [{ sourceId: "case-1", itemId, name: itemId === 1 ? "a.txt" : "b.txt", event: "created", timestamp }];
+    return {
+      matchedEvidence: evidence,
+      recurringEntities: [{ type: "MONEY", value: "18.750,00", evidence: evidence.map(item => ({ sourceId: item.sourceId, itemId: item.itemId })) }],
+      recurringCommunicationParticipants: [],
+      investigatorView: base
+    };
+  };
+  let call = 0;
+  const fakeIped = {
+    async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
+    async investigateEvidence(query) {
+      call += 1;
+      return call === 1 ? make(query, "2026-09-20T12:00:00Z", 2) : make(query, "2026-09-18T09:00:00Z", 1);
+    },
+    async getEvidence(sourceId, itemId) { return { sourceId, itemId, properties: { "Regex:MONEY": ["18.750,00"] } }; }
+  };
+  const service = new InvestigatorService(fakeIped, new InvestigationSessions(), new AuditLog());
+  const started = await service.begin("Investigue Atlas");
+  const expanded = await service.exploreLead(started.workspace.investigationId, "MONEY", "18.750,00");
+  assert.deepEqual(expanded.workspace.panels.timeline.map(item => item.timestamp), [
+    "2026-09-18T09:00:00Z",
+    "2026-09-20T12:00:00Z"
+  ]);
+});
