@@ -60,13 +60,23 @@ async function ask():Promise<Answers>{
   return {ipedHome,casePath,id};
  }finally{rl.close();}
 }
+async function waitForSource(expected:string,connector:ReturnType<typeof spawn>){
+ const deadline=Date.now()+15000;let last="";
+ while(Date.now()<deadline){
+  if(connector.exitCode!==null)throw new Error("O IPED não conseguiu abrir o caso selecionado.");
+  try{const response=await fetch("http://127.0.0.1:8080/sources");if(response.ok){last=await response.text();const parsed=JSON.parse(last);const ids=Array.isArray(parsed)?parsed.map((x:any)=>typeof x==="string"?x:x?.id).filter(Boolean):[];if(ids.includes(expected))return ids;}}catch{}
+  await new Promise(done=>setTimeout(done,400));
+ }
+ throw new Error(`O IPED não confirmou o caso selecionado em 15 segundos${last?`. Resposta recebida: ${last.slice(0,160)}`:"."}`);
+}
 async function main(){
- const answers=await ask();const npm=process.platform==="win32"?"npm.cmd":"npm";
+ const answers=await ask();const npm=process.platform==="win32"?"npm.cmd":"npm";const sourceId=answers.id||basename(resolve(answers.casePath))||"iped-case";
  console.log("\n✓ IPED validado\n✓ Caso localizado\nIniciando conexão...");
  const args=["run","connect:iped","--","--iped-home",resolve(answers.ipedHome),"--case",resolve(answers.casePath)];if(answers.id)args.push("--id",answers.id);
  const connector=spawn(npm,args,{stdio:"inherit",env:process.env});connector.on("error",e=>{console.error("Falha ao iniciar conexão:",e.message);process.exitCode=1;});
- await new Promise(done=>setTimeout(done,1800));if(connector.exitCode!==null)throw new Error("A conexão com o IPED terminou antes de ficar disponível.");
- console.log("\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n");
+ console.log("Validando o caso diretamente com o IPED...");
+ await waitForSource(sourceId,connector);
+ console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
  const investigator=spawn(npm,["run","investigator"],{stdio:"inherit",env:process.env});
  const stop=()=>{if(connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector.exitCode===null)connector.kill();process.exitCode=code??0;});
 }
