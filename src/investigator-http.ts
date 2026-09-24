@@ -212,6 +212,17 @@ function renderGraph(graph){
     target.querySelector("[data-graph-layout]").value=layout;
     const graphBox=target.querySelector(".graph"),viewport=target.querySelector(".viewport");let scale=1;
     const graphSearch=target.querySelector("[data-graph-search]"),graphSearchStatus=target.querySelector("[data-graph-search-status]");
+    const focusGraphNode=nodeId=>{
+      const nodeEl=[...target.querySelectorAll(".node")].find(el=>el.dataset.node===nodeId);
+      if(!nodeEl)return;
+      nodeEl.dispatchEvent(new Event("click"));
+      const transform=nodeEl.getAttribute("transform")||"";
+      const match=transform.match(/translate\(([-.\d]+) ([-.\d]+)\)/);
+      if(match){
+        const x=Number(match[1])*scale,y=Number(match[2])*scale;
+        graphBox.scrollTo({left:Math.max(0,x-graphBox.clientWidth/2),top:Math.max(0,y-graphBox.clientHeight/2),behavior:"smooth"});
+      }
+    };
     graphSearch.addEventListener("input",()=>{
       const query=graphSearch.value.trim().toLocaleLowerCase("pt-BR");
       let matches=0;
@@ -224,6 +235,10 @@ function renderGraph(graph){
       });
       target.querySelectorAll(".edge").forEach(el=>el.style.opacity=query?".08":"");
       graphSearchStatus.textContent=query?(matches+" nó(s) localizado(s)"):"";
+      if(query&&matches===1){
+        const match=[...target.querySelectorAll(".node")].find(el=>el.style.opacity!=="0.12");
+        if(match) focusGraphNode(match.dataset.node);
+      }
     });
     const applyZoom=()=>viewport.setAttribute("transform","scale("+scale+")");
     graphBox.addEventListener("wheel",event=>{
