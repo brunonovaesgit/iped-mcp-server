@@ -1,0 +1,19 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { investigatorHtml } from "../dist/investigator-http.js";
+
+test("relationship graph exposes adaptive layout and navigation controls", () => {
+  for (const label of ["Radial", "Grade", "Ampla", "Evidências × entidades", "Tela cheia"]) {
+    assert.ok(investigatorHtml.includes(label));
+  }
+  assert.ok(investigatorHtml.includes('data-graph-action="plus"'));
+  assert.ok(investigatorHtml.includes('data-graph-action="minus"'));
+  assert.ok(investigatorHtml.includes('data-graph-action="reset"'));
+  assert.ok(investigatorHtml.includes("Math.max(900,nodeCount*58)"));
+  assert.ok(investigatorHtml.includes("Math.max(1000,useCols*cellW)"));
+});
+
+test("relationship graph renders the complete node collection without a UI cap", () => {
+  assert.equal(investigatorHtml.includes("graph.nodes.slice("), false);
+  assert.ok(investigatorHtml.includes("graph.nodes.map("));
+});
