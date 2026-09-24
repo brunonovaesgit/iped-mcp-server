@@ -36,7 +36,7 @@ async function nativeAlert(title:string,message:string){
 async function nativeError(message:string){
  if(process.platform!=="darwin")return;
  const escaped=message.replaceAll("\\","\\\\").replaceAll('"','\\\"').replaceAll("\n","\\n");
- try{await execFileAsync("osascript",["-e",`display alert "IPED Investigator" message "${escaped}" as critical buttons {"OK"} default button "OK"`]);}catch{}
+ try{await execFileAsync("osascript",["-e",`display alert "IPED MCP" message "${escaped}" as critical buttons {"OK"} default button "OK"`]);}catch{}
 }
 async function readable(path:string,label:string){try{await access(resolve(path),constants.R_OK);}catch{throw new Error(`${label} não encontrado ou sem permissão de leitura: ${path}`);}}
 async function looksLikeIped(path:string){try{await access(join(path,"lib"),constants.R_OK);await access(join(path,"lib","iped-webapi.jar"),constants.R_OK);return true;}catch{return false;}}
@@ -77,7 +77,7 @@ async function caseCandidates(ipedHome:string){
 async function ask():Promise<Answers>{
  const rl=createInterface({input,output});
  try{
-  console.log("\nIPED Investigator — início guiado\n");
+  console.log("\nIPED MCP — início guiado\n");
   console.log("Seu caso permanece no IPED. Nenhuma evidência será importada, copiada ou alterada.");
   const detectedIped=await findIpedCandidates();
   const ipedHome=process.platform==="darwin"
@@ -151,4 +151,4 @@ async function main(){
  console.log(`✓ Investigator aberto no navegador: ${investigatorUrl}`);
  const stop=()=>{if(connector&&connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector&&connector.exitCode===null)connector.kill();process.exitCode=code??0;});
 }
-main().catch(async error=>{if(error instanceof UserCancelled){console.log("\nSeleção cancelada pelo usuário.");process.exit(0);}const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nAbra novamente o IPED Investigator para escolher outra pasta.");process.exit(1);});
+main().catch(async error=>{if(error instanceof UserCancelled){console.log("\nSeleção cancelada pelo usuário.");process.exit(0);}const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nAbra novamente o IPED MCP para escolher outra pasta.");process.exit(1);});

@@ -20,11 +20,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Assemble IPED Investigator.app
+      - name: Assemble IPED MCP.app
         shell: bash
         run: |
           set -eu
-          APP="package/IPED Investigator.app"
+          APP="package/IPED MCP.app"
           RES="$APP/Contents/Resources/app"
           MACOS="$APP/Contents/MacOS"
           mkdir -p "$RES/runtime" "$MACOS"
@@ -35,45 +35,45 @@ jobs:
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
-          <key>CFBundleName</key><string>IPED Investigator</string>
-          <key>CFBundleDisplayName</key><string>IPED Investigator</string>
-          <key>CFBundleIdentifier</key><string>br.com.novaes.iped-investigator</string>
+          <key>CFBundleName</key><string>IPED MCP</string>
+          <key>CFBundleDisplayName</key><string>IPED MCP</string>
+          <key>CFBundleIdentifier</key><string>br.com.novaes.iped-mcp</string>
           <key>CFBundleVersion</key><string>0.1.0</string>
           <key>CFBundleShortVersionString</key><string>0.1.0</string>
-          <key>CFBundleExecutable</key><string>iped-investigator</string>
+          <key>CFBundleExecutable</key><string>iped-mcp</string>
           <key>LSMinimumSystemVersion</key><string>11.0</string>
           </dict></plist>
           EOF
-          cat > "$MACOS/iped-investigator" <<'EOF'
+          cat > "$MACOS/iped-mcp" <<'EOF'
           #!/bin/sh
           set -eu
           ROOT="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
           cd "$ROOT"
           exec "$ROOT/runtime/bin/node" "$ROOT/dist/launch.js"
           EOF
-          chmod +x "$MACOS/iped-investigator"
+          chmod +x "$MACOS/iped-mcp"
           codesign --force --deep --sign - "$APP"
-          ditto -c -k --sequesterRsrc --keepParent "$APP" iped-investigator-macos-arm64.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP" iped-mcp-macos-arm64.zip
       - name: Verify app bundle
         shell: bash
         run: |
-          test -x "package/IPED Investigator.app/Contents/MacOS/iped-investigator"
-          test -x "package/IPED Investigator.app/Contents/Resources/app/runtime/bin/node"
-          test -f "package/IPED Investigator.app/Contents/Resources/app/dist/launch.js"
-          test -f "package/IPED Investigator.app/Contents/Resources/app/dist/connect-iped.js"
-          test -f "package/IPED Investigator.app/Contents/Resources/app/dist/investigator-http.js"
-          codesign --verify --deep --strict "package/IPED Investigator.app"
-          plutil -lint "package/IPED Investigator.app/Contents/Info.plist"
-          ROOT="$PWD/package/IPED Investigator.app/Contents/Resources/app"
+          test -x "package/IPED MCP.app/Contents/MacOS/iped-mcp"
+          test -x "package/IPED MCP.app/Contents/Resources/app/runtime/bin/node"
+          test -f "package/IPED MCP.app/Contents/Resources/app/dist/launch.js"
+          test -f "package/IPED MCP.app/Contents/Resources/app/dist/connect-iped.js"
+          test -f "package/IPED MCP.app/Contents/Resources/app/dist/investigator-http.js"
+          codesign --verify --deep --strict "package/IPED MCP.app"
+          plutil -lint "package/IPED MCP.app/Contents/Info.plist"
+          ROOT="$PWD/package/IPED MCP.app/Contents/Resources/app"
           "$ROOT/runtime/bin/node" --version
           cd "$ROOT"
           "$ROOT/runtime/bin/node" --check dist/launch.js
           "$ROOT/runtime/bin/node" --check dist/connect-iped.js
           "$ROOT/runtime/bin/node" --check dist/investigator-http.js
           cd "$GITHUB_WORKSPACE"
-          unzip -t iped-investigator-macos-arm64.zip
+          unzip -t iped-mcp-macos-arm64.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: iped-investigator-macos-arm64
-          path: iped-investigator-macos-arm64.zip
+          name: iped-mcp-macos-arm64
+          path: iped-mcp-macos-arm64.zip
           if-no-files-found: error

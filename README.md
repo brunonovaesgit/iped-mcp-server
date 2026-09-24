@@ -59,7 +59,7 @@ Original evidence is never modified by this server.
 
 ## Distribution for non-developers
 
-The project now builds a **self-contained macOS `IPED Investigator.app`** in GitHub Actions. It contains the compiled application, locked JavaScript dependencies and a private Node.js runtime used only by the Investigator. A tester therefore does not need Git, TypeScript, a repository clone, `npm install`, or a system-wide Node.js installation after receiving the artifact.
+The project now builds a **self-contained macOS `IPED MCP.app`** in GitHub Actions. It contains the compiled application, locked JavaScript dependencies and a private Node.js runtime used only by the Investigator. A tester therefore does not need Git, TypeScript, a repository clone, `npm install`, or a system-wide Node.js installation after receiving the artifact.
 
 The packaged Node.js runtime is isolated inside the application bundle and does not replace or alter any Node.js installation already present on the examiner's computer. The package deliberately does not bundle or modify IPED, Java or the examiner's evidence. IPED and the forensic case remain outside the application package.
 
@@ -284,10 +284,10 @@ The manual Web API procedure remains documented below for administrators, troubl
 
 ## Start without npm commands
 
-For source checkouts, the repository includes launch files at its root. For distributed macOS builds, prefer opening **IPED Investigator.app** from the generated ZIP:
+For source checkouts, the repository includes launch files at its root. For distributed macOS builds, prefer opening **IPED MCP.app** from the generated ZIP:
 
-- **macOS source checkout:** double-click `IPED-Investigator.command`.
-- **Windows:** double-click `IPED-Investigator.cmd`.
+- **macOS source checkout:** double-click `IPED-MCP.command`.
+- **Windows:** double-click `IPED-MCP.cmd`.
 
 The launcher checks whether Node.js/npm are available, installs this project's JavaScript dependencies on the first run when needed, and then starts the same guided IPED/case discovery flow. It does not install or modify IPED and does not import evidence.
 
