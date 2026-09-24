@@ -75,3 +75,11 @@ test("multiple graph search matches remain selectable and focusable", () => {
   assert.ok(investigatorHtml.includes('graphSearchResults.addEventListener("change"'));
   assert.ok(investigatorHtml.includes("focusGraphNode(graphSearchResults.value)"));
 });
+
+
+test("Enter cycles through multiple graph search matches", () => {
+  assert.ok(investigatorHtml.includes('graphSearch.addEventListener("keydown"'));
+  assert.ok(investigatorHtml.includes('event.key!=="Enter"'));
+  assert.ok(investigatorHtml.includes("(current+1)%options.length"));
+  assert.ok(investigatorHtml.includes("focusGraphNode(next.value)"));
+});
