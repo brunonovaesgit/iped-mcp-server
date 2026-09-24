@@ -211,3 +211,10 @@ test("graph minimap viewport stays synchronized across resize and fullscreen cha
   assert.ok(investigatorHtml.includes("graphResizeObserver?.observe(graphBox)"));
   assert.ok(investigatorHtml.includes("requestAnimationFrame(updateMiniViewport)"));
 });
+
+
+test("large graph minimap is an overlay outside the scrollable canvas", () => {
+  assert.ok(investigatorHtml.includes("graphShell"));
+  assert.ok(investigatorHtml.includes(".graphMiniMap{position:absolute"));
+  assert.equal(investigatorHtml.includes(".graphMiniMap{position:sticky"), false);
+});
