@@ -605,3 +605,41 @@ test("workspace surfaces distinct names from a broad person query without mergin
     { sourceId: "case", itemId: 3 }
   ]);
 });
+
+
+test("direct evidence-list answer prefers IPED file type metadata and preserves provenance", () => {
+  const evidence = [{
+    sourceId: "case-a",
+    itemId: 10,
+    name: "message.bin",
+    path: "/mail/message.bin",
+    fileType: "message/rfc822",
+    textAvailable: true
+  }];
+  const view = buildInvestigatorView({
+    question: "Liste os itens e informe o tipo de arquivo e o caminho",
+    evidence,
+    graphView: buildInvestigationGraphView(buildInvestigationGraph({
+      evidence,
+      entities: [],
+      communicationParticipants: [],
+      duplicateEvidence: []
+    }))
+  });
+  const workspace = buildInvestigationWorkspace({
+    investigationId: "direct-answer-type",
+    question: "Liste os itens e informe o tipo de arquivo e o caminho",
+    sourceId: "case-a",
+    view,
+    resultState: buildInvestigationResultState({
+      evidenceCount: 1,
+      openLeadCount: 0,
+      progress: { status: "STOP", reason: "NO_OPEN_LEADS" }
+    })
+  });
+
+  assert.equal(workspace.directAnswer.kind, "EVIDENCE_LIST");
+  assert.equal(workspace.directAnswer.rows[0].type, "message/rfc822");
+  assert.equal(workspace.directAnswer.rows[0].path, "/mail/message.bin");
+  assert.equal(workspace.directAnswer.rows[0].reference, "case-a:10");
+});
