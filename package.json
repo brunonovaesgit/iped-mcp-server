@@ -14,7 +14,8 @@
     "check:rc": "npm run test --silent && node dist/check.js && node dist/mvp-live-acceptance.js",
     "diagnose:correlation": "npm run build --silent && node dist/correlation-diagnostic.js",
     "test": "npm run build --silent && node --test test/*.test.mjs",
-    "preinvestigator": "npm run build --silent"
+    "preinvestigator": "npm run build --silent",
+    "connect:iped": "npm run build --silent && node dist/connect-iped.js"
   },
   "engines": {
     "node": ">=20"
