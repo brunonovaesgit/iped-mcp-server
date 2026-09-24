@@ -1,4 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { access, mkdtemp, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { basename, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { AuditLog } from "./audit-log.js";
 import { getConfig } from "./config.js";
 import { IpedClient } from "./iped-client.js";
@@ -17,7 +21,6 @@ const ai = createAiAnalyzer({
 });
 const investigator = new InvestigatorService(iped, investigations, audit, ai);
 const port = Number(process.env.INVESTIGATOR_PORT ?? 3333);
-
 const investigatorHtml = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -59,7 +62,7 @@ const investigatorHtml = `<!doctype html>
   <section class="hero">
     <h1>O que você quer investigar neste caso?</h1>
     <p>Descreva o fato, pessoa, organização, comunicação ou relação que deseja analisar.</p>
-    <div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
+    <div id="onboarding" class="analysis hidden"><h2>Conectar ao seu IPED</h2><p>Seu caso continua no IPED. Para conectá-lo, use o comando <b>npm run connect:iped</b> descrito no README. Nenhuma evidência é enviada, importada ou modificada.</p></div><div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
     <form id="questionForm">
       <input id="question" autocomplete="off" placeholder="Ex.: investigue relações e comunicações envolvendo Carlos Almeida">
       <button id="startButton">Investigar</button>
@@ -98,7 +101,6 @@ window.addEventListener("error",event=>{
   if(status) status.textContent="A interface encontrou um erro: "+(event.message||"erro desconhecido");
 });
 let activeInvestigationId;
-let selectedSourceId;
 const byId=id=>document.getElementById(id);
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 function items(target,values,render){
@@ -253,9 +255,9 @@ async function loadHome(){
     }
     byId("connection").textContent=ready?"IPED conectado":(selectionStatus==="SOURCE_SELECTION_REQUIRED"?"IPED conectado · selecione uma fonte":"IPED não disponível");
     byId("startButton").disabled=!ready;
-    if(!ready) byId("status").textContent=selectionStatus==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Abra o IPED com o caso processado e mantenha a Web API disponível.";
+    if(!ready){byId("status").textContent=selectionStatus==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Conecte um caso IPED já processado.";if(selectionStatus!=="SOURCE_SELECTION_REQUIRED")byId("onboarding").classList.remove("hidden");}
     else byId("status").textContent="";
-  }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true;byId("status").textContent="Abra o IPED com o caso processado e mantenha a Web API disponível."}
+  }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true;byId("status").textContent="Conecte um caso IPED já processado.";byId("onboarding").classList.remove("hidden")}
 }
 byId("sourceSelect").addEventListener("change",loadHome);
 async function updateInvestigation(path,payload){
