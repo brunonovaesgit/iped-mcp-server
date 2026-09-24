@@ -109,3 +109,12 @@ test("graph keeps a complete clickable minimap for orientation on large canvases
   assert.ok(investigatorHtml.includes("ratioX*graphBox.scrollWidth"));
   assert.ok(investigatorHtml.includes("graph.nodes.map(node=>"));
 });
+
+
+test("graph minimap shows and updates the current viewport", () => {
+  assert.ok(investigatorHtml.includes("miniViewport"));
+  assert.ok(investigatorHtml.includes("const updateMiniViewport"));
+  assert.ok(investigatorHtml.includes('graphBox.addEventListener("scroll",updateMiniViewport'));
+  assert.ok(investigatorHtml.includes("graphBox.scrollLeft/fullW*width"));
+  assert.ok(investigatorHtml.includes("graphBox.clientWidth/fullW*width"));
+});
