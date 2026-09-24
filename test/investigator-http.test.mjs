@@ -178,3 +178,9 @@ test("AI-assisted findings navigate to their cited IPED evidence", () => {
   assert.ok(investigatorHtml.includes('aiTarget.querySelectorAll(".aiEvidenceButton")'));
   assert.ok(investigatorHtml.includes('const parts=String(reference).split(":")'));
 });
+
+
+test("investigation leads expose the evidence that caused each correlation lead", () => {
+  assert.ok(investigatorHtml.includes("leadEvidenceButton"));
+  assert.ok(investigatorHtml.includes("(l.evidence||[]).map"));
+});
