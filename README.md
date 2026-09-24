@@ -282,7 +282,7 @@ For normal use, the examiner does not need to create JSON files or type the Java
 npm run launch
 ```
 
-The launcher asks only for the IPED installation/release directory, the directory of the case already processed by IPED, and an optional case name. It then starts the local connection and the Investigator together. Keep that terminal open and open `http://127.0.0.1:3333`.
+The launcher first looks in common local/project locations for likely IPED releases and processed-case directories. When it finds candidates, the examiner selects them by number instead of copying filesystem paths. Manual path entry remains available when automatic discovery does not find the desired installation or case. It then validates the selection and starts the local connection and Investigator together. Keep that terminal open and open `http://127.0.0.1:3333`.
 
 This does **not** import, upload, copy or reprocess evidence. The original processed case remains the source of truth in IPED. The lower-level `connect:iped` command remains available for automation and advanced troubleshooting.
 
