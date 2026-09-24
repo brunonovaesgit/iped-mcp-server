@@ -255,7 +255,7 @@ function renderGraph(graph){
       target.querySelectorAll(".edge").forEach(el=>el.style.opacity=query?".08":"");
       graphSearchStatus.textContent=query?(matches+" nó(s) localizado(s)"):"";
       const matchingNodes=query?graph.nodes.filter(node=>[node.label,node.kind,node.entityType].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR").includes(query)):[];
-      graphSearchResults.innerHTML='<option value="">'+(matches>1?"Escolha um dos "+matches+" nós...":"Escolha um nó...")+'</option>'+matchingNodes.map(node=>'<option value="'+escapeHtml(node.id)+'">'+escapeHtml(node.label||node.id)+'</option>').join("");
+      graphSearchResults.innerHTML='<option value="">'+(matches>1?"Escolha um dos "+matches+" nós...":"Escolha um nó...")+'</option>'+matchingNodes.map(node=>'<option value="'+escapeHtml(node.id)+'">'+escapeHtml((node.label||node.id)+" · "+(node.entityType||node.kind))+'</option>').join("");
       graphSearchResults.classList.toggle("hidden",matches<=1);
       if(query&&matches===1){
         const match=[...target.querySelectorAll(".node")].find(el=>el.style.opacity!=="0.12");
