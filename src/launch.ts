@@ -120,22 +120,33 @@ async function openBrowser(url:string){
  spawn("xdg-open",[url],{detached:true,stdio:"ignore"}).unref();
 }
 async function main(){
- const answers=await ask();const node=process.execPath;const sourceId=answers.id||basename(resolve(answers.casePath))||"iped-case";const ipedPort=await freeLocalPort();
+ const answers=await ask();const node=process.execPath;const sourceId=answers.id||basename(resolve(answers.casePath))||"iped-case";
  console.log("\n✓ IPED validado\n✓ Caso localizado\nIniciando conexão...");
- const args=[resolve("dist/connect-iped.js"),"--iped-home",resolve(answers.ipedHome),"--case",resolve(answers.casePath),"--host","127.0.0.1","--port",String(ipedPort)];if(answers.id)args.push("--id",answers.id);
- const connector=spawn(node,args,{stdio:["ignore","pipe","pipe"],env:process.env});let connectorLog="";
- const append=(chunk:Buffer|string)=>{connectorLog=(connectorLog+chunk.toString()).slice(-12000);};
- connector.stdout?.on("data",chunk=>{append(chunk);process.stdout.write(chunk);});
- connector.stderr?.on("data",chunk=>{append(chunk);process.stderr.write(chunk);});
- connector.on("error",e=>{append("Falha ao iniciar conexão: "+e.message);console.error("Falha ao iniciar conexão:",e.message);process.exitCode=1;});
- console.log("Validando o caso diretamente com o IPED...");
- await waitForSource(sourceId,connector,()=>connectorLog,ipedPort);
+ let connector:ReturnType<typeof spawn>|undefined;let connectorLog="";let ipedPort=0;
+ for(let attempt=1;attempt<=3;attempt++){
+  ipedPort=await freeLocalPort();connectorLog="";
+  console.log(`Tentativa ${attempt}: IPED Web API em 127.0.0.1:${ipedPort}`);
+  const args=[resolve("dist/connect-iped.js"),"--iped-home",resolve(answers.ipedHome),"--case",resolve(answers.casePath),"--host","127.0.0.1","--port",String(ipedPort)];if(answers.id)args.push("--id",answers.id);
+  connector=spawn(node,args,{stdio:["ignore","pipe","pipe"],env:process.env});
+  const append=(chunk:Buffer|string)=>{connectorLog=(connectorLog+chunk.toString()).slice(-12000);};
+  connector.stdout?.on("data",chunk=>{append(chunk);process.stdout.write(chunk);});
+  connector.stderr?.on("data",chunk=>{append(chunk);process.stderr.write(chunk);});
+  connector.on("error",e=>{append("Falha ao iniciar conexão: "+e.message);console.error("Falha ao iniciar conexão:",e.message);});
+  console.log("Validando o caso diretamente com o IPED...");
+  try{await waitForSource(sourceId,connector,()=>connectorLog,ipedPort);break;}
+  catch(error){
+   const bindConflict=connectorLog.includes("Address already in use")||connectorLog.includes("BindException");
+   if(bindConflict&&attempt<3){if(connector.exitCode===null)connector.kill();console.warn("Porta ocupada durante a inicialização; tentando outra automaticamente.");continue;}
+   throw error;
+  }
+ }
+ if(!connector)throw new Error("Não foi possível iniciar a conexão com o IPED.");
  await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
  console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:3333\n`);
  const investigator=spawn(node,[resolve("dist/investigator-http.js")],{stdio:"inherit",env:process.env});
  const investigatorUrl=await waitForInvestigator(investigator);
  await openBrowser(investigatorUrl);
  console.log(`✓ Investigator aberto no navegador: ${investigatorUrl}`);
- const stop=()=>{if(connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector.exitCode===null)connector.kill();process.exitCode=code??0;});
+ const stop=()=>{if(connector&&connector.exitCode===null)connector.kill();if(investigator.exitCode===null)investigator.kill();};process.on("SIGINT",()=>{stop();process.exit(0);});process.on("SIGTERM",()=>{stop();process.exit(0);});investigator.on("exit",code=>{if(connector&&connector.exitCode===null)connector.kill();process.exitCode=code??0;});
 }
 main().catch(async error=>{if(error instanceof UserCancelled){console.log("\nSeleção cancelada pelo usuário.");process.exit(0);}const message=error instanceof Error?error.message:String(error);console.error("\n"+message);await nativeError(message+"\n\nAbra novamente o IPED Investigator para escolher outra pasta.");process.exit(1);});
