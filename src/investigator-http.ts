@@ -201,10 +201,11 @@ function renderGraph(graph){
       const cx=width/2,cy=height/2,r=Math.max(230,Math.min(width,height)*.36);
       graph.nodes.forEach((node,index)=>{const a=Math.PI*2*index/nodeCount-Math.PI/2;positions.set(node.id,{x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r});});
     }else if(layout==="hierarchical"){
-      const evidence=graph.nodes.filter(n=>n.kind==="EVIDENCE"),others=graph.nodes.filter(n=>n.kind!=="EVIDENCE");
-      const maxRow=Math.max(evidence.length,others.length,1);width=Math.max(1000,maxRow*170);height=620;
-      evidence.forEach((n,i)=>positions.set(n.id,{x:(i+1)*width/(evidence.length+1),y:150}));
-      others.forEach((n,i)=>positions.set(n.id,{x:(i+1)*width/(others.length+1),y:450}));
+      const lanes=new Map();
+      graph.nodes.forEach(node=>{const lane=node.kind==="EVIDENCE"?"EVIDENCE":(node.entityType||node.kind);const list=lanes.get(lane)||[];list.push(node);lanes.set(lane,list);});
+      const laneEntries=[...lanes.entries()],maxRow=Math.max(1,...laneEntries.map(([,nodes])=>nodes.length));
+      width=Math.max(1000,maxRow*180);height=Math.max(620,laneEntries.length*190+100);
+      laneEntries.forEach(([,nodes],laneIndex)=>nodes.forEach((n,i)=>positions.set(n.id,{x:(i+1)*width/(nodes.length+1),y:100+laneIndex*190})));
     }else{
       const useCols=Math.max(4,Math.ceil(Math.sqrt(nodeCount*(layout==="wide"?2.2:1.5))));
       const rows=Math.ceil(nodeCount/useCols);width=Math.max(1000,useCols*cellW);height=Math.max(680,rows*cellH+140);
