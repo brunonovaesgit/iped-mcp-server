@@ -274,6 +274,18 @@ Then open `http://127.0.0.1:3333`.
 
 The manual Web API procedure remains documented below for administrators, troubleshooting and reproducibility.
 
+## Easiest way to start
+
+For normal use, the examiner does not need to create JSON files or type the Java Web API command. From the project directory run:
+
+```bash
+npm run launch
+```
+
+The launcher asks only for the IPED installation/release directory, the directory of the case already processed by IPED, and an optional case name. It then starts the local connection and the Investigator together. Keep that terminal open and open `http://127.0.0.1:3333`.
+
+This does **not** import, upload, copy or reprocess evidence. The original processed case remains the source of truth in IPED. The lower-level `connect:iped` command remains available for automation and advanced troubleshooting.
+
 ## Starting the IPED Web API
 
 The Investigator does not open an IPED case by itself. IPED must first process the evidence, and the IPED Web API must be running and exposing the processed result as a source.
