@@ -917,6 +917,10 @@ export class IpedClient {
         itemId: reference.itemId,
         name: item.properties.name?.[0],
         path: item.properties.path?.[0],
+        fileType:
+          item.properties["Content-Type"]?.[0] ??
+          item.properties.contentType?.[0] ??
+          item.properties.type?.[0],
         hash: item.properties.hash?.[0],
         text: text?.text,
         textTruncated: text?.truncated ?? false,
