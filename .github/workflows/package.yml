@@ -1,0 +1,34 @@
+name: Build portable package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Portable package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Assemble package
+        run: |
+          mkdir -p package/iped-investigator
+          cp -R dist node_modules package.json package-lock.json README.md .env.example IPED-Investigator.command IPED-Investigator.cmd package/iped-investigator/
+          printf '%s\n' '#!/bin/sh' 'set -eu' 'cd "$(dirname "$0")"' 'node dist/launch.js' > package/iped-investigator/START.command
+          chmod +x package/iped-investigator/START.command IPED-Investigator.command
+          tar -czf iped-investigator-portable.tgz -C package iped-investigator
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iped-investigator-portable
+          path: iped-investigator-portable.tgz
+          if-no-files-found: error
