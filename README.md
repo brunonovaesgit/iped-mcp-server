@@ -25,6 +25,8 @@ An MCP-compatible AI client can then use the server to:
 - identify conflicting evidence;
 - keep factual findings traceable to IPED evidence.
 
+The included Investigator interface adds an examiner workspace on top of this: IPED bookmarks set by the examiner, saved investigations, an analysis notebook, a claims board, a case timeline dated from evidence content and a draft report.
+
 The investigator does not need to know MCP tool names, IPED API endpoints, `sourceId`, `itemId` or IPED search syntax to ask an investigative question.
 
 ## Investigation model
@@ -57,7 +59,9 @@ Its investigation instructions require AI clients to:
 
 Original evidence is never modified by this server.
 
-The only write the project performs is an examiner-initiated IPED bookmark change from the Investigator interface (see **Examiner bookmarks** below). The MCP server exposes no write tools, so AI clients cannot create or change bookmarks.
+The only write the project performs on the case is an examiner-initiated IPED bookmark change from the Investigator interface (see **Examiner bookmarks** below). The MCP server exposes no write tools, so AI clients cannot create or change bookmarks.
+
+The examiner's own work (saved investigations, notebook, claims and case timeline) is derived data stored locally in `INVESTIGATIONS_DIR`, outside the IPED case. Every write from the interface must come from the local page itself and is recorded in the audit log without its free text.
 
 ## Distribution for non-developers
 
@@ -429,7 +433,9 @@ http://127.0.0.1:3333
 
 The application is intentionally bound to localhost. It discovers the available IPED source, asks for a simple source choice only when necessary, and lets the investigator start from a natural-language question.
 
-From the same workspace the investigator can review observed findings, supporting evidence, relationships, timeline events and correlations available for review; open evidence details; ask follow-up questions; and explore evidence-backed correlations.
+From the same workspace the investigator can review observed findings, supporting evidence, relationships, timeline events and correlations available for review; preview or open evidence details; ask follow-up questions; and explore evidence-backed correlations.
+
+The examiner can also mark items with IPED bookmarks, keep a notebook, record claims as facts, inferences or hypotheses, build a case timeline from dates read in the evidence, and export a draft report. Each of these is described below.
 
 A typical workflow is:
 
@@ -444,7 +450,9 @@ Natural-language investigation
         ↓
 Findings + evidence + relationships + timeline
         ↓
-Investigator review and conclusions
+Examiner workspace: bookmarks, notebook, claims, case timeline
+        ↓
+Draft report → investigator review and conclusions
 ```
 
 No evidence upload is performed by this application. Evidence processing remains an IPED responsibility. With the single exception of examiner bookmarks, the investigator interface is read-only with respect to the case.
