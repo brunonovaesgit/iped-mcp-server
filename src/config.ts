@@ -6,6 +6,7 @@ export interface Config {
   textLimit: number;
   contentLimit: number;
   auditLog?: string;
+  investigationsDir: string;
   aiBaseUrl?: string;
   aiModel?: string;
   aiApiKey?: string;
@@ -39,6 +40,8 @@ export function getConfig(): Config {
     textLimit: positiveInteger("TEXT_LIMIT", 50_000),
     contentLimit: positiveInteger("CONTENT_LIMIT", 10_000_000),
     auditLog: process.env.AUDIT_LOG || "./audit/requests.jsonl",
+    investigationsDir:
+      process.env.INVESTIGATIONS_DIR || "./workspace/investigations",
     aiBaseUrl: process.env.AI_BASE_URL,
     aiModel: process.env.AI_MODEL,
     aiApiKey: process.env.AI_API_KEY

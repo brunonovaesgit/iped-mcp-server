@@ -11,6 +11,7 @@ import { InvestigatorService } from "./investigator-service.js";
 import { InvestigationSessions } from "./investigation-sessions.js";
 import { createAiAnalyzer } from "./ai-analyzer.js";
 import { BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
+import { InvestigationStore, isInvestigationId } from "./investigation-store.js";
 
 const config = getConfig();
 const audit = new AuditLog(config.auditLog);
@@ -23,6 +24,24 @@ const ai = createAiAnalyzer({
 });
 const investigator = new InvestigatorService(iped, investigations, audit, ai);
 const examinerBookmarks = new ExaminerBookmarks(config, audit);
+const investigationStore = new InvestigationStore(config.investigationsDir);
+
+/** Saves the investigation after each result. Persistence never blocks the answer. */
+async function persist<T>(result: T): Promise<T> {
+  const id = (result as { workspace?: { investigationId?: unknown } })?.workspace?.investigationId;
+  if (typeof id !== "string") return result;
+  const state = investigations.get(id);
+  if (!state) return result;
+  try {
+    await investigationStore.save(state, (result as { workspace: unknown }).workspace);
+  } catch (error) {
+    await audit.write("investigation_persist_failed", {
+      investigationId: id,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+  return result;
+}
 const port = Number(process.env.INVESTIGATOR_PORT ?? 3333);
 export const investigatorHtml = `<!doctype html>
 <html lang="pt-BR">
@@ -177,12 +196,12 @@ export const investigatorHtml = `<!doctype html>
   <aside class="nav" id="nav" aria-label="Menu lateral">
     <div class="navTop"><span class="brand">IPED MCP</span><button type="button" class="iconBtn" id="navToggle" title="Recolher menu" aria-label="Recolher menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button></div>
     <button type="button" class="newBtn" id="newInvestigation"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nova investigação</span></button>
-    <div class="navSection">Investigações desta sessão</div>
+    <div class="navSection">Investigações</div>
     <div class="history" id="history"><div class="historyEmpty">Nenhuma investigação ainda.</div></div>
     <div class="navBottom">
       <div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
       <div class="conn"><span class="dot" id="connDot"></span><span id="connection">Conectando ao IPED...</span></div>
-      <div class="navNote">Acesso somente leitura. O histórico existe apenas enquanto esta página estiver aberta.</div>
+      <div class="navNote">As investigações ficam salvas neste computador, separadas da evidência. No caso do IPED, só os marcadores podem ser alterados.</div>
     </div>
   </aside>
   <div class="mainCol">
@@ -284,7 +303,28 @@ function renderHistory(){
   const target=byId("history");
   if(!investigationHistory.size){target.innerHTML='<div class="historyEmpty">Nenhuma investigação ainda.</div>';return;}
   target.innerHTML=[...investigationHistory.entries()].reverse().map(([id,entry])=>'<button type="button" class="historyItem'+(id===activeInvestigationId?' active':'')+'" data-id="'+escapeHtml(id)+'" title="'+escapeHtml(entry.questions[0])+'">'+escapeHtml(entry.questions[0])+'</button>').join("");
-  target.querySelectorAll(".historyItem").forEach(button=>button.addEventListener("click",()=>{const entry=investigationHistory.get(button.dataset.id);if(entry){renderWorkspace(entry.workspace);selectTab("resumo");byId("mainArea").scrollTop=0;}}));
+  target.querySelectorAll(".historyItem").forEach(button=>button.addEventListener("click",()=>openSavedInvestigation(button.dataset.id)));
+}
+async function openSavedInvestigation(id){
+  const entry=investigationHistory.get(id);if(!entry)return;
+  if(!entry.workspace){
+    try{
+      const response=await fetch("/api/investigations/"+encodeURIComponent(id));
+      const result=await response.json();
+      if(!response.ok||!result.workspace){statusEl.textContent=result.error||"Não foi possível abrir a investigação.";return;}
+      entry.workspace=result.workspace;entry.questions=result.questions||entry.questions;
+    }catch{statusEl.textContent="Não foi possível abrir a investigação.";return;}
+  }
+  renderWorkspace(entry.workspace);selectTab("resumo");byId("mainArea").scrollTop=0;
+  if(window.innerWidth<800)setNavCollapsed(true);
+}
+async function loadSavedInvestigations(){
+  try{
+    const response=await fetch("/api/investigations"+(selectedSourceId?"?sourceId="+encodeURIComponent(selectedSourceId):""));
+    const result=await response.json();
+    (result.investigations||[]).slice().reverse().forEach(item=>{if(!investigationHistory.has(item.id))investigationHistory.set(item.id,{questions:[item.title],updatedAt:item.updatedAt});});
+    renderHistory();
+  }catch{}
 }
 function renderThread(entry){
   byId("questionCard").innerHTML=entry.questions.map((q,i)=>'<div class="bubble">'+(i?'<span class="kicker">Pergunta de acompanhamento</span>':'')+escapeHtml(q)+'</div>').join("");
@@ -591,6 +631,7 @@ async function loadHome(){
     byId("startButton").disabled=!ready;
     if(!ready){byId("status").textContent=selectionStatus==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Conecte um caso IPED já processado.";if(selectionStatus!=="SOURCE_SELECTION_REQUIRED")byId("onboarding").classList.remove("hidden");}
     else byId("status").textContent="";
+    if(ready)loadSavedInvestigations();
   }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true;byId("status").textContent="Conecte um caso IPED já processado.";byId("onboarding").classList.remove("hidden")}
 }
 byId("sourceSelect").addEventListener("change",loadHome);
@@ -760,7 +801,7 @@ const server = createServer(async (request, response) => {
       return json(
         response,
         200,
-        await investigator.begin(question, sourceId)
+        await persist(await investigator.begin(question, sourceId))
       );
     }
 
@@ -814,10 +855,12 @@ const server = createServer(async (request, response) => {
       return json(
         response,
         200,
-        await investigator.continue(
-          decodeURIComponent(continueMatch[1]),
-          question,
-          focus
+        await persist(
+          await investigator.continue(
+            decodeURIComponent(continueMatch[1]),
+            question,
+            focus
+          )
         )
       );
     }
@@ -832,16 +875,45 @@ const server = createServer(async (request, response) => {
       const leadValue =
         typeof input.leadValue === "string" ? input.leadValue : undefined;
 
-      const result = await investigator.exploreLead(
-        decodeURIComponent(leadMatch[1]),
-        leadType,
-        leadValue
+      const result = await persist(
+        await investigator.exploreLead(
+          decodeURIComponent(leadMatch[1]),
+          leadType,
+          leadValue
+        )
       );
       return json(
         response,
         result.status === "CORRELATION_NOT_AVAILABLE" ? 409 : 200,
         result
       );
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/investigations") {
+      const sourceId = url.searchParams.get("sourceId") ?? undefined;
+      return json(response, 200, {
+        investigations: await investigationStore.list(sourceId)
+      });
+    }
+
+    const savedMatch = url.pathname.match(/^\/api\/investigations\/([^/]+)$/);
+    if (request.method === "GET" && savedMatch) {
+      const id = decodeURIComponent(savedMatch[1]);
+      const record = isInvestigationId(id) ? await investigationStore.load(id) : undefined;
+      if (!record) {
+        return json(response, 404, { error: "Investigação não encontrada." });
+      }
+      investigations.restore(record.state);
+      await audit.write("investigation_reopened", {
+        investigationId: record.id,
+        sourceId: record.sourceId
+      });
+      return json(response, 200, {
+        investigationId: record.id,
+        questions: record.questions,
+        updatedAt: record.updatedAt,
+        workspace: record.workspace
+      });
     }
 
     if (request.method === "GET" && url.pathname === "/api/bookmarks") {

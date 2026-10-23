@@ -222,6 +222,16 @@ Default:
 AUDIT_LOG=./audit/requests.jsonl
 ```
 
+### `INVESTIGATIONS_DIR`
+
+Directory where the Investigator saves investigations (derived workspace data, kept outside the IPED case).
+
+Default:
+
+```env
+INVESTIGATIONS_DIR=./workspace/investigations
+```
+
 ## Running the server
 
 The MCP server currently uses the standard `stdio` transport.
@@ -452,6 +462,12 @@ Controls:
 - every change is recorded in the audit log (`examiner_bookmark_add`, `examiner_bookmark_remove`).
 
 Known limitation: the IPED Web API has no concurrency control. Avoid changing bookmarks in the IPED desktop application and in the Investigator at the same time on the same case, since one may overwrite the other's changes.
+
+### Saved investigations
+
+Each investigation is saved automatically after every result: the initial question, follow-up questions and explored correlations. When the Investigator opens, the side menu lists the saved investigations of the selected case. Reopening one shows the last result immediately, without re-running assisted AI analysis, and follow-up questions continue from where the examiner stopped.
+
+Each investigation is one JSON file in `INVESTIGATIONS_DIR`, readable only by the current user. It holds the session state (questions, queries and IPED item references) and the last rendered result, which may include extracted values and evidence names. Treat this directory with the same care as the audit log. It is never written back to the IPED case.
 
 The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
 

@@ -46,6 +46,10 @@ A local IPED installation does not imply that evidence remains local if an exter
 
 Deployment must make the model/data-egress boundary explicit. A future local-only mode must be able to prevent evidence content from leaving the controlled environment.
 
+### Saved investigation data
+
+The Investigator saves each investigation locally (`INVESTIGATIONS_DIR`) so it can be reopened. These files are derived data that may contain evidence names and extracted values. They are written with user-only permissions, kept outside the IPED case and outside version control, and must follow the same handling rules as the audit log and the case itself.
+
 ### Exposed IPED Web API
 
 The IPED Web API should normally be reachable only from the intended local or controlled network environment. Publishing an evidence API directly to the Internet is outside the expected deployment model.
