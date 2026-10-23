@@ -57,6 +57,8 @@ Its investigation instructions require AI clients to:
 
 Original evidence is never modified by this server.
 
+The only write the project performs is an examiner-initiated IPED bookmark change from the Investigator interface (see **Examiner bookmarks** below). The MCP server exposes no write tools, so AI clients cannot create or change bookmarks.
+
 ## Distribution for non-developers
 
 The project now builds a **self-contained macOS `IPED MCP.app`** in GitHub Actions. It contains the compiled application, locked JavaScript dependencies and a private Node.js runtime used only by the Investigator. A tester therefore does not need Git, TypeScript, a repository clone, `npm install`, or a system-wide Node.js installation after receiving the artifact.
@@ -435,7 +437,21 @@ Findings + evidence + relationships + timeline
 Investigator review and conclusions
 ```
 
-No evidence upload is performed by this application. Evidence processing remains an IPED responsibility, and the investigator interface remains read-only with respect to the case.
+No evidence upload is performed by this application. Evidence processing remains an IPED responsibility. With the single exception of examiner bookmarks, the investigator interface is read-only with respect to the case.
+
+### Examiner bookmarks
+
+From the evidence detail panel, the examiner can add the item to an IPED bookmark (creating the bookmark if it does not exist yet) or remove it from a bookmark. The change is written through the standard IPED Web API, so it appears in IPED's own interface as a regular bookmark, and IPED bookmarks created elsewhere appear in the Investigator.
+
+Controls:
+
+- bookmarks live in the processed case state, never in the original evidence;
+- only three operations exist: create a bookmark label, add an item, remove an item. Deleting or renaming bookmarks and changing the IPED selection are not available;
+- writes happen only from an explicit click in the local interface. They are not reachable from the MCP server or by an AI model;
+- the write endpoint accepts only JSON requests from the loopback interface with a matching origin, which blocks cross-site requests and DNS rebinding;
+- every change is recorded in the audit log (`examiner_bookmark_add`, `examiner_bookmark_remove`).
+
+Known limitation: the IPED Web API has no concurrency control. Avoid changing bookmarks in the IPED desktop application and in the Investigator at the same time on the same case, since one may overwrite the other's changes.
 
 The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
 

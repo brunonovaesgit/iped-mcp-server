@@ -10,6 +10,7 @@ import { IpedClient } from "./iped-client.js";
 import { InvestigatorService } from "./investigator-service.js";
 import { InvestigationSessions } from "./investigation-sessions.js";
 import { createAiAnalyzer } from "./ai-analyzer.js";
+import { BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
 
 const config = getConfig();
 const audit = new AuditLog(config.auditLog);
@@ -21,6 +22,7 @@ const ai = createAiAnalyzer({
   apiKey: config.aiApiKey
 });
 const investigator = new InvestigatorService(iped, investigations, audit, ai);
+const examinerBookmarks = new ExaminerBookmarks(config, audit);
 const port = Number(process.env.INVESTIGATOR_PORT ?? 3333);
 export const investigatorHtml = `<!doctype html>
 <html lang="pt-BR">
@@ -106,6 +108,13 @@ export const investigatorHtml = `<!doctype html>
     .drawerHeader{display:flex;justify-content:space-between;gap:var(--space-4);align-items:start}.drawerHeader button{padding:7px 11px}.evidenceText{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.5;background:var(--surface-alt);padding:14px;border-radius:var(--radius-sm);max-height:46vh;overflow:auto}.property{padding:7px 0;border-top:1px solid var(--border-soft)}
     .empty{color:var(--subtle);font-size:14px}.hidden{display:none}
 
+    .bookmarkBox{margin:16px 0 4px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-alt)}
+    .bookmarkHead{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}.bookmarkBox h3{margin:0;font-size:14px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+    .chip{display:inline-flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--border-strong);border-radius:999px;padding:3px 4px 3px 10px;font-size:12.5px;font-weight:600}
+    .chipRemove{background:none;padding:0 6px;color:var(--subtle);font-size:15px;line-height:1;font-weight:500}.chipRemove:hover{background:var(--accent-soft);color:var(--ink)}
+    .bookmarkForm{display:flex;gap:8px;margin:0}.bookmarkForm input{flex:1;padding:9px 12px}.bookmarkForm button{background:var(--accent);color:#fff;padding:9px 16px}.bookmarkForm button:hover{background:var(--accent-strong)}
+    #bookmarkStatus{margin-top:8px;min-height:16px}
     /* ---- Conversational shell ---- */
     .shell{display:flex;height:100%;min-height:0}
     .nav{width:272px;flex-shrink:0;display:flex;flex-direction:column;background:#f9fafb;border-right:1px solid var(--border);transition:width .18s ease,margin .18s ease;overflow:hidden}
@@ -241,6 +250,12 @@ export const investigatorHtml = `<!doctype html>
 <aside id="evidenceDrawer" class="drawer hidden">
   <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><button id="closeEvidence">Fechar</button></div>
   <div id="evidenceMeta" class="meta"></div>
+  <section class="bookmarkBox" aria-label="Marcadores do IPED">
+    <div class="bookmarkHead"><h3>Marcadores do IPED</h3><span class="meta">Gravados no caso processado, nunca na evidência original. Cada alteração fica no log de auditoria.</span></div>
+    <div id="bookmarkChips" class="chips"></div>
+    <form id="bookmarkForm" class="bookmarkForm"><input id="bookmarkName" list="bookmarkOptions" maxlength="80" value="Relevante" aria-label="Nome do marcador" placeholder="Nome do marcador"><datalist id="bookmarkOptions"></datalist><button>Marcar</button></form>
+    <div id="bookmarkStatus" class="meta"></div>
+  </section>
   <h3>Texto extraído</h3><div id="evidenceText"></div>
   <h3>Metadados</h3><div id="evidenceProperties"></div>
 </aside>
@@ -505,16 +520,43 @@ function renderGraph(graph){
   };
   draw();
 }
+let bookmarkTarget=null;
+async function loadBookmarkOptions(){
+  try{const response=await fetch("/api/bookmarks");const result=await response.json();byId("bookmarkOptions").innerHTML=(result.bookmarks||[]).map(name=>'<option value="'+escapeHtml(name)+'"></option>').join("");}catch{}
+}
+function renderBookmarks(sourceId,itemId,list){
+  bookmarkTarget={sourceId,itemId};
+  const chips=byId("bookmarkChips");
+  chips.innerHTML=list.length?list.map(name=>'<span class="chip">'+escapeHtml(name)+'<button type="button" class="chipRemove" data-bookmark="'+escapeHtml(name)+'" title="Remover deste marcador" aria-label="Remover do marcador '+escapeHtml(name)+'">×</button></span>').join(""):'<span class="meta">Este item ainda não está em nenhum marcador.</span>';
+  chips.querySelectorAll(".chipRemove").forEach(button=>button.addEventListener("click",()=>changeBookmark(button.dataset.bookmark,true)));
+  loadBookmarkOptions();
+}
+async function changeBookmark(name,remove){
+  if(!bookmarkTarget)return;
+  const sourceId=bookmarkTarget.sourceId,itemId=bookmarkTarget.itemId,status=byId("bookmarkStatus");
+  status.textContent=remove?"Removendo...":"Marcando...";
+  try{
+    const response=await fetch("/api/evidence/"+encodeURIComponent(sourceId)+"/"+encodeURIComponent(itemId)+"/bookmarks"+(remove?"/remove":""),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({bookmark:name})});
+    const result=await response.json();
+    if(!response.ok){status.textContent=result.error||"Não foi possível atualizar o marcador.";return;}
+    if(!bookmarkTarget||bookmarkTarget.sourceId!==sourceId||bookmarkTarget.itemId!==itemId)return;
+    renderBookmarks(sourceId,itemId,result.bookmarks||[]);
+    status.textContent=remove?('Removido de "'+name+'".'):('Marcado em "'+name+'"'+(result.createdBookmark?' (novo marcador criado no IPED).':'.'));
+  }catch{status.textContent="Não foi possível atualizar o marcador."}
+}
+byId("bookmarkForm").addEventListener("submit",event=>{event.preventDefault();const name=byId("bookmarkName").value.trim();if(name)changeBookmark(name,false);});
 async function openEvidence(sourceId,itemId){
   byId("evidenceDrawer").classList.remove("hidden");
   byId("evidenceTitle").textContent="Carregando...";
   byId("evidenceText").innerHTML='<div class="empty">Consultando evidência...</div>';
   byId("evidenceProperties").innerHTML="";
+  bookmarkTarget=null;byId("bookmarkChips").innerHTML='<span class="meta">Carregando...</span>';byId("bookmarkStatus").textContent="";
   try{
     const response=await fetch("/api/evidence/"+encodeURIComponent(sourceId)+"/"+encodeURIComponent(itemId));
     const evidence=await response.json();
     byId("evidenceTitle").textContent=evidence.name||("Item "+itemId);
     byId("evidenceMeta").textContent=(evidence.path||"")+" · "+sourceId+":"+itemId+(evidence.hash?" · hash "+evidence.hash:"");
+    renderBookmarks(sourceId,itemId,evidence.bookmarks||[]);
     let evidenceTextHtml='<div class="empty">Texto extraído não disponível.</div>';
     if(evidence.text){
       evidenceTextHtml='<div class="evidenceText">'+escapeHtml(evidence.text)+'</div>';
@@ -641,6 +683,22 @@ function json(response: ServerResponse, status: number, body: unknown): void {
     "cache-control": "no-store"
   });
   response.end(JSON.stringify(body));
+}
+
+/**
+ * Guards state-changing requests from the local UI. Requires a JSON body
+ * (cross-site pages cannot send it without a CORS preflight, which this server
+ * never grants), a loopback Host (blocks DNS rebinding) and, when the browser
+ * sends one, an Origin matching that Host.
+ */
+export function isTrustedLocalWrite(headers: IncomingMessage["headers"]): boolean {
+  const contentType = String(headers["content-type"] ?? "").toLowerCase();
+  if (!contentType.startsWith("application/json")) return false;
+  const host = String(headers.host ?? "").toLowerCase();
+  if (!/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(host)) return false;
+  const origin = headers.origin;
+  if (origin !== undefined && String(origin).toLowerCase() !== `http://${host}`) return false;
+  return true;
 }
 
 async function body(request: IncomingMessage): Promise<Record<string, unknown>> {
@@ -784,6 +842,39 @@ const server = createServer(async (request, response) => {
         result.status === "CORRELATION_NOT_AVAILABLE" ? 409 : 200,
         result
       );
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/bookmarks") {
+      return json(response, 200, { bookmarks: await examinerBookmarks.list() });
+    }
+
+    const bookmarkMatch = url.pathname.match(
+      /^\/api\/evidence\/([^/]+)\/(\d+)\/bookmarks(\/remove)?$/
+    );
+    if (request.method === "POST" && bookmarkMatch) {
+      if (!isTrustedLocalWrite(request.headers)) {
+        await audit.write("examiner_bookmark_rejected", {
+          reason: "untrusted_request",
+          origin: request.headers.origin,
+          host: request.headers.host
+        });
+        return json(response, 403, { error: "Requisição não permitida." });
+      }
+      const input = await body(request);
+      const sourceId = decodeURIComponent(bookmarkMatch[1]);
+      const itemId = Number(bookmarkMatch[2]);
+      try {
+        const result = bookmarkMatch[3]
+          ? await examinerBookmarks.unmark(sourceId, itemId, input.bookmark)
+          : await examinerBookmarks.mark(sourceId, itemId, input.bookmark);
+        const evidence = await investigator.evidence(sourceId, itemId);
+        return json(response, 200, { ...result, bookmarks: evidence.bookmarks ?? [] });
+      } catch (error) {
+        if (error instanceof BookmarkInputError) {
+          return json(response, 400, { error: error.message });
+        }
+        throw error;
+      }
     }
 
     return json(response, 404, { error: "Not found" });

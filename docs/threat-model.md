@@ -18,9 +18,11 @@ Evidence content is data, not authority. Text found in an email, PDF, HTML page,
 
 ### Evidence modification
 
-The MCP server must not modify original evidence or the processed case through investigative tools. Evidence-facing access is read-only.
+The MCP server must not modify original evidence or the processed case through investigative tools. Evidence-facing access is read-only, and the MCP server exposes no write tools.
 
-Any future notes, reports, bookmarks or other writable features must be treated as derived workspace data and kept separate from original evidence.
+The single exception is examiner-initiated bookmark changes from the local Investigator. They are confined to one module (`src/examiner-bookmarks.ts`) that can only create a bookmark label and add or remove items through the IPED Web API. It cannot delete or rename bookmarks, change the selection or touch evidence content. The module is not reachable from the MCP server, so neither an AI model nor instructions embedded in evidence can trigger it. The write endpoint accepts only same-origin JSON requests on the loopback interface, and every change is audited. Automated tests enforce these boundaries.
+
+Any future notes, reports or other writable features must be treated as derived workspace data and kept separate from original evidence.
 
 ### Indirect prompt injection
 
