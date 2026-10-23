@@ -12,6 +12,7 @@ import { InvestigationSessions } from "./investigation-sessions.js";
 import { createAiAnalyzer } from "./ai-analyzer.js";
 import { BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
 import { InvestigationStore, NoteInputError, isInvestigationId } from "./investigation-store.js";
+import { ClaimInputError, normalizeClaimInput, verifyClaim, type Claim } from "./claims.js";
 
 const config = getConfig();
 const audit = new AuditLog(config.auditLog);
@@ -142,6 +143,19 @@ export const investigatorHtml = `<!doctype html>
     .drawerActions{display:flex;gap:8px}.drawerActions button{padding:7px 11px}#citeEvidence{background:var(--accent);color:#fff}#citeEvidence:hover{background:var(--accent-strong)}
     #noteSubmit{background:var(--accent);color:#fff}#noteSubmit:hover{background:var(--accent-strong)}
     @media(max-width:800px){form.composer,form.bookmarkForm{flex-direction:row}}
+    .claimForm{flex-direction:column;align-items:stretch;gap:10px;margin:12px 0 6px}.claimForm label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:var(--muted)}
+    .claimForm input,.claimForm select,.claimForm textarea{font-weight:400;color:var(--ink)}.claimRow{display:flex;gap:12px;flex-wrap:wrap}.claimRow label{flex:1;min-width:180px}
+    #claimSubmit{background:var(--accent);color:#fff}#claimSubmit:hover{background:var(--accent-strong)}
+    .claimGroup{margin-top:18px}.claimGroup h3{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--subtle);margin:0 0 4px}
+    .claim{border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;margin-top:10px;background:var(--surface)}
+    .claimHead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.claimHead .noteActions{margin-left:auto}
+    .claimBadge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;border-radius:999px}
+    .claimBadge.FACT{background:#e5f4e4;color:#1f6b33}.claimBadge.INFERENCE{background:#e7f1fb;color:#1d5a91}.claimBadge.HYPOTHESIS{background:#f9eeda;color:#8a5a12}
+    .claimStatement{margin:8px 0;font-size:15px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+    .claimRefs{font-size:13px;line-height:1.7}.claimRefs .evidenceButton{margin-right:8px}
+    .claimCheck{margin-top:8px;font-size:12.5px;padding:8px 10px;border-radius:8px;background:var(--surface-alt)}.claimCheck.warn{background:#fdf4e3}
+    .claimCheck ul{margin:6px 0 0;padding-left:18px}
+    .missingRef{margin-right:8px;color:#a33a2a;text-decoration:line-through;font-weight:600;cursor:help}
     /* ---- Conversational shell ---- */
     .shell{display:flex;height:100%;min-height:0}
     .nav{width:272px;flex-shrink:0;display:flex;flex-direction:column;background:#f9fafb;border-right:1px solid var(--border);transition:width .18s ease,margin .18s ease;overflow:hidden}
@@ -240,6 +254,7 @@ export const investigatorHtml = `<!doctype html>
             <button type="button" class="tabButton" data-tab="relationships">Relações</button>
             <button type="button" class="tabButton" data-tab="timeline">Timeline</button>
             <button type="button" class="tabButton" data-tab="notebook" id="notebookTab">Caderno</button>
+            <button type="button" class="tabButton" data-tab="claims" id="claimsTab">Afirmações</button>
           </div>
           <div class="tabContent">
             <div class="tabPanel" data-tab-panel="resumo">
@@ -272,6 +287,25 @@ export const investigatorHtml = `<!doctype html>
                 <div id="notesList"></div>
               </div>
             </div>
+            <div class="tabPanel hidden" data-tab-panel="claims">
+              <div class="panel">
+                <h2>Quadro de afirmações</h2>
+                <p class="meta">Registre cada conclusão com sua classificação e as evidências a favor e contra. A verificação é estrutural: confirma que os itens existem no caso e detecta conteúdo duplicado, mas não avalia se o conteúdo prova a afirmação.</p>
+                <form id="claimForm" class="askForm claimForm">
+                  <div class="claimRow">
+                    <label>Classificação<select id="claimClassification"><option value="FACT">Fato</option><option value="INFERENCE" selected>Inferência</option><option value="HYPOTHESIS">Hipótese</option></select></label>
+                    <label id="factBasisField" class="hidden">Base do fato<select id="claimFactBasis"><option value="DOCUMENT_STATEMENT">Declaração em documento</option><option value="OBSERVED_METADATA">Metadado observado</option></select></label>
+                  </div>
+                  <label>Afirmação<textarea id="claimStatement" rows="3" maxlength="2000" placeholder="Ex.: O documento registra o pagamento de R$ 18.750,00 ao Projeto Atlas."></textarea></label>
+                  <label>Evidências a favor<input id="claimSupporting" autocomplete="off" placeholder="Ex.: resultado:8, resultado:4"></label>
+                  <label>Evidências contra<input id="claimContradicting" autocomplete="off" placeholder="Opcional"></label>
+                  <label>Limitação<input id="claimLimitation" maxlength="2000" autocomplete="off" placeholder="Opcional: o que esta afirmação não estabelece"></label>
+                  <div class="askActions"><button type="button" id="claimCancel" class="linkBtn hidden">Cancelar edição</button><button id="claimSubmit">Registrar afirmação</button></div>
+                </form>
+                <div id="claimStatus" class="meta"></div>
+                <div id="claimsList"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -288,7 +322,7 @@ export const investigatorHtml = `<!doctype html>
   </div>
 </div>
 <aside id="evidenceDrawer" class="drawer hidden">
-  <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><div class="drawerActions"><button type="button" id="citeEvidence" title="Inserir a referência deste item no caderno de análise">Citar no caderno</button><button id="closeEvidence">Fechar</button></div></div>
+  <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><div class="drawerActions"><button type="button" id="citeEvidence" title="Inserir a referência deste item no caderno de análise">Citar no caderno</button><button type="button" id="claimEvidence" title="Usar este item como evidência a favor numa afirmação">Usar em afirmação</button><button id="closeEvidence">Fechar</button></div></div>
   <div id="evidenceMeta" class="meta"></div>
   <section class="bookmarkBox" aria-label="Marcadores do IPED">
     <div class="bookmarkHead"><h3>Marcadores do IPED</h3><span class="meta">Gravados no caso processado, nunca na evidência original. Cada alteração fica no log de auditoria.</span></div>
@@ -414,6 +448,91 @@ byId("noteForm").addEventListener("submit",async event=>{
   }catch{byId("noteStatus").textContent="Não foi possível salvar a nota.";}
   finally{byId("noteSubmit").disabled=false;}
 });
+let claims=[],editingClaimId=null,claimsInvestigationId=null;
+const CLAIM_LABEL={FACT:"Fato",INFERENCE:"Inferência",HYPOTHESIS:"Hipótese"};
+const BASIS_LABEL={DOCUMENT_STATEMENT:"declaração em documento",OBSERVED_METADATA:"metadado observado"};
+function parseReferences(value){
+  const sources=referenceSources(),refs=[],unknown=[];
+  value.split(/[ ,;]+/).map(token=>token.split("[").join("").split("]").join("").trim()).filter(Boolean).forEach(token=>{
+    const at=token.lastIndexOf(":"),src=token.slice(0,at),item=token.slice(at+1);
+    if(at>0&&sources.includes(src)&&/^[0-9]+$/.test(item))refs.push({sourceId:src,itemId:Number(item)});else unknown.push(token);
+  });
+  return {refs,unknown};
+}
+function refsText(refs){return (refs||[]).map(ref=>ref.sourceId+":"+ref.itemId).join(", ");}
+function refButtons(refs,missing){
+  const absent=new Set((missing||[]).map(ref=>ref.sourceId+":"+ref.itemId));
+  return (refs||[]).map(ref=>{const key=ref.sourceId+":"+ref.itemId;return absent.has(key)?'<span class="missingRef" title="Não encontrada no caso">'+escapeHtml(key)+'</span>':'<button type="button" class="evidenceButton claimRef" data-source="'+escapeHtml(ref.sourceId)+'" data-item="'+escapeHtml(ref.itemId)+'">'+escapeHtml(key)+'</button>';}).join("");
+}
+function syncFactBasis(){byId("factBasisField").classList.toggle("hidden",byId("claimClassification").value!=="FACT");}
+function resetClaimForm(){
+  editingClaimId=null;byId("claimSubmit").textContent="Registrar afirmação";byId("claimCancel").classList.add("hidden");
+  ["claimStatement","claimSupporting","claimContradicting","claimLimitation"].forEach(id=>{byId(id).value="";});
+  byId("claimClassification").value="INFERENCE";byId("claimStatement").style.height="";syncFactBasis();
+}
+function verificationHtml(v){
+  if(!v)return "";
+  const warn=(v.warnings||[]).length>0;
+  return '<div class="claimCheck'+(warn?" warn":"")+'">'+(v.referencesVerified?"✓ Referências encontradas no caso":"Há referências não encontradas no caso")+" · "+escapeHtml(v.independentSupportingCount)+" evidência(s) independente(s) a favor de "+escapeHtml(v.supportingCount)+" confirmada(s)"+(warn?'<ul>'+v.warnings.map(w=>'<li>'+escapeHtml(w)+'</li>').join("")+'</ul>':"")+'</div>';
+}
+function renderClaims(){
+  byId("claimsTab").innerHTML="Afirmações"+(claims.length?'<span class="tabCount">'+claims.length+'</span>':"");
+  const list=byId("claimsList");
+  if(!claims.length){list.innerHTML='<div class="empty">Nenhuma afirmação registrada. Registre aqui as conclusões que pretende sustentar.</div>';return;}
+  list.innerHTML=["FACT","INFERENCE","HYPOTHESIS"].map(kind=>{
+    const group=claims.filter(c=>c.classification===kind);if(!group.length)return "";
+    return '<section class="claimGroup"><h3>'+CLAIM_LABEL[kind]+'s ('+group.length+')</h3>'+group.map(c=>'<article class="claim" data-id="'+escapeHtml(c.id)+'"><div class="claimHead"><span class="claimBadge '+c.classification+'">'+CLAIM_LABEL[c.classification]+'</span>'+(c.factBasis?'<span class="meta">base: '+BASIS_LABEL[c.factBasis]+'</span>':"")+'<span class="noteActions"><button type="button" class="linkBtn claimVerify">Reverificar</button><button type="button" class="linkBtn claimEdit">Editar</button><button type="button" class="linkBtn claimDelete">Excluir</button></span></div><div class="claimStatement">'+escapeHtml(c.statement)+'</div><div class="claimRefs"><span class="meta">A favor: </span>'+(c.supporting.length?refButtons(c.supporting,c.verification?.missing):'<span class="meta">nenhuma</span>')+(c.contradicting.length?'<br><span class="meta">Contra: </span>'+refButtons(c.contradicting,c.verification?.missing):"")+'</div>'+(c.limitation?'<div class="meta">Limitação: '+escapeHtml(c.limitation)+'</div>':"")+verificationHtml(c.verification)+'</article>').join("")+'</section>';
+  }).join("");
+  list.querySelectorAll(".claimRef").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
+  list.querySelectorAll(".claim").forEach(article=>{
+    const claim=claims.find(c=>c.id===article.dataset.id);
+    article.querySelector(".claimEdit").addEventListener("click",()=>{
+      editingClaimId=claim.id;byId("claimClassification").value=claim.classification;syncFactBasis();
+      if(claim.factBasis)byId("claimFactBasis").value=claim.factBasis;
+      byId("claimStatement").value=claim.statement;byId("claimSupporting").value=refsText(claim.supporting);
+      byId("claimContradicting").value=refsText(claim.contradicting);byId("claimLimitation").value=claim.limitation||"";
+      byId("claimSubmit").textContent="Salvar alteração";byId("claimCancel").classList.remove("hidden");
+      byId("claimStatus").textContent="Editando afirmação.";byId("claimStatement").focus();
+    });
+    article.querySelector(".claimVerify").addEventListener("click",()=>claimRequest("/"+encodeURIComponent(claim.id)+"/verify",{},"Verificação atualizada."));
+    const remove=article.querySelector(".claimDelete");
+    remove.addEventListener("click",()=>{
+      if(remove.dataset.confirm!=="1"){remove.dataset.confirm="1";remove.textContent="Confirmar exclusão";setTimeout(()=>{remove.dataset.confirm="";remove.textContent="Excluir";},4000);return;}
+      claimRequest("/"+encodeURIComponent(claim.id)+"/delete",{},"Afirmação excluída.",claim.id);
+    });
+  });
+}
+async function claimRequest(suffix,payload,message,deletedId){
+  const id=activeInvestigationId;if(!id)return false;
+  try{
+    const response=await fetch("/api/investigations/"+encodeURIComponent(id)+"/claims"+suffix,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+    const result=await response.json();
+    if(!response.ok){byId("claimStatus").textContent=result.error||"Não foi possível salvar a afirmação.";return false;}
+    if(deletedId){claims=claims.filter(c=>c.id!==deletedId);if(editingClaimId===deletedId)resetClaimForm();}
+    else if(claims.some(c=>c.id===result.claim.id))claims=claims.map(c=>c.id===result.claim.id?result.claim:c);
+    else claims.push(result.claim);
+    byId("claimStatus").textContent=message;renderClaims();return true;
+  }catch{byId("claimStatus").textContent="Não foi possível salvar a afirmação.";return false;}
+}
+async function loadClaims(id){
+  claimsInvestigationId=id;claims=[];resetClaimForm();byId("claimStatus").textContent="";renderClaims();
+  if(!id)return;
+  try{const response=await fetch("/api/investigations/"+encodeURIComponent(id)+"/claims");if(response.ok&&claimsInvestigationId===id){claims=(await response.json()).claims||[];renderClaims();}}catch{}
+}
+byId("claimClassification").addEventListener("change",syncFactBasis);
+byId("claimCancel").addEventListener("click",()=>{resetClaimForm();byId("claimStatus").textContent="";});
+byId("claimForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const supporting=parseReferences(byId("claimSupporting").value),contradicting=parseReferences(byId("claimContradicting").value);
+  const unknown=[...supporting.unknown,...contradicting.unknown];
+  if(unknown.length){byId("claimStatus").textContent="Referência não reconhecida: "+unknown.join(", ")+". Use o formato fonte:item, como "+(referenceSources()[0]||"fonte")+":8.";return;}
+  const classification=byId("claimClassification").value;
+  const payload={classification,statement:byId("claimStatement").value,supporting:supporting.refs,contradicting:contradicting.refs,limitation:byId("claimLimitation").value,factBasis:classification==="FACT"?byId("claimFactBasis").value:undefined};
+  byId("claimSubmit").disabled=true;byId("claimStatus").textContent="Verificando evidências no IPED...";
+  const ok=await claimRequest(editingClaimId?"/"+encodeURIComponent(editingClaimId):"",payload,editingClaimId?"Afirmação atualizada e verificada.":"Afirmação registrada e verificada.");
+  byId("claimSubmit").disabled=false;
+  if(ok)resetClaimForm();
+});
 function renderThread(entry){
   byId("questionCard").innerHTML=entry.questions.map((q,i)=>'<div class="bubble">'+(i?'<span class="kicker">Pergunta de acompanhamento</span>':'')+escapeHtml(q)+'</div>').join("");
   byId("topTitle").textContent=entry.questions[0];
@@ -433,6 +552,7 @@ function renderWorkspace(workspace){
   entry.workspace=workspace;investigationHistory.set(workspace.investigationId,entry);
   renderThread(entry);renderHistory();
   if(notesInvestigationId!==workspace.investigationId)loadNotes(workspace.investigationId);
+  if(claimsInvestigationId!==workspace.investigationId)loadClaims(workspace.investigationId);
   const directTarget=byId("directAnswer"),direct=workspace.directAnswer;
   if(direct?.kind==="EVIDENCE_LIST"){
     directTarget.classList.remove("hidden");
@@ -681,6 +801,15 @@ byId("citeEvidence").addEventListener("click",()=>{
   byId("evidenceDrawer").classList.add("hidden");selectTab("notebook");
   field.dispatchEvent(new Event("input"));field.focus();field.setSelectionRange(field.value.length,field.value.length);
   byId("noteStatus").textContent="Referência inserida. Complete a nota e salve.";
+});
+byId("claimEvidence").addEventListener("click",()=>{
+  if(!bookmarkTarget||!activeInvestigationId)return;
+  const reference=bookmarkTarget.sourceId+":"+bookmarkTarget.itemId,field=byId("claimSupporting");
+  const current=field.value.split(",").map(item=>item.trim()).filter(Boolean);
+  if(!current.includes(reference))current.push(reference);
+  field.value=current.join(", ");
+  byId("evidenceDrawer").classList.add("hidden");selectTab("claims");byId("claimStatement").focus();
+  byId("claimStatus").textContent='Evidência adicionada em "Evidências a favor". Escreva a afirmação e registre.';
 });
 byId("bookmarkForm").addEventListener("submit",event=>{event.preventDefault();const name=byId("bookmarkName").value.trim();if(name)changeBookmark(name,false);});
 async function openEvidence(sourceId,itemId){
@@ -985,6 +1114,91 @@ const server = createServer(async (request, response) => {
         result.status === "CORRELATION_NOT_AVAILABLE" ? 409 : 200,
         result
       );
+    }
+
+    const claimsMatch = url.pathname.match(
+      /^\/api\/investigations\/([^/]+)\/claims(?:\/([^/]+)(\/delete|\/verify)?)?$/
+    );
+    if (claimsMatch) {
+      const investigationId = decodeURIComponent(claimsMatch[1]);
+      const claimId = claimsMatch[2] ? decodeURIComponent(claimsMatch[2]) : undefined;
+      const action = claimsMatch[3];
+      if (!isInvestigationId(investigationId)) {
+        return json(response, 404, { error: "Investigação não encontrada." });
+      }
+
+      if (request.method === "GET" && !claimId) {
+        const claims = await investigationStore.listClaims(investigationId);
+        if (!claims) return json(response, 404, { error: "Investigação não encontrada." });
+        return json(response, 200, { claims });
+      }
+
+      if (request.method === "POST") {
+        if (!isTrustedLocalWrite(request.headers)) {
+          await audit.write("investigation_claim_rejected", {
+            reason: "untrusted_request",
+            origin: request.headers.origin,
+            host: request.headers.host
+          });
+          return json(response, 403, { error: "Requisição não permitida." });
+        }
+        const input = await body(request);
+        const auditClaim = (claim: Claim) => ({
+          investigationId,
+          claimId: claim.id,
+          classification: claim.classification,
+          supporting: claim.supporting.length,
+          contradicting: claim.contradicting.length,
+          warnings: claim.verification?.warnings.length ?? 0
+        });
+        try {
+          if (!claimId) {
+            const claim = normalizeClaimInput(input);
+            const created = await investigationStore.addClaim(
+              investigationId,
+              claim,
+              await verifyClaim(iped, claim)
+            );
+            if (!created) return json(response, 404, { error: "Investigação não encontrada." });
+            await audit.write("investigation_claim_added", auditClaim(created));
+            return json(response, 200, { claim: created });
+          }
+          if (action === "/delete") {
+            const deleted = await investigationStore.deleteClaim(investigationId, claimId);
+            if (!deleted) return json(response, 404, { error: "Afirmação não encontrada." });
+            await audit.write("investigation_claim_deleted", { investigationId, claimId });
+            return json(response, 200, { deleted: true });
+          }
+          if (action === "/verify") {
+            const current = await investigationStore.getClaim(investigationId, claimId);
+            if (!current) return json(response, 404, { error: "Afirmação não encontrada." });
+            const verified = await investigationStore.updateClaim(
+              investigationId,
+              claimId,
+              undefined,
+              await verifyClaim(iped, current)
+            );
+            if (!verified) return json(response, 404, { error: "Afirmação não encontrada." });
+            await audit.write("investigation_claim_verified", auditClaim(verified));
+            return json(response, 200, { claim: verified });
+          }
+          const claim = normalizeClaimInput(input);
+          const updated = await investigationStore.updateClaim(
+            investigationId,
+            claimId,
+            claim,
+            await verifyClaim(iped, claim)
+          );
+          if (!updated) return json(response, 404, { error: "Afirmação não encontrada." });
+          await audit.write("investigation_claim_updated", auditClaim(updated));
+          return json(response, 200, { claim: updated });
+        } catch (error) {
+          if (error instanceof ClaimInputError) {
+            return json(response, 400, { error: error.message });
+          }
+          throw error;
+        }
+      }
     }
 
     const notesMatch = url.pathname.match(

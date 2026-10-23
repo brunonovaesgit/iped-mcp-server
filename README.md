@@ -475,6 +475,14 @@ Each investigation has a **Caderno** (notebook) tab where the examiner records o
 
 Notes are saved with the investigation in `INVESTIGATIONS_DIR`, separate from the evidence, and can be edited or deleted by the examiner. Saving a new investigation result never overwrites the notebook. The audit log records that a note was added, edited or deleted, without its content.
 
+### Claims board
+
+The **Afirmações** (claims) tab is where the examiner records each conclusion as a **fact**, **inference** or **hypothesis**, with the evidence for and against it and an optional limitation. A fact must state its basis (a statement in a document or observed metadata) and cite at least one supporting item. The **Usar em afirmação** button in the evidence panel adds the item to the supporting evidence of the claim being written.
+
+Each claim is checked against IPED when it is recorded, edited or re-verified. The check uses the same rules as the MCP `build_evidence_ledger` tool: it confirms that every cited item exists and treats items with identical content (same hash) as a single independent source. It then warns, without blocking, when a fact has contradicting evidence, when a fact combines several items (likely an inference), when references are missing or when no supporting item was confirmed. The check is structural only: it never decides whether the content proves the statement.
+
+Claims are saved with the investigation, separate from the evidence. The audit log records the classification and evidence counts of each change, without the statement text.
+
 The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
 
 ## MCP client configuration

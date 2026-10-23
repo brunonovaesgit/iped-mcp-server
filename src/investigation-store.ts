@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { InvestigationState } from "./investigation-sessions.js";
+import type { Claim, ClaimInput, ClaimVerification } from "./claims.js";
 
 /**
  * Local persistence for Investigator sessions.
@@ -46,6 +47,7 @@ export interface StoredInvestigation {
   state: InvestigationState;
   workspace: unknown;
   notes?: InvestigationNote[];
+  claims?: Claim[];
 }
 
 export interface StoredInvestigationSummary {
@@ -87,6 +89,7 @@ export class InvestigationStore {
       const existing = await this.load(state.id);
       const record = this.buildRecord(state, workspace);
       record.notes = existing?.notes ?? [];
+      record.claims = existing?.claims ?? [];
       await this.write(record);
       return record;
     });
@@ -131,6 +134,60 @@ export class InvestigationStore {
       const record = await this.load(id);
       if (!record?.notes?.some(item => item.id === noteId)) return false;
       record.notes = record.notes.filter(item => item.id !== noteId);
+      await this.write(record);
+      return true;
+    });
+  }
+
+  async listClaims(id: string): Promise<Claim[] | undefined> {
+    const record = await this.load(id);
+    return record ? record.claims ?? [] : undefined;
+  }
+
+  async getClaim(id: string, claimId: string): Promise<Claim | undefined> {
+    return (await this.load(id))?.claims?.find(claim => claim.id === claimId);
+  }
+
+  async addClaim(id: string, input: ClaimInput, verification: ClaimVerification): Promise<Claim | undefined> {
+    if (!isInvestigationId(id)) return undefined;
+    return this.exclusive(id, async () => {
+      const record = await this.load(id);
+      if (!record) return undefined;
+      const now = new Date().toISOString();
+      const claim: Claim = { id: randomUUID(), ...input, createdAt: now, updatedAt: now, verification };
+      record.claims = [...(record.claims ?? []), claim];
+      await this.write(record);
+      return claim;
+    });
+  }
+
+  async updateClaim(
+    id: string,
+    claimId: string,
+    input: ClaimInput | undefined,
+    verification: ClaimVerification
+  ): Promise<Claim | undefined> {
+    if (!isInvestigationId(id)) return undefined;
+    return this.exclusive(id, async () => {
+      const record = await this.load(id);
+      const index = record?.claims?.findIndex(claim => claim.id === claimId) ?? -1;
+      if (!record?.claims || index < 0) return undefined;
+      const current = record.claims[index];
+      const next: Claim = input
+        ? { id: current.id, ...input, createdAt: current.createdAt, updatedAt: new Date().toISOString(), verification }
+        : { ...current, verification };
+      record.claims[index] = next;
+      await this.write(record);
+      return next;
+    });
+  }
+
+  async deleteClaim(id: string, claimId: string): Promise<boolean> {
+    if (!isInvestigationId(id)) return false;
+    return this.exclusive(id, async () => {
+      const record = await this.load(id);
+      if (!record?.claims?.some(claim => claim.id === claimId)) return false;
+      record.claims = record.claims.filter(claim => claim.id !== claimId);
       await this.write(record);
       return true;
     });
