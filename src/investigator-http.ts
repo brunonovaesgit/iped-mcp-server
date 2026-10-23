@@ -44,7 +44,7 @@ export const investigatorHtml = `<!doctype html>
     header{background:var(--accent-strong);color:white;padding:var(--space-4) var(--space-6);display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow-sm);flex-shrink:0}
     header strong{font-size:18px;letter-spacing:.2px} #connection{font-size:13px;color:#a9b6c4}
     .appBody{display:flex;flex:1;min-height:0}
-    .sidebar{width:360px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--border);overflow-x:hidden;overflow-wrap:anywhere}
+    .sidebar{width:400px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--border);overflow-x:hidden;overflow-wrap:anywhere}
     .sidebar *{min-width:0}
     .sidebarTop{padding:var(--space-5);border-bottom:1px solid var(--border);flex-shrink:0}
     .sidebarScroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:var(--space-4) var(--space-5) var(--space-5)}
@@ -61,6 +61,22 @@ export const investigatorHtml = `<!doctype html>
     .hero{padding:0} .hero h1{margin:0 0 4px;font-size:17px;letter-spacing:-.1px}.hero p{margin:0;color:var(--muted);font-size:12.5px}
     .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-5);box-shadow:var(--shadow-sm)}
     form{display:flex;gap:var(--space-2);margin-top:var(--space-4)} input,select{font:inherit;padding:13px 15px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface)} input{flex:1}
+    textarea{font:inherit;width:100%;resize:vertical;padding:13px 15px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);line-height:1.5}
+    textarea:focus,input:focus{outline:3px solid var(--accent-soft-hover);outline-offset:0;border-color:var(--accent)}
+    .askForm{flex-direction:column;align-items:stretch}
+    #question{min-height:132px;max-height:45vh}#followUp{min-height:76px;max-height:30vh}
+    .askActions{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3)}.askHint{font-size:12px;color:var(--subtle)}
+    #followUpForm{margin:0 0 var(--space-5)}
+    .questionCard{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-5);box-shadow:var(--shadow-sm)}
+    .questionCard .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--subtle);margin-bottom:6px}.questionCard p{margin:0;font-size:15px;line-height:1.55;white-space:pre-wrap}
+    body.landing .sidebar,body.landing #mainEmptyState{display:none}
+    .landingSlot{display:none}body.landing .landingSlot{display:block;width:min(760px,92vw);margin:auto;padding:var(--space-6) 0}
+    body.landing .hero h1{font-size:30px;font-weight:650;letter-spacing:-.4px;text-align:center;margin:0 0 10px}
+    body.landing .hero>p{text-align:center;font-size:15px;margin:0 0 var(--space-5)}
+    body.landing #question{min-height:150px;font-size:16px;padding:18px 20px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
+    body.landing .status{text-align:center;min-height:20px}
+    .landingNote{display:none}body.landing .landingNote{display:block;text-align:center;font-size:12.5px;color:var(--subtle);margin-top:var(--space-4)}
+    .mainEmpty{margin:auto;max-width:560px;text-align:center;padding:var(--space-6);color:var(--subtle);font-size:15px;line-height:1.6}
     .caseBar{display:flex;gap:var(--space-3);align-items:center;margin-top:var(--space-4);padding:var(--space-3) var(--space-4);background:var(--surface-alt);border-radius:var(--radius-sm)}.caseBar label{font-size:13px;color:var(--muted)}.caseBar select{padding:8px 10px}
     button{border:0;border-radius:var(--radius-sm);padding:12px 18px;background:var(--accent-soft);color:var(--accent-strong);cursor:pointer;font-weight:600;transition:background .12s ease}
     button:hover{background:var(--accent-soft-hover)}
@@ -89,67 +105,138 @@ export const investigatorHtml = `<!doctype html>
     .drawer{position:fixed;top:0;right:0;width:min(620px,92vw);height:100vh;background:var(--surface);border-left:1px solid var(--border);box-shadow:-8px 0 30px #0002;padding:var(--space-5);overflow:auto;z-index:20}
     .drawerHeader{display:flex;justify-content:space-between;gap:var(--space-4);align-items:start}.drawerHeader button{padding:7px 11px}.evidenceText{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.5;background:var(--surface-alt);padding:14px;border-radius:var(--radius-sm);max-height:46vh;overflow:auto}.property{padding:7px 0;border-top:1px solid var(--border-soft)}
     .empty{color:var(--subtle);font-size:14px}.hidden{display:none}
+
+    /* ---- Conversational shell ---- */
+    .shell{display:flex;height:100%;min-height:0}
+    .nav{width:272px;flex-shrink:0;display:flex;flex-direction:column;background:#f9fafb;border-right:1px solid var(--border);transition:width .18s ease,margin .18s ease;overflow:hidden}
+    body.navCollapsed .nav{width:0;border-right:0}
+    .navTop{display:flex;align-items:center;justify-content:space-between;padding:14px 12px 10px 18px}
+    .brand{font-weight:700;font-size:16px;letter-spacing:.1px;white-space:nowrap}
+    .iconBtn{background:transparent;color:var(--muted);padding:7px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;line-height:0}
+    .iconBtn:hover{background:var(--accent-soft);color:var(--ink)}
+    .newBtn{margin:4px 12px 14px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);color:var(--ink);padding:10px 12px;font-weight:600;white-space:nowrap;box-shadow:var(--shadow-sm)}
+    .newBtn:hover{background:var(--accent-soft)}
+    .navSection{padding:6px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--subtle);white-space:nowrap}
+    .history{flex:1;overflow-y:auto;padding:2px 8px}
+    .historyItem{display:block;width:100%;text-align:left;background:transparent;color:var(--ink);font-weight:500;font-size:13.5px;padding:9px 10px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .historyItem:hover{background:var(--accent-soft)}.historyItem.active{background:var(--accent-soft-hover);font-weight:600}
+    .historyEmpty{padding:8px 10px;font-size:13px;color:var(--subtle);white-space:nowrap}
+    .navBottom{border-top:1px solid var(--border);padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px}
+    .navBottom .caseBar{margin:0;flex-direction:column;align-items:stretch;gap:6px;padding:0;background:none}
+    .conn{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+    .dot{width:8px;height:8px;border-radius:50%;background:#b8c0c8;flex-shrink:0}.dot.ok{background:#2f9e5b}
+    #connection{color:var(--muted);font-size:13px}
+    .navNote{font-size:12px;color:var(--subtle);line-height:1.45}
+    .mainCol{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--surface)}
+    .topBar{height:52px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--border-soft)}
+    .topTitle{font-weight:500;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #navOpen{display:none}body.navCollapsed #navOpen{display:inline-flex}
+    .mainCol .mainArea{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;background:var(--surface)}
+    body.landing #workspaceMain,body.landing .composerDock{display:none!important}
+    body:not(.landing) .landingSlot{display:none!important}
+    body.landing .landingSlot{display:block;width:min(760px,92%);margin:auto;padding:var(--space-6) 0}
+    .thread{width:min(940px,100%);margin:0 auto;padding:28px 24px 40px;display:flex;flex-direction:column;gap:22px}
+    #workspaceMain.thread{flex:none}
+    .userTurn{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+    .bubble{max-width:82%;background:var(--accent-soft);color:var(--ink);padding:12px 16px;border-radius:18px 18px 4px 18px;font-size:15px;line-height:1.55;white-space:pre-wrap}
+    .bubble .kicker{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--subtle);margin-bottom:4px}
+    .answer{display:flex;flex-direction:column;gap:14px}
+    .answerHead{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px}
+    .avatar{min-width:28px;height:28px;padding:0 8px;border-radius:8px;letter-spacing:.3px;background:var(--accent-strong);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+    .thread .summary{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+    .thread .metric{display:inline-flex;align-items:baseline;gap:6px;padding:6px 12px;border-radius:999px;box-shadow:none;background:var(--surface-alt)}
+    .thread .metric b{display:inline;font-size:14px}.thread .metric span{font-size:11px}
+    .thread .tabBar{position:sticky;top:0;z-index:3;padding:0;margin:0;background:var(--surface)}
+    .thread .tabContent{overflow:visible;padding:4px 0 0;flex:none}
+    .thread .analysis{margin:0 0 var(--space-4)}
+    .composerDock{flex-shrink:0;padding:10px 24px 18px;background:linear-gradient(to top,var(--surface) 70%,rgba(255,255,255,0))}
+    .composerInner{width:min(940px,100%);margin:0 auto}
+    .composer{display:flex;align-items:flex-end;gap:8px;margin:0;padding:8px 8px 8px 14px;border:1px solid var(--border-strong);border-radius:22px;background:var(--surface);box-shadow:var(--shadow-md)}
+    .composer:focus-within{border-color:var(--accent)}
+    .composer textarea{border:0;outline:0!important;box-shadow:none;padding:8px 4px;min-height:24px!important;max-height:30vh;resize:none;font-size:15px;background:transparent}
+    .sendBtn{width:38px;height:38px;border-radius:50%;padding:0;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+    .sendBtn:hover{background:var(--accent-strong)}
+    .dockMeta{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:6px 8px 0;font-size:12px;color:var(--subtle)}.dockMeta>span:last-child{white-space:nowrap;flex-shrink:0}#dockStatusSlot{min-width:0;flex:1}#dockStatusSlot .status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .composerDock .status{margin:0;font-size:12.5px}
+    @media(max-width:800px){.nav{position:fixed;left:0;top:0;bottom:0;z-index:30;box-shadow:var(--shadow-md)}.thread{padding:20px 14px 32px}.bubble{max-width:92%}}
     @media(max-width:800px){.appBody{flex-direction:column}.sidebar{width:100%;max-height:42vh;border-right:0;border-bottom:1px solid var(--border)}form{flex-direction:column}}
-    @media print{header,.hero,#followUpForm,.tabBar,.sidebarTop,.graphToolbar,.graphMiniMap,.drawer{display:none!important}body{display:block;height:auto;overflow:visible}.appBody{display:block}.sidebar{width:100%;border:0;overflow:visible}.mainArea{display:block}#workspaceMain{display:block!important}.tabContent{overflow:visible!important;height:auto!important}.tabPanel{display:block!important;margin:16px 0}.analysis,.panel,.metric{break-inside:avoid;border-color:#bbb}.graphShell,.graph{overflow:visible!important;height:auto!important;min-height:0!important}.graph svg{max-width:100%;height:auto}button{display:none!important}}
+    @media print{header,.nav,.topBar,.composerDock,.hero,#followUpForm,.tabBar,.sidebarTop,.graphToolbar,.graphMiniMap,.drawer{display:none!important}body{display:block;height:auto;overflow:visible}.appBody{display:block}.sidebar{width:100%;border:0;overflow:visible}.mainArea{display:block}#workspaceMain{display:block!important}.tabContent{overflow:visible!important;height:auto!important}.tabPanel{display:block!important;margin:16px 0}.analysis,.panel,.metric{break-inside:avoid;border-color:#bbb}.graphShell,.graph{overflow:visible!important;height:auto!important;min-height:0!important}.graph svg{max-width:100%;height:auto}button{display:none!important}}
   </style>
 </head>
-<body>
-<header><strong>IPED MCP</strong><span id="connection">Conectando ao IPED...</span></header>
-<div class="appBody">
-  <aside class="sidebar">
-    <div class="sidebarTop">
-      <section class="hero">
-        <h1>O que você quer investigar neste caso?</h1>
-        <p>Descreva o fato, pessoa, organização, comunicação ou relação que deseja analisar.</p>
-        <div id="onboarding" class="analysis hidden"><h2>Conectar ao seu IPED</h2><p>Seu caso continua no IPED. Para conectá-lo, use o comando <b>npm run connect:iped</b> descrito no README. Nenhuma evidência é enviada, importada ou modificada.</p></div><div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
-        <form id="questionForm">
-          <input id="question" autocomplete="off" placeholder="Ex.: investigue relações e comunicações envolvendo Carlos Almeida">
-          <button id="startButton">Investigar</button>
-        </form>
-        <div class="status" id="status"></div>
-      </section>
-    </div>
-    <div class="sidebarScroll">
-      <div id="workspaceSidebar" class="hidden">
-        <form id="followUpForm">
-          <input id="followUp" autocomplete="off" placeholder="Pergunte algo sobre esta investigação">
-          <button>Continuar investigação</button>
-        </form>
-        <div class="summary" id="summary"></div>
-        <div class="panel"><h2>Correlações</h2><div id="leads"></div></div>
-      </div>
+<body class="landing">
+<div class="shell">
+  <aside class="nav" id="nav" aria-label="Menu lateral">
+    <div class="navTop"><span class="brand">IPED MCP</span><button type="button" class="iconBtn" id="navToggle" title="Recolher menu" aria-label="Recolher menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button></div>
+    <button type="button" class="newBtn" id="newInvestigation"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nova investigação</span></button>
+    <div class="navSection">Investigações desta sessão</div>
+    <div class="history" id="history"><div class="historyEmpty">Nenhuma investigação ainda.</div></div>
+    <div class="navBottom">
+      <div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
+      <div class="conn"><span class="dot" id="connDot"></span><span id="connection">Conectando ao IPED...</span></div>
+      <div class="navNote">Acesso somente leitura. O histórico existe apenas enquanto esta página estiver aberta.</div>
     </div>
   </aside>
-  <main class="mainArea">
-    <div class="empty" id="mainEmptyState">As evidências, achados e relações desta investigação aparecerão aqui depois da primeira pergunta.</div>
-    <div id="workspaceMain" class="hidden">
-      <div class="tabBar">
-        <button type="button" class="tabButton tabActive" data-tab="resumo">Resumo</button>
-        <button type="button" class="tabButton" data-tab="evidence">Evidências</button>
-        <button type="button" class="tabButton" data-tab="relationships">Relações</button>
-        <button type="button" class="tabButton" data-tab="timeline">Timeline</button>
+  <div class="mainCol">
+    <div class="topBar"><button type="button" class="iconBtn" id="navOpen" title="Abrir menu" aria-label="Abrir menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button><span class="topTitle" id="topTitle">Nova investigação</span></div>
+    <main class="mainArea" id="mainArea">
+      <div class="landingSlot" id="landingSlot">
+        <section class="hero">
+          <h1>O que você quer investigar neste caso?</h1>
+          <p>Descreva o fato, pessoa, organização, comunicação ou relação que deseja analisar.</p>
+          <div id="onboarding" class="analysis hidden"><h2>Conectar ao seu IPED</h2><p>Seu caso continua no IPED. Para conectá-lo, use o comando <b>npm run connect:iped</b> descrito no README. Nenhuma evidência é enviada, importada ou modificada.</p></div>
+          <form id="questionForm" class="askForm">
+            <textarea id="question" rows="5" aria-label="Pergunta investigativa" placeholder="Escreva livremente, com o contexto que julgar útil. Ex.: investigue possíveis relações entre Carlos Almeida, Orion Tecnologia e pagamentos de R$ 18.750; identifique contradições e pontos que não podem ser confirmados."></textarea>
+            <div class="askActions"><span class="askHint">⌘/Ctrl + Enter para investigar</span><button id="startButton">Investigar</button></div>
+          </form>
+          <div class="status" id="status"></div>
+          <p class="landingNote">Seu caso permanece no IPED, com acesso somente leitura. Cada achado traz a referência da evidência de origem.</p>
+        </section>
       </div>
-      <div class="tabContent">
-        <div class="tabPanel" data-tab-panel="resumo">
-          <div class="analysis hidden" id="directAnswer"></div>
-          <div class="analysis" id="analysis"></div>
-          <div class="analysis hidden" id="retrievalAmbiguities"></div>
-          <div class="analysis hidden" id="valueVariations"></div>
-          <div class="analysis hidden" id="aiAnalysis"></div>
-          <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
+      <div class="mainEmpty hidden" id="mainEmptyState"></div>
+      <div id="workspaceMain" class="thread hidden">
+        <div class="userTurn" id="questionCard"></div>
+        <div class="answer">
+          <div class="answerHead"><span class="avatar">IPED</span><span>Resultado da investigação</span></div>
+          <div class="summary" id="summary"></div>
+          <div class="tabBar">
+            <button type="button" class="tabButton tabActive" data-tab="resumo">Resumo</button>
+            <button type="button" class="tabButton" data-tab="evidence">Evidências</button>
+            <button type="button" class="tabButton" data-tab="relationships">Relações</button>
+            <button type="button" class="tabButton" data-tab="timeline">Timeline</button>
+          </div>
+          <div class="tabContent">
+            <div class="tabPanel" data-tab-panel="resumo">
+              <div class="analysis hidden" id="directAnswer"></div>
+              <div class="analysis" id="analysis"></div>
+              <div class="analysis hidden" id="retrievalAmbiguities"></div>
+              <div class="analysis hidden" id="valueVariations"></div>
+              <div class="analysis hidden" id="aiAnalysis"></div>
+              <div class="panel"><h2>Correlações para explorar</h2><div id="leads"></div></div>
+              <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
+            </div>
+            <div class="tabPanel hidden" data-tab-panel="evidence">
+              <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
+            </div>
+            <div class="tabPanel hidden" data-tab-panel="relationships">
+              <div class="panel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
+            </div>
+            <div class="tabPanel hidden" data-tab-panel="timeline">
+              <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
+            </div>
+          </div>
         </div>
-        <div class="tabPanel hidden" data-tab-panel="evidence">
-          <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
-        </div>
-        <div class="tabPanel hidden" data-tab-panel="relationships">
-          <div class="panel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
-        </div>
-        <div class="tabPanel hidden" data-tab-panel="timeline">
-          <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
-        </div>
+      </div>
+    </main>
+    <div class="composerDock" id="composerDock">
+      <div class="composerInner" id="workspaceSidebar">
+        <form id="followUpForm" class="composer">
+          <textarea id="followUp" rows="1" aria-label="Pergunta de acompanhamento" placeholder="Pergunte algo sobre esta investigação"></textarea>
+          <button class="sendBtn" title="Enviar (⌘/Ctrl + Enter)" aria-label="Enviar pergunta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        </form>
+        <div class="dockMeta"><span id="dockStatusSlot"></span><span>⌘/Ctrl + Enter para enviar</span></div>
       </div>
     </div>
-  </main>
+  </div>
 </div>
 <aside id="evidenceDrawer" class="drawer hidden">
   <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><button id="closeEvidence">Fechar</button></div>
@@ -170,11 +257,38 @@ const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","
 function items(target,values,render){
   byId(target).innerHTML=values?.length?values.map(render).join(""):'<div class="empty">Nenhum item para exibir.</div>';
 }
+const statusEl=byId("status"),statusHome=statusEl.parentElement,investigationHistory=new Map();
+function leaveLanding(){if(!document.body.classList.contains("landing"))return;document.body.classList.remove("landing");byId("dockStatusSlot").appendChild(statusEl);}
+function enterLanding(){
+  activeInvestigationId=undefined;document.body.classList.add("landing");
+  statusHome.insertBefore(statusEl,statusHome.querySelector(".landingNote"));statusEl.textContent="";
+  byId("question").value="";byId("question").style.height="";byId("topTitle").textContent="Nova investigação";
+  renderHistory();setTimeout(()=>byId("question").focus(),0);
+}
+function renderHistory(){
+  const target=byId("history");
+  if(!investigationHistory.size){target.innerHTML='<div class="historyEmpty">Nenhuma investigação ainda.</div>';return;}
+  target.innerHTML=[...investigationHistory.entries()].reverse().map(([id,entry])=>'<button type="button" class="historyItem'+(id===activeInvestigationId?' active':'')+'" data-id="'+escapeHtml(id)+'" title="'+escapeHtml(entry.questions[0])+'">'+escapeHtml(entry.questions[0])+'</button>').join("");
+  target.querySelectorAll(".historyItem").forEach(button=>button.addEventListener("click",()=>{const entry=investigationHistory.get(button.dataset.id);if(entry){renderWorkspace(entry.workspace);selectTab("resumo");byId("mainArea").scrollTop=0;}}));
+}
+function renderThread(entry){
+  byId("questionCard").innerHTML=entry.questions.map((q,i)=>'<div class="bubble">'+(i?'<span class="kicker">Pergunta de acompanhamento</span>':'')+escapeHtml(q)+'</div>').join("");
+  byId("topTitle").textContent=entry.questions[0];
+}
+function setNavCollapsed(collapsed){document.body.classList.toggle("navCollapsed",collapsed);try{localStorage.setItem("ipedMcpNavCollapsed",collapsed?"1":"0")}catch{}}
+try{if(localStorage.getItem("ipedMcpNavCollapsed")==="1"||window.innerWidth<800)document.body.classList.add("navCollapsed")}catch{if(window.innerWidth<800)document.body.classList.add("navCollapsed")}
+byId("navToggle").addEventListener("click",()=>setNavCollapsed(true));
+byId("navOpen").addEventListener("click",()=>setNavCollapsed(false));
+byId("newInvestigation").addEventListener("click",()=>{enterLanding();if(window.innerWidth<800)setNavCollapsed(true);});
 function renderWorkspace(workspace){
+  leaveLanding();
   activeInvestigationId=workspace.investigationId;
   byId("workspaceSidebar").classList.remove("hidden");
   byId("workspaceMain").classList.remove("hidden");
   byId("mainEmptyState").classList.add("hidden");
+  const entry=investigationHistory.get(workspace.investigationId)||{questions:[workspace.title||"Investigação"]};
+  entry.workspace=workspace;investigationHistory.set(workspace.investigationId,entry);
+  renderThread(entry);renderHistory();
   const directTarget=byId("directAnswer"),direct=workspace.directAnswer;
   if(direct?.kind==="EVIDENCE_LIST"){
     directTarget.classList.remove("hidden");
@@ -431,6 +545,7 @@ async function loadHome(){
       selectedSourceId=home.sourceId||sources[0]?.id;
     }
     byId("connection").textContent=ready?"IPED conectado":(selectionStatus==="SOURCE_SELECTION_REQUIRED"?"IPED conectado · selecione uma fonte":"IPED não disponível");
+    byId("connDot").classList.toggle("ok",ready);
     byId("startButton").disabled=!ready;
     if(!ready){byId("status").textContent=selectionStatus==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Conecte um caso IPED já processado.";if(selectionStatus!=="SOURCE_SELECTION_REQUIRED")byId("onboarding").classList.remove("hidden");}
     else byId("status").textContent="";
@@ -482,13 +597,18 @@ async function exploreLead(leadType,leadValue){
 byId("followUpForm").addEventListener("submit",async event=>{
   event.preventDefault();
   const question=byId("followUp").value.trim();if(!question)return;
-  byId("followUp").value="";
+  byId("followUp").value="";byId("followUp").style.height="";
+  const entry=investigationHistory.get(activeInvestigationId);if(entry){entry.questions.push(question);renderThread(entry);}
   await updateInvestigation("/questions",{question});
 });
 byId("questionForm").addEventListener("submit",async event=>{
   event.preventDefault();
   const question=byId("question").value.trim(); if(!question)return;
-  byId("startButton").disabled=true;byId("status").textContent="Investigando evidências...";
+  byId("startButton").disabled=true;
+  const startedAt=Date.now(),emptyState=byId("mainEmptyState"),idleText=emptyState.textContent;
+  const tick=()=>{byId("status").textContent="Investigando evidências... "+Math.round((Date.now()-startedAt)/1000)+" s"+(document.body.classList.contains("landing")?" · com a análise assistida por IA ativa, pode levar alguns minutos":"");};
+  tick();const timer=setInterval(tick,1000);
+  if(!activeInvestigationId)emptyState.textContent="Investigando evidências no IPED. Com a análise assistida por IA ativa, isso pode levar alguns minutos.";
   try{
     const response=await fetch("/api/investigations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question,sourceId:selectedSourceId||undefined})});
     const result=await response.json();
@@ -496,11 +616,18 @@ byId("questionForm").addEventListener("submit",async event=>{
     else if(result.sourceSelection) byId("status").textContent="Selecione uma fonte do caso para continuar.";
     else byId("status").textContent=result.error||"Não foi possível iniciar a investigação.";
   }catch{byId("status").textContent="Não foi possível iniciar a investigação."}
-  finally{byId("startButton").disabled=false}
+  finally{clearInterval(timer);byId("startButton").disabled=false;if(!activeInvestigationId)emptyState.textContent=idleText;}
+});
+["question","followUp"].forEach(id=>{
+  const field=byId(id);if(!field)return;
+  const grow=()=>{field.style.height="auto";field.style.height=field.scrollHeight+2+"px";};
+  field.addEventListener("input",grow);
+  field.addEventListener("keydown",event=>{if(event.key==="Enter"&&(event.metaKey||event.ctrlKey)){event.preventDefault();field.form?.requestSubmit();}});
 });
 function selectTab(tab){
   document.querySelectorAll(".tabButton").forEach(b=>b.classList.toggle("tabActive",b.dataset.tab===tab));
   document.querySelectorAll(".tabPanel").forEach(p=>p.classList.toggle("hidden",p.dataset.tabPanel!==tab));
+  if(tab==="relationships")requestAnimationFrame(()=>document.querySelector('[data-graph-action="fit"]')?.click());
 }
 document.querySelectorAll(".tabButton").forEach(b=>b.addEventListener("click",()=>selectTab(b.dataset.tab)));
 loadHome();
