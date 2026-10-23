@@ -1,11 +1,11 @@
-import { access, mkdtemp, writeFile } from "node:fs/promises";
+import { access, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
+import { findJava, stopChild, processedCaseRoot } from "./launcher-runtime.js";
 
 type Options = { ipedHome?: string; casePath?: string; id?: string; host: string; port: string };
 
@@ -39,33 +39,20 @@ async function requirePath(path: string, label: string): Promise<void> {
   catch { throw new Error(`${label} not found or not readable: ${path}`); }
 }
 
-async function javaExecutable(): Promise<string> {
-  const candidates = [process.env.JAVA_HOME ? join(process.env.JAVA_HOME, "bin", "java") : "", "/usr/bin/java", "/opt/homebrew/bin/java", "/usr/local/bin/java"].filter(Boolean);
-  for (const candidate of candidates) {
-    try { await access(candidate, constants.X_OK); return candidate; } catch {}
-  }
-  if (process.platform === "darwin") {
-    try {
-      const { stdout } = await execFileAsync("/usr/libexec/java_home", []);
-      const candidate = join(stdout.trim(), "bin", "java");
-      await access(candidate, constants.X_OK);
-      return candidate;
-    } catch {}
-  }
-  throw new Error("Java não encontrado. O IPED precisa de uma instalação Java compatível para iniciar a Web API.");
-}
-
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   if (!options.ipedHome || !options.casePath) usage();
 
   const ipedHome = resolve(options.ipedHome);
-  const casePath = resolve(options.casePath);
+  const selectedCase = resolve(options.casePath);
+  const casePath = await processedCaseRoot(selectedCase);
+  if (!casePath) throw new Error("Caso IPED inválido: index/data não encontrados.");
   const libPath = join(ipedHome, "lib");
   await requirePath(libPath, "IPED lib directory");
   await requirePath(casePath, "Processed IPED case");
 
-  const sourceId = options.id || basename(casePath) || "iped-case";
+  const sourceId = options.id || basename(selectedCase) || "iped-case";
+  const java = await findJava(ipedHome);
   const temp = await mkdtemp(join(tmpdir(), "iped-mcp-"));
   const sourcesFile = join(temp, "sources.json");
   await writeFile(sourcesFile, JSON.stringify([{ id: sourceId, path: casePath }], null, 2));
@@ -79,7 +66,6 @@ async function main(): Promise<void> {
   console.log(`Web API      : http://${options.host}:${options.port}`);
   console.log("\nNo evidence is uploaded or modified. Keep this terminal open.\n");
 
-  const java = await javaExecutable();
   console.log(`Java          : ${java}`);
   const javaArgs = [
     "-jar", webApiJar,
@@ -96,6 +82,17 @@ async function main(): Promise<void> {
     env: process.env
   });
 
+  let stopping = false;
+  const cleanup = () => rm(temp, { recursive: true, force: true });
+  const stop = async () => {
+    if (stopping) return;
+    stopping = true;
+    await stopChild(child);
+    await cleanup();
+    process.exit(0);
+  };
+  process.on("SIGINT", () => void stop());
+  process.on("SIGTERM", () => void stop());
   let stdout = "", stderr = "";
   const keepTail = (current: string, chunk: Buffer | string) => (current + chunk.toString()).slice(-12000);
   child.stdout?.on("data", chunk => {
@@ -108,10 +105,12 @@ async function main(): Promise<void> {
   });
   child.on("error", error => {
     console.error(`Unable to start Java/IPED: ${error.message}`);
+    void cleanup();
     process.exitCode = 1;
   });
   child.on("exit", (code, signal) => {
-    if ((code ?? 0) !== 0 || signal) {
+    void cleanup();
+    if (!stopping && ((code ?? 0) !== 0 || signal)) {
       console.error("\n--- IPED Web API startup diagnostics ---");
       console.error(`Exit code      : ${code ?? "null"}`);
       console.error(`Signal         : ${signal ?? "none"}`);

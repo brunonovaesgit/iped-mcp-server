@@ -809,6 +809,10 @@ export class InvestigatorService {
       return accepted;
     });
 
+    const newEvidenceItems = contextualEvidence.filter(
+      item => !priorEvidenceKeys.has(`${item.sourceId}:${item.itemId}`)
+    );
+
     await this.audit.write("context_correlation_diagnostics", {
       investigationId,
       leadType: lead.type,
@@ -947,6 +951,11 @@ export class InvestigatorService {
     return {
       status: "LEAD_EXPLORED" as const,
       exploredLead: lead,
+      newEvidenceCount: newEvidenceItems.length,
+      newEvidence: newEvidenceItems.map(item => ({
+        sourceId: item.sourceId,
+        itemId: item.itemId
+      })),
       workspace: {
         ...buildInvestigationWorkspace({
           investigationId,
