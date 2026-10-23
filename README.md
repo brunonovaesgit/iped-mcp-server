@@ -461,7 +461,9 @@ Controls:
 - the write endpoint accepts only JSON requests from the loopback interface with a matching origin, which blocks cross-site requests and DNS rebinding;
 - every change is recorded in the audit log (`examiner_bookmark_add`, `examiner_bookmark_remove`).
 
-Known limitation: the IPED Web API has no concurrency control. Avoid changing bookmarks in the IPED desktop application and in the Investigator at the same time on the same case, since one may overwrite the other's changes.
+**Do not change bookmarks in IPED desktop and in the Investigator on the same case at the same time.** IPED loads bookmarks once when a case is opened and rewrites the whole state file (`<case>/iped/bookmarks.iped`) on every change, without locking or reloading. Each program therefore overwrites the other's bookmarks.
+
+The Investigator protects the IPED desktop side: when started by the launcher (which sets `IPED_CASE_DIR`), it records the state file's modification time and blocks bookmark changes if the file was modified by another program since then. The examiner is asked to close IPED desktop and restart IPED MCP so the current bookmarks are loaded. Blocked attempts are audited (`examiner_bookmark_conflict`). It cannot stop IPED desktop from overwriting bookmarks made in the Investigator, so close IPED desktop while marking in IPED MCP, or reopen it afterwards.
 
 ### Saved investigations
 
@@ -482,6 +484,24 @@ The **Afirmações** (claims) tab is where the examiner records each conclusion 
 Each claim is checked against IPED when it is recorded, edited or re-verified. The check uses the same rules as the MCP `build_evidence_ledger` tool: it confirms that every cited item exists and treats items with identical content (same hash) as a single independent source. It then warns, without blocking, when a fact has contradicting evidence, when a fact combines several items (likely an inference), when references are missing or when no supporting item was confirmed. The check is structural only: it never decides whether the content proves the statement.
 
 Claims are saved with the investigation, separate from the evidence. The audit log records the classification and evidence counts of each change, without the statement text.
+
+### Case timeline
+
+The **Timeline** tab has two parts. **Linha do tempo do caso** (case timeline) holds events the examiner dates from the *content* of the evidence: the day a contract was signed, a meeting arranged in a message. **Datas de arquivos e metadados** keeps the file-system and metadata timestamps returned by IPED, which say when a file was written or changed, not necessarily when the described event happened.
+
+Each case event has a date (optionally with time, and an "approximate" flag), a description and at least one cited item from which the date was read. The **Usar em evento** button in the evidence panel adds the open item to the event being written. Recording or editing an event checks that the cited items exist in the case; it never checks that the date was read correctly. Events are listed in chronological order, saved with the investigation, separate from the evidence, and the audit log records the date and evidence count of each change, without the description.
+
+### Evidence preview and progress
+
+Hovering over an evidence reference for a moment shows a small card with its name, path, bookmarks and the first lines of extracted text, so the examiner can check a citation without leaving the page. Clicking still opens the full evidence panel. Previews are audited as `preview_investigator_evidence`. On touch screens the preview is disabled.
+
+While a question is being answered, the status line shows the current phase (searching the index, reading evidence, assisted AI analysis), the number of index searches and evidence lookups made so far, and the elapsed time. Progress holds only counters and phase names, never case content.
+
+### Draft report
+
+**Exportar relatório**, next to the result, downloads a draft report as a standalone HTML file. It opens in any browser (print or save as PDF) and in Word or LibreOffice for editing. The draft contains, in order: the investigative question and follow-ups; the observed findings; the claims grouped as facts, inferences and hypotheses with their evidence and structural verification; the case timeline; the notebook; a table of every referenced item with name, path, hash and current IPED bookmarks (looked up at export time); the audit trail of the investigation; and the limitations.
+
+The report is explicitly labelled as a draft that requires the examiner's review. It restates what was recorded and what IPED returned, adds no conclusions and does not validate evidence content. Like the saved investigations, it contains names, extracted values and the examiner's notes, and must be handled with the same care as the case. Each export is audited.
 
 The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
 

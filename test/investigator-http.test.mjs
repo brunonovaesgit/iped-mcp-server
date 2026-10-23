@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { investigatorHtml } from "../dist/investigator-http.js";
+import { classifyIpedPath, investigatorHtml } from "../dist/investigator-http.js";
 
 test("relationship graph exposes adaptive layout and navigation controls", () => {
   for (const label of ["Radial", "Grade", "Ampla", "Evidências × entidades", "Tela cheia"]) {
@@ -241,4 +241,26 @@ test("printed investigation avoids scroll clipping and navigation chrome", () =>
   assert.ok(investigatorHtml.includes(".graphMiniMap,.drawer{display:none!important}"));
   assert.ok(investigatorHtml.includes(".graphShell,.graph{overflow:visible!important"));
   assert.ok(investigatorHtml.includes(".graph svg{max-width:100%;height:auto}"));
+});
+
+test("hovering an evidence reference shows a read-only preview card", () => {
+  assert.ok(investigatorHtml.includes('id="evidencePreview"'));
+  assert.ok(investigatorHtml.includes("?preview=1"));
+  assert.ok(investigatorHtml.includes("(hover: none)"), "touch devices keep the click-to-open behaviour");
+});
+
+test("waiting shows real progress reported by the server", () => {
+  assert.ok(investigatorHtml.includes('"/api/progress/"'));
+  assert.ok(investigatorHtml.includes('headers["x-progress-id"]=id'));
+  assert.ok(investigatorHtml.includes("busca(s) no índice"));
+  assert.equal(classifyIpedPath("/sources/resultado/search"), "search");
+  assert.equal(classifyIpedPath("/sources/resultado/docs/8/text"), "item");
+  assert.equal(classifyIpedPath("/sources"), "other");
+});
+
+test("the case timeline is separate from file-system and metadata dates", () => {
+  assert.ok(investigatorHtml.includes("Linha do tempo do caso"));
+  assert.ok(investigatorHtml.includes("Datas de arquivos e metadados"));
+  assert.ok(investigatorHtml.includes('id="eventFromEvidence"'));
+  assert.ok(investigatorHtml.includes('"/events"'));
 });

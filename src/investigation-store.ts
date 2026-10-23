@@ -3,6 +3,8 @@ import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { InvestigationState } from "./investigation-sessions.js";
 import type { Claim, ClaimInput, ClaimVerification } from "./claims.js";
+import { sortEvents, type CaseEvent, type CaseEventInput } from "./case-events.js";
+import type { EvidenceReference } from "./iped-client.js";
 
 /**
  * Local persistence for Investigator sessions.
@@ -48,6 +50,7 @@ export interface StoredInvestigation {
   workspace: unknown;
   notes?: InvestigationNote[];
   claims?: Claim[];
+  events?: CaseEvent[];
 }
 
 export interface StoredInvestigationSummary {
@@ -90,6 +93,7 @@ export class InvestigationStore {
       const record = this.buildRecord(state, workspace);
       record.notes = existing?.notes ?? [];
       record.claims = existing?.claims ?? [];
+      record.events = existing?.events ?? [];
       await this.write(record);
       return record;
     });
@@ -188,6 +192,49 @@ export class InvestigationStore {
       const record = await this.load(id);
       if (!record?.claims?.some(claim => claim.id === claimId)) return false;
       record.claims = record.claims.filter(claim => claim.id !== claimId);
+      await this.write(record);
+      return true;
+    });
+  }
+
+  async listEvents(id: string): Promise<CaseEvent[] | undefined> {
+    const record = await this.load(id);
+    return record ? sortEvents(record.events ?? []) : undefined;
+  }
+
+  async addEvent(id: string, input: CaseEventInput, missing: EvidenceReference[]): Promise<CaseEvent | undefined> {
+    if (!isInvestigationId(id)) return undefined;
+    return this.exclusive(id, async () => {
+      const record = await this.load(id);
+      if (!record) return undefined;
+      const now = new Date().toISOString();
+      const event: CaseEvent = { id: randomUUID(), ...input, createdAt: now, updatedAt: now, missing };
+      record.events = [...(record.events ?? []), event];
+      await this.write(record);
+      return event;
+    });
+  }
+
+  async updateEvent(id: string, eventId: string, input: CaseEventInput, missing: EvidenceReference[]): Promise<CaseEvent | undefined> {
+    if (!isInvestigationId(id)) return undefined;
+    return this.exclusive(id, async () => {
+      const record = await this.load(id);
+      const index = record?.events?.findIndex(event => event.id === eventId) ?? -1;
+      if (!record?.events || index < 0) return undefined;
+      const current = record.events[index];
+      const next: CaseEvent = { ...current, ...input, missing, updatedAt: new Date().toISOString() };
+      record.events[index] = next;
+      await this.write(record);
+      return next;
+    });
+  }
+
+  async deleteEvent(id: string, eventId: string): Promise<boolean> {
+    if (!isInvestigationId(id)) return false;
+    return this.exclusive(id, async () => {
+      const record = await this.load(id);
+      if (!record?.events?.some(event => event.id === eventId)) return false;
+      record.events = record.events.filter(event => event.id !== eventId);
       await this.write(record);
       return true;
     });

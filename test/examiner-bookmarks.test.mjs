@@ -133,3 +133,57 @@ test("local write guard requires JSON from the loopback origin", () => {
     "DNS rebinding"
   );
 });
+
+test("conflict guard blocks writes after the bookmark file is changed by another program", async () => {
+  const { mkdtemp, writeFile, utimes } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { BookmarkStateGuard, BookmarkConflictError } = await import("../dist/examiner-bookmarks.js");
+
+  const directory = await mkdtemp(join(tmpdir(), "iped-guard-"));
+  const file = join(directory, "bookmarks.iped");
+  await writeFile(file, "estado inicial");
+  const base = new Date("2026-10-23T12:00:00Z");
+  await utimes(file, base, base);
+
+  const guard = new BookmarkStateGuard(file, 15_000, 300);
+  const audit = new AuditLog();
+  const examiner = new ExaminerBookmarks({ ipedUrl }, audit, guard);
+
+  // Unchanged file: writing is allowed.
+  await examiner.mark("caso", 1, "Relevante");
+
+  // IPED desktop rewrites the state file a minute later.
+  const later = new Date("2026-10-23T12:01:00Z");
+  await utimes(file, later, later);
+  requests = [];
+  await assert.rejects(examiner.mark("caso", 2, "Relevante"), BookmarkConflictError);
+  await assert.rejects(examiner.unmark("caso", 1, "Relevante"), BookmarkConflictError);
+  assert.equal(requests.length, 0, "nothing reaches IPED when a conflict is detected");
+  assert.equal(audit.entries().at(-1).action, "examiner_bookmark_conflict");
+});
+
+test("conflict guard accepts its own asynchronous save and is disabled without a case folder", async () => {
+  const { mkdtemp, writeFile, utimes } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { BookmarkStateGuard } = await import("../dist/examiner-bookmarks.js");
+
+  const directory = await mkdtemp(join(tmpdir(), "iped-guard-"));
+  const file = join(directory, "bookmarks.iped");
+  await writeFile(file, "estado");
+  const old = new Date(Date.now() - 60_000);
+  await utimes(file, old, old);
+
+  const guard = new BookmarkStateGuard(file, 15_000, 200);
+  await guard.assertUnchanged();
+  // Our write lands only after the acknowledgement timeout (slow async save).
+  await guard.acknowledgeOwnWrite();
+  const now = new Date();
+  await utimes(file, now, now);
+  await guard.assertUnchanged(); // still treated as our own write
+
+  const disabled = new BookmarkStateGuard(undefined);
+  assert.equal(disabled.enabled, false);
+  await disabled.assertUnchanged();
+});

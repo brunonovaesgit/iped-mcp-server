@@ -10,19 +10,80 @@ import { IpedClient } from "./iped-client.js";
 import { InvestigatorService } from "./investigator-service.js";
 import { InvestigationSessions } from "./investigation-sessions.js";
 import { createAiAnalyzer } from "./ai-analyzer.js";
-import { BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
+import { BookmarkConflictError, BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
 import { InvestigationStore, NoteInputError, isInvestigationId } from "./investigation-store.js";
+import { CaseEventInputError, missingEventEvidence, normalizeEventInput } from "./case-events.js";
 import { ClaimInputError, normalizeClaimInput, verifyClaim, type Claim } from "./claims.js";
+import { buildReportHtml, collectReferences, type ReportAuditEntry, type ReportEvidence } from "./report.js";
+import { readFile } from "node:fs/promises";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { DisabledAiAnalyzer, type AiAnalyzer } from "./ai-analyzer.js";
 
 const config = getConfig();
 const audit = new AuditLog(config.auditLog);
 const iped = new IpedClient(config);
 const investigations = new InvestigationSessions();
-const ai = createAiAnalyzer({
+const baseAi = createAiAnalyzer({
   baseUrl: config.aiBaseUrl,
   model: config.aiModel,
   apiKey: config.aiApiKey
 });
+
+/** Live progress of a running request. Holds counters and a phase label only, never case content. */
+export type ProgressState = {
+  phase: string;
+  searches: number;
+  itemsRead: number;
+  startedAt: number;
+  updatedAt: number;
+  done?: boolean;
+};
+const progressStore = new AsyncLocalStorage<ProgressState>();
+const progress = new Map<string, ProgressState>();
+const PROGRESS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function classifyIpedPath(path: string): "search" | "item" | "other" {
+  if (path.endsWith("/search")) return "search";
+  if (path.includes("/docs/")) return "item";
+  return "other";
+}
+
+iped.onRequest = (path) => {
+  const state = progressStore.getStore();
+  if (!state) return;
+  const kind = classifyIpedPath(path);
+  if (kind === "search") { state.searches++; state.phase = "Buscando no índice do IPED"; }
+  else if (kind === "item") { state.itemsRead++; state.phase = "Lendo evidências"; }
+  state.updatedAt = Date.now();
+};
+
+const ai: AiAnalyzer = {
+  async analyze(input) {
+    const state = progressStore.getStore();
+    if (state && !(baseAi instanceof DisabledAiAnalyzer)) {
+      state.phase = "Análise assistida por IA (pode levar alguns minutos)";
+      state.updatedAt = Date.now();
+    }
+    return baseAi.analyze(input);
+  }
+};
+
+function trackProgress<T>(request: IncomingMessage, work: () => Promise<T>): Promise<T> {
+  const header = request.headers["x-progress-id"];
+  const id = typeof header === "string" && PROGRESS_ID.test(header) ? header.toLowerCase() : undefined;
+  if (!id) return work();
+  const now = Date.now();
+  const state: ProgressState = { phase: "Preparando a investigação", searches: 0, itemsRead: 0, startedAt: now, updatedAt: now };
+  progress.set(id, state);
+  for (const [key, value] of progress) if (now - value.updatedAt > 10 * 60_000) progress.delete(key);
+  return progressStore.run(state, async () => {
+    try { return await work(); }
+    finally {
+      state.done = true; state.phase = "Concluído"; state.updatedAt = Date.now();
+      setTimeout(() => progress.delete(id), 60_000).unref();
+    }
+  });
+}
 const investigator = new InvestigatorService(iped, investigations, audit, ai);
 const examinerBookmarks = new ExaminerBookmarks(config, audit);
 const investigationStore = new InvestigationStore(config.investigationsDir);
@@ -134,7 +195,7 @@ export const investigatorHtml = `<!doctype html>
     .chip{display:inline-flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--border-strong);border-radius:999px;padding:3px 4px 3px 10px;font-size:12.5px;font-weight:600}
     .chipRemove{background:none;padding:0 6px;color:var(--subtle);font-size:15px;line-height:1;font-weight:500}.chipRemove:hover{background:var(--accent-soft);color:var(--ink)}
     .bookmarkForm{display:flex;gap:8px;margin:0}.bookmarkForm input{flex:1;padding:9px 12px}.bookmarkForm button{background:var(--accent);color:#fff;padding:9px 16px}.bookmarkForm button:hover{background:var(--accent-strong)}
-    #bookmarkStatus{margin-top:8px;min-height:16px}
+    #bookmarkStatus{margin-top:8px;min-height:16px}.bookmarkWarning{color:#8a5a12;margin-top:4px}
     .noteForm{flex-direction:column;align-items:stretch;margin:12px 0 6px}#noteText{min-height:96px;max-height:40vh}
     .note{border-top:1px solid var(--border-soft);padding:14px 0}.note:first-child{border-top:0}
     .noteMeta{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--subtle);margin-bottom:6px}
@@ -153,9 +214,16 @@ export const investigatorHtml = `<!doctype html>
     .claimBadge.FACT{background:#e5f4e4;color:#1f6b33}.claimBadge.INFERENCE{background:#e7f1fb;color:#1d5a91}.claimBadge.HYPOTHESIS{background:#f9eeda;color:#8a5a12}
     .claimStatement{margin:8px 0;font-size:15px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
     .claimRefs{font-size:13px;line-height:1.7}.claimRefs .evidenceButton{margin-right:8px}
+    .claimForm label.checkLabel{flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;min-width:0;align-self:flex-end;padding-bottom:9px}.checkLabel input{width:auto}
+    .caseTimeline{list-style:none;margin:14px 0 0;padding:0 0 0 18px;border-left:2px solid var(--border)}.caseEvent{position:relative;padding:0 0 16px 14px}.caseEvent::before{content:"";position:absolute;left:-25px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
+    .eventDate{font-weight:650;font-size:13px;margin-bottom:3px;font-variant-numeric:tabular-nums}.eventBody .noteActions{display:inline-flex;margin-top:4px}
     .claimCheck{margin-top:8px;font-size:12.5px;padding:8px 10px;border-radius:8px;background:var(--surface-alt)}.claimCheck.warn{background:#fdf4e3}
     .claimCheck ul{margin:6px 0 0;padding-left:18px}
     .missingRef{margin-right:8px;color:#a33a2a;text-decoration:line-through;font-weight:600;cursor:help}
+    .exportBtn{margin-left:auto;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:6px 12px}.exportBtn:hover{background:var(--accent-soft)}
+    .previewCard{position:fixed;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:12px 14px;pointer-events:none;font-size:13px}
+    .previewName{font-weight:700;margin-bottom:2px;overflow-wrap:anywhere}.previewChips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}.previewChips .chip{padding:2px 8px;font-size:11.5px}
+    .previewText{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11.5px;line-height:1.45;background:var(--surface-alt);border-radius:6px;padding:8px;margin-top:6px;max-height:150px;overflow:hidden}.previewHint{margin-top:6px}
     /* ---- Conversational shell ---- */
     .shell{display:flex;height:100%;min-height:0}
     .nav{width:272px;flex-shrink:0;display:flex;flex-direction:column;background:#f9fafb;border-right:1px solid var(--border);transition:width .18s ease,margin .18s ease;overflow:hidden}
@@ -246,13 +314,13 @@ export const investigatorHtml = `<!doctype html>
       <div id="workspaceMain" class="thread hidden">
         <div class="userTurn" id="questionCard"></div>
         <div class="answer">
-          <div class="answerHead"><span class="avatar">IPED</span><span>Resultado da investigação</span></div>
+          <div class="answerHead"><span class="avatar">IPED</span><span>Resultado da investigação</span><a id="exportReport" class="exportBtn" href="#" download title="Baixar um rascunho de relatório com afirmações, notas, evidências citadas e rastreabilidade">Exportar relatório</a></div>
           <div class="summary" id="summary"></div>
           <div class="tabBar">
             <button type="button" class="tabButton tabActive" data-tab="resumo">Resumo</button>
             <button type="button" class="tabButton" data-tab="evidence">Evidências</button>
             <button type="button" class="tabButton" data-tab="relationships">Relações</button>
-            <button type="button" class="tabButton" data-tab="timeline">Timeline</button>
+            <button type="button" class="tabButton" data-tab="timeline" id="timelineTab">Timeline</button>
             <button type="button" class="tabButton" data-tab="notebook" id="notebookTab">Caderno</button>
             <button type="button" class="tabButton" data-tab="claims" id="claimsTab">Afirmações</button>
           </div>
@@ -273,7 +341,23 @@ export const investigatorHtml = `<!doctype html>
               <div class="panel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
             </div>
             <div class="tabPanel hidden" data-tab-panel="timeline">
-              <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
+              <div class="panel">
+                <h2>Linha do tempo do caso</h2>
+                <p class="meta">Eventos datados pelo perito a partir do conteúdo das evidências, como a data de um contrato ou de uma reunião combinada numa mensagem. Cada evento cita os itens de onde a data foi lida.</p>
+                <form id="eventForm" class="askForm claimForm">
+                  <div class="claimRow">
+                    <label>Data<input type="date" id="eventDate" min="1900-01-01" max="2200-12-31"></label>
+                    <label>Hora (opcional)<input type="time" id="eventTime"></label>
+                    <label class="checkLabel"><input type="checkbox" id="eventApproximate"> Data aproximada</label>
+                  </div>
+                  <label>Evento<textarea id="eventDescription" rows="2" maxlength="1000" placeholder="Ex.: Assinatura do contrato com o Projeto Atlas."></textarea></label>
+                  <label>Evidências<input id="eventEvidence" autocomplete="off" placeholder="Ex.: resultado:4"></label>
+                  <div class="askActions"><button type="button" id="eventCancel" class="linkBtn hidden">Cancelar edição</button><button id="eventSubmit">Registrar evento</button></div>
+                </form>
+                <div id="eventStatus" class="meta"></div>
+                <div id="eventsList"></div>
+              </div>
+              <div class="panel"><h2>Datas de arquivos e metadados</h2><p class="meta">Datas registradas pelo sistema de arquivos ou nos metadados (criação, modificação, envio). Indicam quando o arquivo foi gravado ou alterado, não necessariamente quando o fato descrito ocorreu.</p><div id="timeline"></div></div>
             </div>
             <div class="tabPanel hidden" data-tab-panel="notebook">
               <div class="panel">
@@ -321,11 +405,12 @@ export const investigatorHtml = `<!doctype html>
     </div>
   </div>
 </div>
+<div id="evidencePreview" class="previewCard hidden" role="tooltip"></div>
 <aside id="evidenceDrawer" class="drawer hidden">
-  <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><div class="drawerActions"><button type="button" id="citeEvidence" title="Inserir a referência deste item no caderno de análise">Citar no caderno</button><button type="button" id="claimEvidence" title="Usar este item como evidência a favor numa afirmação">Usar em afirmação</button><button id="closeEvidence">Fechar</button></div></div>
+  <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><div class="drawerActions"><button type="button" id="citeEvidence" title="Inserir a referência deste item no caderno de análise">Citar no caderno</button><button type="button" id="claimEvidence" title="Usar este item como evidência a favor numa afirmação">Usar em afirmação</button><button type="button" id="eventFromEvidence" title="Registrar na linha do tempo do caso um evento datado a partir deste item">Usar em evento</button><button id="closeEvidence">Fechar</button></div></div>
   <div id="evidenceMeta" class="meta"></div>
   <section class="bookmarkBox" aria-label="Marcadores do IPED">
-    <div class="bookmarkHead"><h3>Marcadores do IPED</h3><span class="meta">Gravados no caso processado, nunca na evidência original. Cada alteração fica no log de auditoria.</span></div>
+    <div class="bookmarkHead"><h3>Marcadores do IPED</h3><span class="meta">Gravados no caso processado, nunca na evidência original. Cada alteração fica no log de auditoria.</span><span class="meta bookmarkWarning">Não marque itens com o IPED desktop aberto neste mesmo caso: os dois gravam o mesmo arquivo de marcadores e um pode apagar as marcações do outro.</span></div>
     <div id="bookmarkChips" class="chips"></div>
     <form id="bookmarkForm" class="bookmarkForm"><input id="bookmarkName" list="bookmarkOptions" maxlength="80" value="Relevante" aria-label="Nome do marcador" placeholder="Nome do marcador"><datalist id="bookmarkOptions"></datalist><button>Marcar</button></form>
     <div id="bookmarkStatus" class="meta"></div>
@@ -553,6 +638,8 @@ function renderWorkspace(workspace){
   renderThread(entry);renderHistory();
   if(notesInvestigationId!==workspace.investigationId)loadNotes(workspace.investigationId);
   if(claimsInvestigationId!==workspace.investigationId)loadClaims(workspace.investigationId);
+  if(eventsInvestigationId!==workspace.investigationId)loadEvents(workspace.investigationId);
+  byId("exportReport").href="/api/investigations/"+encodeURIComponent(workspace.investigationId)+"/report";
   const directTarget=byId("directAnswer"),direct=workspace.directAnswer;
   if(direct?.kind==="EVIDENCE_LIST"){
     directTarget.classList.remove("hidden");
@@ -769,6 +856,39 @@ function renderGraph(graph){
   };
   draw();
 }
+const previewCache=new Map();let previewTimer=null,previewAnchor=null;
+function hidePreview(){clearTimeout(previewTimer);previewTimer=null;previewAnchor=null;byId("evidencePreview").classList.add("hidden");}
+function placePreview(anchor){
+  const card=byId("evidencePreview"),rect=anchor.getBoundingClientRect(),width=Math.min(380,window.innerWidth-24);
+  card.style.width=width+"px";card.classList.remove("hidden");
+  const left=Math.min(Math.max(12,rect.left),window.innerWidth-width-12);
+  let top=rect.bottom+8;if(top+card.offsetHeight>window.innerHeight-12)top=Math.max(12,rect.top-card.offsetHeight-8);
+  card.style.left=left+"px";card.style.top=top+"px";
+}
+function renderPreview(anchor,data){
+  if(previewAnchor!==anchor)return;
+  const card=byId("evidencePreview");
+  card.innerHTML=data.error?'<div class="meta">'+escapeHtml(data.error)+'</div>':'<div class="previewName">'+escapeHtml(data.name||"Item")+'</div><div class="meta">'+escapeHtml((data.path?data.path+" · ":"")+data.reference.sourceId+":"+data.reference.itemId)+'</div>'+((data.bookmarks||[]).length?'<div class="previewChips">'+data.bookmarks.map(name=>'<span class="chip">'+escapeHtml(name)+'</span>').join("")+'</div>':"")+(data.excerpt?'<div class="previewText">'+escapeHtml(data.excerpt)+(data.excerptTruncated?"…":"")+'</div>':'<div class="meta">Sem texto extraído.</div>')+'<div class="meta previewHint">Clique para abrir a evidência.</div>';
+  placePreview(anchor);
+}
+document.addEventListener("mouseover",event=>{
+  const anchor=event.target.closest?.(".evidenceButton[data-source][data-item]");
+  if(!anchor||anchor===previewAnchor)return;
+  if(window.matchMedia&&window.matchMedia("(hover: none)").matches)return;
+  hidePreview();previewAnchor=anchor;
+  previewTimer=setTimeout(async()=>{
+    const key=anchor.dataset.source+":"+anchor.dataset.item;
+    let data=previewCache.get(key);
+    if(!data){
+      try{const response=await fetch("/api/evidence/"+encodeURIComponent(anchor.dataset.source)+"/"+encodeURIComponent(anchor.dataset.item)+"?preview=1");data=response.ok?await response.json():{error:"Prévia indisponível."};if(response.ok)previewCache.set(key,data);}
+      catch{data={error:"Prévia indisponível."};}
+    }
+    renderPreview(anchor,data);
+  },450);
+});
+document.addEventListener("mouseout",event=>{const anchor=event.target.closest?.(".evidenceButton[data-source][data-item]");if(anchor&&anchor===previewAnchor&&!anchor.contains(event.relatedTarget))hidePreview();});
+document.addEventListener("scroll",hidePreview,true);
+document.addEventListener("click",hidePreview,true);
 let bookmarkTarget=null;
 async function loadBookmarkOptions(){
   try{const response=await fetch("/api/bookmarks");const result=await response.json();byId("bookmarkOptions").innerHTML=(result.bookmarks||[]).map(name=>'<option value="'+escapeHtml(name)+'"></option>').join("");}catch{}
@@ -788,6 +908,7 @@ async function changeBookmark(name,remove){
     const response=await fetch("/api/evidence/"+encodeURIComponent(sourceId)+"/"+encodeURIComponent(itemId)+"/bookmarks"+(remove?"/remove":""),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({bookmark:name})});
     const result=await response.json();
     if(!response.ok){status.textContent=result.error||"Não foi possível atualizar o marcador.";return;}
+    previewCache.delete(sourceId+":"+itemId);
     if(!bookmarkTarget||bookmarkTarget.sourceId!==sourceId||bookmarkTarget.itemId!==itemId)return;
     renderBookmarks(sourceId,itemId,result.bookmarks||[]);
     status.textContent=remove?('Removido de "'+name+'".'):('Marcado em "'+name+'"'+(result.createdBookmark?' (novo marcador criado no IPED).':'.'));
@@ -801,6 +922,78 @@ byId("citeEvidence").addEventListener("click",()=>{
   byId("evidenceDrawer").classList.add("hidden");selectTab("notebook");
   field.dispatchEvent(new Event("input"));field.focus();field.setSelectionRange(field.value.length,field.value.length);
   byId("noteStatus").textContent="Referência inserida. Complete a nota e salve.";
+});
+let caseEvents=[],editingEventId=null,eventsInvestigationId=null;
+function formatEventDate(value){
+  const parts=String(value||"").split("T");
+  return parts[0].split("-").reverse().join("/")+(parts[1]?" "+parts[1]:"");
+}
+function resetEventForm(){
+  editingEventId=null;byId("eventSubmit").textContent="Registrar evento";byId("eventCancel").classList.add("hidden");
+  ["eventDate","eventTime","eventDescription","eventEvidence"].forEach(id=>{byId(id).value="";});
+  byId("eventApproximate").checked=false;byId("eventDescription").style.height="";
+}
+function renderEvents(){
+  byId("timelineTab").innerHTML="Timeline"+(caseEvents.length?'<span class="tabCount">'+caseEvents.length+'</span>':"");
+  const list=byId("eventsList");
+  if(!caseEvents.length){list.innerHTML='<div class="empty">Nenhum evento registrado. Ao ler uma evidência, use "Usar em evento" para datar o que ela descreve.</div>';return;}
+  list.innerHTML='<ol class="caseTimeline">'+caseEvents.map(e=>'<li class="caseEvent" data-id="'+escapeHtml(e.id)+'"><div class="eventDate">'+escapeHtml(formatEventDate(e.date))+(e.approximate?' <span class="claimBadge HYPOTHESIS">aprox.</span>':"")+'</div><div class="eventBody"><div class="claimStatement">'+escapeHtml(e.description)+'</div><div class="claimRefs"><span class="meta">Lida em: </span>'+refButtons(e.evidence,e.missing)+'</div>'+((e.missing||[]).length?'<div class="claimCheck warn">'+escapeHtml(e.missing.length)+' referência(s) não encontrada(s) no caso.</div>':"")+'<span class="noteActions"><button type="button" class="linkBtn eventEdit">Editar</button><button type="button" class="linkBtn eventDelete">Excluir</button></span></div></li>').join("")+'</ol>';
+  list.querySelectorAll(".claimRef").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
+  list.querySelectorAll(".caseEvent").forEach(item=>{
+    const ev=caseEvents.find(e=>e.id===item.dataset.id);
+    item.querySelector(".eventEdit").addEventListener("click",()=>{
+      editingEventId=ev.id;const parts=ev.date.split("T");
+      byId("eventDate").value=parts[0];byId("eventTime").value=parts[1]||"";byId("eventApproximate").checked=Boolean(ev.approximate);
+      byId("eventDescription").value=ev.description;byId("eventEvidence").value=refsText(ev.evidence);
+      byId("eventSubmit").textContent="Salvar alteração";byId("eventCancel").classList.remove("hidden");
+      byId("eventStatus").textContent="Editando evento.";byId("eventDescription").focus();
+    });
+    const remove=item.querySelector(".eventDelete");
+    remove.addEventListener("click",()=>{
+      if(remove.dataset.confirm!=="1"){remove.dataset.confirm="1";remove.textContent="Confirmar exclusão";setTimeout(()=>{remove.dataset.confirm="";remove.textContent="Excluir";},4000);return;}
+      eventRequest("/"+encodeURIComponent(ev.id)+"/delete",{},"Evento excluído.",ev.id);
+    });
+  });
+}
+async function eventRequest(suffix,payload,message,deletedId){
+  const id=activeInvestigationId;if(!id)return false;
+  try{
+    const response=await fetch("/api/investigations/"+encodeURIComponent(id)+"/events"+suffix,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+    const result=await response.json();
+    if(!response.ok){byId("eventStatus").textContent=result.error||"Não foi possível salvar o evento.";return false;}
+    if(deletedId){caseEvents=caseEvents.filter(e=>e.id!==deletedId);if(editingEventId===deletedId)resetEventForm();}
+    else if(caseEvents.some(e=>e.id===result.event.id))caseEvents=caseEvents.map(e=>e.id===result.event.id?result.event:e);
+    else caseEvents.push(result.event);
+    caseEvents.sort((a,b)=>a.date.localeCompare(b.date)||a.createdAt.localeCompare(b.createdAt));
+    byId("eventStatus").textContent=message;renderEvents();return true;
+  }catch{byId("eventStatus").textContent="Não foi possível salvar o evento.";return false;}
+}
+async function loadEvents(id){
+  eventsInvestigationId=id;caseEvents=[];resetEventForm();byId("eventStatus").textContent="";renderEvents();
+  if(!id)return;
+  try{const response=await fetch("/api/investigations/"+encodeURIComponent(id)+"/events");if(response.ok&&eventsInvestigationId===id){caseEvents=(await response.json()).events||[];renderEvents();}}catch{}
+}
+byId("eventCancel").addEventListener("click",()=>{resetEventForm();byId("eventStatus").textContent="";});
+byId("eventForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const evidence=parseReferences(byId("eventEvidence").value);
+  if(evidence.unknown.length){byId("eventStatus").textContent="Referência não reconhecida: "+evidence.unknown.join(", ")+". Use o formato fonte:item, como "+(referenceSources()[0]||"fonte")+":8.";return;}
+  const day=byId("eventDate").value,time=byId("eventTime").value;
+  if(!day){byId("eventStatus").textContent="Informe a data do evento.";return;}
+  const payload={date:time?day+"T"+time:day,approximate:byId("eventApproximate").checked,description:byId("eventDescription").value,evidence:evidence.refs};
+  byId("eventSubmit").disabled=true;byId("eventStatus").textContent="Conferindo evidências no IPED...";
+  const ok=await eventRequest(editingEventId?"/"+encodeURIComponent(editingEventId):"",payload,editingEventId?"Evento atualizado.":"Evento registrado.");
+  byId("eventSubmit").disabled=false;
+  if(ok)resetEventForm();
+});
+byId("eventFromEvidence").addEventListener("click",()=>{
+  if(!bookmarkTarget||!activeInvestigationId)return;
+  const reference=bookmarkTarget.sourceId+":"+bookmarkTarget.itemId,field=byId("eventEvidence");
+  const current=field.value.split(",").map(item=>item.trim()).filter(Boolean);
+  if(!current.includes(reference))current.push(reference);
+  field.value=current.join(", ");
+  byId("evidenceDrawer").classList.add("hidden");selectTab("timeline");byId("eventDate").focus();
+  byId("eventStatus").textContent="Evidência adicionada. Informe a data lida no conteúdo e descreva o evento.";
 });
 byId("claimEvidence").addEventListener("click",()=>{
   if(!bookmarkTarget||!activeInvestigationId)return;
@@ -862,16 +1055,38 @@ async function loadHome(){
   }catch{byId("connection").textContent="IPED não disponível";byId("startButton").disabled=true;byId("status").textContent="Conecte um caso IPED já processado.";byId("onboarding").classList.remove("hidden")}
 }
 byId("sourceSelect").addEventListener("change",loadHome);
+function startProgress(initial){
+  const id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():"";
+  const startedAt=Date.now();let stopped=false,last=null;
+  const show=()=>{
+    if(stopped)return;
+    let text=(last&&last.phase?last.phase:initial)+" · "+Math.round((Date.now()-startedAt)/1000)+" s";
+    if(last&&(last.searches||last.itemsRead))text+=" · "+last.searches+" busca(s) no índice · "+last.itemsRead+" consulta(s) a evidências";
+    byId("status").textContent=text;
+  };
+  const poll=async()=>{
+    if(!id||stopped)return;
+    try{const r=await fetch("/api/progress/"+id,{cache:"no-store"});if(r.ok&&!stopped){last=await r.json();show();}}catch{}
+  };
+  show();const timer=setInterval(()=>{show();poll();},1000);
+  const headers={"content-type":"application/json"};if(id)headers["x-progress-id"]=id;
+  return {headers,stop(){
+    if(stopped)return;stopped=true;clearInterval(timer);
+    let text="Concluído em "+Math.round((Date.now()-startedAt)/1000)+" s";
+    if(last&&(last.searches||last.itemsRead))text+=" · "+last.searches+" busca(s) no índice · "+last.itemsRead+" consulta(s) a evidências";
+    byId("status").textContent=text;
+  }};
+}
 async function updateInvestigation(path,payload){
   if(!activeInvestigationId)return;
   const leadButtons=[...document.querySelectorAll(".leadButton")];
   const followUpButton=byId("followUpForm")?.querySelector("button");
   leadButtons.forEach(button=>{button.disabled=true;if(path==="/leads")button.textContent="Buscando...";});
   if(followUpButton)followUpButton.disabled=true;
-  byId("status").textContent="Buscando evidências relacionadas no IPED. Isso pode levar alguns segundos...";
+  const run=startProgress("Buscando evidências relacionadas no IPED");
   try{
-    const response=await fetch("/api/investigations/"+encodeURIComponent(activeInvestigationId)+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
-    const result=await response.json();
+    const response=await fetch("/api/investigations/"+encodeURIComponent(activeInvestigationId)+path,{method:"POST",headers:run.headers,body:JSON.stringify(payload)});
+    const result=await response.json();run.stop();
     if(result.workspace){
       renderWorkspace(result.workspace);
       if(result.status==="LEAD_EXPLORED"){
@@ -895,8 +1110,9 @@ async function updateInvestigation(path,payload){
       byId("status").textContent="Esta correlação já não está disponível para exploração. A investigação não foi alterada.";
       await loadHome();
     }else byId("status").textContent=result.error||result.reason||"A investigação não pôde avançar.";
-  }catch{byId("status").textContent="Não foi possível continuar a investigação."}
+  }catch{run.stop();byId("status").textContent="Não foi possível continuar a investigação."}
   finally{
+    run.stop();
     leadButtons.forEach(button=>{button.disabled=false;if(path==="/leads")button.textContent="Explorar";});
     if(followUpButton)followUpButton.disabled=false;
   }
@@ -915,18 +1131,17 @@ byId("questionForm").addEventListener("submit",async event=>{
   event.preventDefault();
   const question=byId("question").value.trim(); if(!question)return;
   byId("startButton").disabled=true;
-  const startedAt=Date.now(),emptyState=byId("mainEmptyState"),idleText=emptyState.textContent;
-  const tick=()=>{byId("status").textContent="Investigando evidências... "+Math.round((Date.now()-startedAt)/1000)+" s"+(document.body.classList.contains("landing")?" · com a análise assistida por IA ativa, pode levar alguns minutos":"");};
-  tick();const timer=setInterval(tick,1000);
+  const emptyState=byId("mainEmptyState"),idleText=emptyState.textContent;
+  const run=startProgress("Investigando evidências");
   if(!activeInvestigationId)emptyState.textContent="Investigando evidências no IPED. Com a análise assistida por IA ativa, isso pode levar alguns minutos.";
   try{
-    const response=await fetch("/api/investigations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question,sourceId:selectedSourceId||undefined})});
-    const result=await response.json();
+    const response=await fetch("/api/investigations",{method:"POST",headers:run.headers,body:JSON.stringify({question,sourceId:selectedSourceId||undefined})});
+    const result=await response.json();run.stop();
     if(result.workspace){renderWorkspace(result.workspace);selectTab("resumo");}
     else if(result.sourceSelection) byId("status").textContent="Selecione uma fonte do caso para continuar.";
     else byId("status").textContent=result.error||"Não foi possível iniciar a investigação.";
-  }catch{byId("status").textContent="Não foi possível iniciar a investigação."}
-  finally{clearInterval(timer);byId("startButton").disabled=false;if(!activeInvestigationId)emptyState.textContent=idleText;}
+  }catch{run.stop();byId("status").textContent="Não foi possível iniciar a investigação."}
+  finally{run.stop();byId("startButton").disabled=false;if(!activeInvestigationId)emptyState.textContent=idleText;}
 });
 ["question","followUp","noteText"].forEach(id=>{
   const field=byId(id);if(!field)return;
@@ -987,9 +1202,18 @@ async function body(request: IncomingMessage): Promise<Record<string, unknown>> 
   return value as Record<string, unknown>;
 }
 
-const server = createServer(async (request, response) => {
+const server = createServer((request, response) => trackProgress(request, () => handle(request, response)));
+
+async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
   try {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
+
+    const progressMatch = url.pathname.match(/^\/api\/progress\/([^/]+)$/);
+    if (request.method === "GET" && progressMatch) {
+      const state = progress.get(decodeURIComponent(progressMatch[1]).toLowerCase());
+      if (!state) return json(response, 404, { error: "Progresso não encontrado." });
+      return json(response, 200, { ...state, elapsedMs: Date.now() - state.startedAt });
+    }
 
     if (request.method === "GET" && url.pathname === "/") {
       response.writeHead(200, {
@@ -1053,14 +1277,22 @@ const server = createServer(async (request, response) => {
       /^\/api\/evidence\/([^/]+)\/(\d+)$/
     );
     if (request.method === "GET" && evidenceMatch) {
-      return json(
-        response,
-        200,
-        await investigator.evidence(
-          decodeURIComponent(evidenceMatch[1]),
-          Number(evidenceMatch[2])
-        )
-      );
+      const sourceId = decodeURIComponent(evidenceMatch[1]);
+      const itemId = Number(evidenceMatch[2]);
+      if (url.searchParams.get("preview") === "1") {
+        const evidence = await investigator.evidence(sourceId, itemId, "preview");
+        const text = typeof evidence.text === "string" ? evidence.text : "";
+        return json(response, 200, {
+          reference: evidence.reference,
+          name: evidence.name,
+          path: evidence.path,
+          hash: evidence.hash,
+          bookmarks: evidence.bookmarks,
+          excerpt: text.trim().slice(0, 420),
+          excerptTruncated: text.trim().length > 420 || Boolean(evidence.textTruncated)
+        });
+      }
+      return json(response, 200, await investigator.evidence(sourceId, itemId));
     }
 
     const continueMatch = url.pathname.match(
@@ -1114,6 +1346,96 @@ const server = createServer(async (request, response) => {
         result.status === "CORRELATION_NOT_AVAILABLE" ? 409 : 200,
         result
       );
+    }
+
+    const reportMatch = url.pathname.match(/^\/api\/investigations\/([^/]+)\/report$/);
+    if (request.method === "GET" && reportMatch) {
+      const investigationId = decodeURIComponent(reportMatch[1]);
+      const record = isInvestigationId(investigationId)
+        ? await investigationStore.load(investigationId)
+        : undefined;
+      if (!record) return json(response, 404, { error: "Investigação não encontrada." });
+
+      const workspaceEvidence =
+        ((record.workspace as { panels?: { evidence?: Array<{ sourceId?: string }> } })?.panels?.evidence ?? []);
+      const sourceIds = [
+        ...new Set(
+          [record.sourceId, ...workspaceEvidence.map(item => item.sourceId)].filter(
+            (value): value is string => typeof value === "string" && value.length > 0
+          )
+        )
+      ];
+      const references = collectReferences(record, sourceIds).slice(0, 300);
+      const evidence: ReportEvidence[] = [];
+      for (let index = 0; index < references.length; index += 8) {
+        evidence.push(
+          ...(await Promise.all(
+            references.slice(index, index + 8).map(async reference => {
+              try {
+                const item = await iped.getEvidence(reference.sourceId, reference.itemId);
+                const props = item.properties;
+                return {
+                  ...reference,
+                  found: true,
+                  name: props.name?.[0] ?? props.Name?.[0],
+                  path: props.path?.[0] ?? props.Path?.[0],
+                  hash: props.hash?.[0],
+                  bookmarks: item.bookmarks
+                };
+              } catch {
+                return { ...reference, found: false };
+              }
+            })
+          ))
+        );
+      }
+
+      const referenceKeys = new Set(references.map(ref => `${ref.sourceId}:${ref.itemId}`));
+      const auditEntries: ReportAuditEntry[] = [];
+      try {
+        const lines = config.auditLog ? (await readFile(config.auditLog, "utf8")).split("\n") : [];
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let entry: Record<string, unknown>;
+          try {
+            entry = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          const ownInvestigation = entry.investigationId === record.id;
+          const bookmarkOnCitedItem =
+            typeof entry.action === "string" &&
+            entry.action.startsWith("examiner_bookmark_") &&
+            referenceKeys.has(`${entry.sourceId}:${entry.itemId}`) &&
+            String(entry.timestamp) >= record.createdAt;
+          if (!ownInvestigation && !bookmarkOnCitedItem) continue;
+          const details = Object.entries(entry)
+            .filter(([key]) => !["timestamp", "serverSessionId", "sequence", "action", "investigationId"].includes(key))
+            .map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
+            .join(" · ");
+          auditEntries.push({ timestamp: String(entry.timestamp), action: String(entry.action), details });
+        }
+      } catch {
+        // A missing audit log yields an empty traceability section.
+      }
+
+      const generatedAt = new Date().toISOString();
+      await audit.write("investigation_report_exported", {
+        investigationId: record.id,
+        referencedEvidence: evidence.length,
+        claims: record.claims?.length ?? 0,
+        events: record.events?.length ?? 0,
+        notes: record.notes?.length ?? 0
+      });
+      const html = buildReportHtml({ record, evidence, audit: auditEntries, generatedAt });
+      const fileDate = generatedAt.slice(0, 10);
+      response.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "content-disposition": `attachment; filename="rascunho-relatorio-${fileDate}-${record.id.slice(0, 8)}.html"`
+      });
+      response.end(html);
+      return;
     }
 
     const claimsMatch = url.pathname.match(
@@ -1194,6 +1516,63 @@ const server = createServer(async (request, response) => {
           return json(response, 200, { claim: updated });
         } catch (error) {
           if (error instanceof ClaimInputError) {
+            return json(response, 400, { error: error.message });
+          }
+          throw error;
+        }
+      }
+    }
+
+    const eventsMatch = url.pathname.match(
+      /^\/api\/investigations\/([^/]+)\/events(?:\/([^/]+)(\/delete)?)?$/
+    );
+    if (eventsMatch) {
+      const investigationId = decodeURIComponent(eventsMatch[1]);
+      const eventId = eventsMatch[2] ? decodeURIComponent(eventsMatch[2]) : undefined;
+      const remove = Boolean(eventsMatch[3]);
+      if (!isInvestigationId(investigationId)) {
+        return json(response, 404, { error: "Investigação não encontrada." });
+      }
+
+      if (request.method === "GET" && !eventId) {
+        const events = await investigationStore.listEvents(investigationId);
+        if (!events) return json(response, 404, { error: "Investigação não encontrada." });
+        return json(response, 200, { events });
+      }
+
+      if (request.method === "POST") {
+        if (!isTrustedLocalWrite(request.headers)) {
+          await audit.write("investigation_event_rejected", {
+            reason: "untrusted_request",
+            origin: request.headers.origin,
+            host: request.headers.host
+          });
+          return json(response, 403, { error: "Requisição não permitida." });
+        }
+        const input = await body(request);
+        try {
+          if (eventId && remove) {
+            const deleted = await investigationStore.deleteEvent(investigationId, eventId);
+            if (!deleted) return json(response, 404, { error: "Evento não encontrado." });
+            await audit.write("investigation_event_deleted", { investigationId, eventId });
+            return json(response, 200, { deleted: true });
+          }
+          const event = normalizeEventInput(input);
+          const missing = await missingEventEvidence(iped, event);
+          const saved = eventId
+            ? await investigationStore.updateEvent(investigationId, eventId, event, missing)
+            : await investigationStore.addEvent(investigationId, event, missing);
+          if (!saved) return json(response, 404, { error: eventId ? "Evento não encontrado." : "Investigação não encontrada." });
+          await audit.write(eventId ? "investigation_event_updated" : "investigation_event_added", {
+            investigationId,
+            eventId: saved.id,
+            date: saved.date,
+            evidence: saved.evidence.length,
+            missing: missing.length
+          });
+          return json(response, 200, { event: saved });
+        } catch (error) {
+          if (error instanceof CaseEventInputError) {
             return json(response, 400, { error: error.message });
           }
           throw error;
@@ -1318,6 +1697,9 @@ const server = createServer(async (request, response) => {
         if (error instanceof BookmarkInputError) {
           return json(response, 400, { error: error.message });
         }
+        if (error instanceof BookmarkConflictError) {
+          return json(response, 409, { error: error.message, conflict: true });
+        }
         throw error;
       }
     }
@@ -1334,7 +1716,7 @@ const server = createServer(async (request, response) => {
       error: "Não foi possível concluir a operação."
     });
   }
-});
+}
 
 const isEntryPoint =
   !!process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
