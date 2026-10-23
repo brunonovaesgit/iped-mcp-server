@@ -483,6 +483,12 @@ Each claim is checked against IPED when it is recorded, edited or re-verified. T
 
 Claims are saved with the investigation, separate from the evidence. The audit log records the classification and evidence counts of each change, without the statement text.
 
+### Draft report
+
+**Exportar relatório**, next to the result, downloads a draft report as a standalone HTML file. It opens in any browser (print or save as PDF) and in Word or LibreOffice for editing. The draft contains, in order: the investigative question and follow-ups; the observed findings; the claims grouped as facts, inferences and hypotheses with their evidence and structural verification; the notebook; a table of every referenced item with name, path, hash and current IPED bookmarks (looked up at export time); the audit trail of the investigation; and the limitations.
+
+The report is explicitly labelled as a draft that requires the examiner's review. It restates what was recorded and what IPED returned, adds no conclusions and does not validate evidence content. Like the saved investigations, it contains names, extracted values and the examiner's notes, and must be handled with the same care as the case. Each export is audited.
+
 The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
 
 ## MCP client configuration

@@ -13,6 +13,8 @@ import { createAiAnalyzer } from "./ai-analyzer.js";
 import { BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
 import { InvestigationStore, NoteInputError, isInvestigationId } from "./investigation-store.js";
 import { ClaimInputError, normalizeClaimInput, verifyClaim, type Claim } from "./claims.js";
+import { buildReportHtml, collectReferences, type ReportAuditEntry, type ReportEvidence } from "./report.js";
+import { readFile } from "node:fs/promises";
 
 const config = getConfig();
 const audit = new AuditLog(config.auditLog);
@@ -156,6 +158,7 @@ export const investigatorHtml = `<!doctype html>
     .claimCheck{margin-top:8px;font-size:12.5px;padding:8px 10px;border-radius:8px;background:var(--surface-alt)}.claimCheck.warn{background:#fdf4e3}
     .claimCheck ul{margin:6px 0 0;padding-left:18px}
     .missingRef{margin-right:8px;color:#a33a2a;text-decoration:line-through;font-weight:600;cursor:help}
+    .exportBtn{margin-left:auto;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:6px 12px}.exportBtn:hover{background:var(--accent-soft)}
     /* ---- Conversational shell ---- */
     .shell{display:flex;height:100%;min-height:0}
     .nav{width:272px;flex-shrink:0;display:flex;flex-direction:column;background:#f9fafb;border-right:1px solid var(--border);transition:width .18s ease,margin .18s ease;overflow:hidden}
@@ -246,7 +249,7 @@ export const investigatorHtml = `<!doctype html>
       <div id="workspaceMain" class="thread hidden">
         <div class="userTurn" id="questionCard"></div>
         <div class="answer">
-          <div class="answerHead"><span class="avatar">IPED</span><span>Resultado da investigação</span></div>
+          <div class="answerHead"><span class="avatar">IPED</span><span>Resultado da investigação</span><a id="exportReport" class="exportBtn" href="#" download title="Baixar um rascunho de relatório com afirmações, notas, evidências citadas e rastreabilidade">Exportar relatório</a></div>
           <div class="summary" id="summary"></div>
           <div class="tabBar">
             <button type="button" class="tabButton tabActive" data-tab="resumo">Resumo</button>
@@ -553,6 +556,7 @@ function renderWorkspace(workspace){
   renderThread(entry);renderHistory();
   if(notesInvestigationId!==workspace.investigationId)loadNotes(workspace.investigationId);
   if(claimsInvestigationId!==workspace.investigationId)loadClaims(workspace.investigationId);
+  byId("exportReport").href="/api/investigations/"+encodeURIComponent(workspace.investigationId)+"/report";
   const directTarget=byId("directAnswer"),direct=workspace.directAnswer;
   if(direct?.kind==="EVIDENCE_LIST"){
     directTarget.classList.remove("hidden");
@@ -1114,6 +1118,95 @@ const server = createServer(async (request, response) => {
         result.status === "CORRELATION_NOT_AVAILABLE" ? 409 : 200,
         result
       );
+    }
+
+    const reportMatch = url.pathname.match(/^\/api\/investigations\/([^/]+)\/report$/);
+    if (request.method === "GET" && reportMatch) {
+      const investigationId = decodeURIComponent(reportMatch[1]);
+      const record = isInvestigationId(investigationId)
+        ? await investigationStore.load(investigationId)
+        : undefined;
+      if (!record) return json(response, 404, { error: "Investigação não encontrada." });
+
+      const workspaceEvidence =
+        ((record.workspace as { panels?: { evidence?: Array<{ sourceId?: string }> } })?.panels?.evidence ?? []);
+      const sourceIds = [
+        ...new Set(
+          [record.sourceId, ...workspaceEvidence.map(item => item.sourceId)].filter(
+            (value): value is string => typeof value === "string" && value.length > 0
+          )
+        )
+      ];
+      const references = collectReferences(record, sourceIds).slice(0, 300);
+      const evidence: ReportEvidence[] = [];
+      for (let index = 0; index < references.length; index += 8) {
+        evidence.push(
+          ...(await Promise.all(
+            references.slice(index, index + 8).map(async reference => {
+              try {
+                const item = await iped.getEvidence(reference.sourceId, reference.itemId);
+                const props = item.properties;
+                return {
+                  ...reference,
+                  found: true,
+                  name: props.name?.[0] ?? props.Name?.[0],
+                  path: props.path?.[0] ?? props.Path?.[0],
+                  hash: props.hash?.[0],
+                  bookmarks: item.bookmarks
+                };
+              } catch {
+                return { ...reference, found: false };
+              }
+            })
+          ))
+        );
+      }
+
+      const referenceKeys = new Set(references.map(ref => `${ref.sourceId}:${ref.itemId}`));
+      const auditEntries: ReportAuditEntry[] = [];
+      try {
+        const lines = config.auditLog ? (await readFile(config.auditLog, "utf8")).split("\n") : [];
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let entry: Record<string, unknown>;
+          try {
+            entry = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          const ownInvestigation = entry.investigationId === record.id;
+          const bookmarkOnCitedItem =
+            typeof entry.action === "string" &&
+            entry.action.startsWith("examiner_bookmark_") &&
+            referenceKeys.has(`${entry.sourceId}:${entry.itemId}`) &&
+            String(entry.timestamp) >= record.createdAt;
+          if (!ownInvestigation && !bookmarkOnCitedItem) continue;
+          const details = Object.entries(entry)
+            .filter(([key]) => !["timestamp", "serverSessionId", "sequence", "action", "investigationId"].includes(key))
+            .map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
+            .join(" · ");
+          auditEntries.push({ timestamp: String(entry.timestamp), action: String(entry.action), details });
+        }
+      } catch {
+        // A missing audit log yields an empty traceability section.
+      }
+
+      const generatedAt = new Date().toISOString();
+      await audit.write("investigation_report_exported", {
+        investigationId: record.id,
+        referencedEvidence: evidence.length,
+        claims: record.claims?.length ?? 0,
+        notes: record.notes?.length ?? 0
+      });
+      const html = buildReportHtml({ record, evidence, audit: auditEntries, generatedAt });
+      const fileDate = generatedAt.slice(0, 10);
+      response.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "content-disposition": `attachment; filename="rascunho-relatorio-${fileDate}-${record.id.slice(0, 8)}.html"`
+      });
+      response.end(html);
+      return;
     }
 
     const claimsMatch = url.pathname.match(
