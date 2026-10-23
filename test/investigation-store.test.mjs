@@ -89,3 +89,58 @@ test("the store never talks to IPED", async () => {
   const source = await readFile(new URL("../src/investigation-store.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /fetch\(|ipedUrl|IpedClient/);
 });
+
+test("notes are added, edited and deleted, and survive new results being saved", async () => {
+  const { store: s } = await store();
+  const sessions = new InvestigationSessions();
+  const state = stateFor(sessions, "Com caderno");
+  await s.save(state, { version: 1 });
+
+  const first = await s.addNote(state.id, "  Hipótese: resultado:8 liga Mariana ao projeto.  ");
+  assert.equal(first.text, "Hipótese: resultado:8 liga Mariana ao projeto.");
+  const second = await s.addNote(state.id, "Linha 1\r\nLinha 2");
+  assert.equal(second.text, "Linha 1\nLinha 2");
+
+  // A new result for the same investigation must not erase the notebook.
+  await s.save(state, { version: 2 });
+  assert.equal((await s.load(state.id)).workspace.version, 2);
+  assert.deepEqual((await s.listNotes(state.id)).map(n => n.id), [first.id, second.id]);
+
+  const edited = await s.updateNote(state.id, first.id, "Hipótese descartada.");
+  assert.equal(edited.text, "Hipótese descartada.");
+  assert.ok(edited.updatedAt >= edited.createdAt);
+
+  assert.equal(await s.deleteNote(state.id, second.id), true);
+  assert.equal(await s.deleteNote(state.id, second.id), false);
+  assert.deepEqual((await s.listNotes(state.id)).map(n => n.text), ["Hipótese descartada."]);
+});
+
+test("concurrent note and result writes do not lose notes", async () => {
+  const { store: s } = await store();
+  const sessions = new InvestigationSessions();
+  const state = stateFor(sessions, "Concorrência");
+  await s.save(state, {});
+  await Promise.all([
+    s.addNote(state.id, "nota 1"),
+    s.save(state, { round: 1 }),
+    s.addNote(state.id, "nota 2"),
+    s.save(state, { round: 2 }),
+    s.addNote(state.id, "nota 3")
+  ]);
+  assert.deepEqual((await s.listNotes(state.id)).map(n => n.text).sort(), ["nota 1", "nota 2", "nota 3"]);
+});
+
+test("notes are validated and unknown investigations are rejected", async () => {
+  const { store: s } = await store();
+  const sessions = new InvestigationSessions();
+  const state = stateFor(sessions, "Validação");
+  await s.save(state, {});
+  const { NoteInputError } = await import("../dist/investigation-store.js");
+  for (const bad of ["", "   ", 42, undefined, "x".repeat(10_001)]) {
+    await assert.rejects(s.addNote(state.id, bad), NoteInputError);
+  }
+  assert.equal(await s.addNote("6f1c2a7d-3b8e-4f6a-8c5d-7e9b1a3c5e7f", "sem investigação"), undefined);
+  assert.equal(await s.addNote("../fora", "id inválido"), undefined);
+  assert.equal(await s.listNotes("6f1c2a7d-3b8e-4f6a-8c5d-7e9b1a3c5e7f"), undefined);
+  assert.equal(await s.updateNote(state.id, "inexistente", "texto"), undefined);
+});

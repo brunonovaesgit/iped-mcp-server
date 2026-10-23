@@ -11,7 +11,7 @@ import { InvestigatorService } from "./investigator-service.js";
 import { InvestigationSessions } from "./investigation-sessions.js";
 import { createAiAnalyzer } from "./ai-analyzer.js";
 import { BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
-import { InvestigationStore, isInvestigationId } from "./investigation-store.js";
+import { InvestigationStore, NoteInputError, isInvestigationId } from "./investigation-store.js";
 
 const config = getConfig();
 const audit = new AuditLog(config.auditLog);
@@ -134,6 +134,14 @@ export const investigatorHtml = `<!doctype html>
     .chipRemove{background:none;padding:0 6px;color:var(--subtle);font-size:15px;line-height:1;font-weight:500}.chipRemove:hover{background:var(--accent-soft);color:var(--ink)}
     .bookmarkForm{display:flex;gap:8px;margin:0}.bookmarkForm input{flex:1;padding:9px 12px}.bookmarkForm button{background:var(--accent);color:#fff;padding:9px 16px}.bookmarkForm button:hover{background:var(--accent-strong)}
     #bookmarkStatus{margin-top:8px;min-height:16px}
+    .noteForm{flex-direction:column;align-items:stretch;margin:12px 0 6px}#noteText{min-height:96px;max-height:40vh}
+    .note{border-top:1px solid var(--border-soft);padding:14px 0}.note:first-child{border-top:0}
+    .noteMeta{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--subtle);margin-bottom:6px}
+    .noteBody{white-space:pre-wrap;line-height:1.6;font-size:14.5px;overflow-wrap:anywhere}.noteBody .evidenceButton{display:inline;font-size:inherit}
+    .linkBtn{background:none;padding:2px 6px;color:var(--accent);font-weight:600;font-size:12px}.linkBtn:hover{background:var(--accent-soft)}.noteActions{display:inline-flex;gap:4px}
+    .drawerActions{display:flex;gap:8px}.drawerActions button{padding:7px 11px}#citeEvidence{background:var(--accent);color:#fff}#citeEvidence:hover{background:var(--accent-strong)}
+    #noteSubmit{background:var(--accent);color:#fff}#noteSubmit:hover{background:var(--accent-strong)}
+    @media(max-width:800px){form.composer,form.bookmarkForm{flex-direction:row}}
     /* ---- Conversational shell ---- */
     .shell{display:flex;height:100%;min-height:0}
     .nav{width:272px;flex-shrink:0;display:flex;flex-direction:column;background:#f9fafb;border-right:1px solid var(--border);transition:width .18s ease,margin .18s ease;overflow:hidden}
@@ -231,6 +239,7 @@ export const investigatorHtml = `<!doctype html>
             <button type="button" class="tabButton" data-tab="evidence">Evidências</button>
             <button type="button" class="tabButton" data-tab="relationships">Relações</button>
             <button type="button" class="tabButton" data-tab="timeline">Timeline</button>
+            <button type="button" class="tabButton" data-tab="notebook" id="notebookTab">Caderno</button>
           </div>
           <div class="tabContent">
             <div class="tabPanel" data-tab-panel="resumo">
@@ -251,6 +260,18 @@ export const investigatorHtml = `<!doctype html>
             <div class="tabPanel hidden" data-tab-panel="timeline">
               <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
             </div>
+            <div class="tabPanel hidden" data-tab-panel="notebook">
+              <div class="panel">
+                <h2>Caderno de análise</h2>
+                <p class="meta">Anotações do perito, salvas com esta investigação e separadas da evidência. Referências no formato fonte:item, como a que o botão "Citar no caderno" insere, viram links para a evidência.</p>
+                <form id="noteForm" class="askForm noteForm">
+                  <textarea id="noteText" rows="4" maxlength="10000" aria-label="Nova nota" placeholder="Registre uma observação, hipótese ou conclusão parcial..."></textarea>
+                  <div class="askActions"><span class="askHint">⌘/Ctrl + Enter para salvar</span><button id="noteSubmit">Adicionar nota</button></div>
+                </form>
+                <div id="noteStatus" class="meta"></div>
+                <div id="notesList"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -267,7 +288,7 @@ export const investigatorHtml = `<!doctype html>
   </div>
 </div>
 <aside id="evidenceDrawer" class="drawer hidden">
-  <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><button id="closeEvidence">Fechar</button></div>
+  <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><div class="drawerActions"><button type="button" id="citeEvidence" title="Inserir a referência deste item no caderno de análise">Citar no caderno</button><button id="closeEvidence">Fechar</button></div></div>
   <div id="evidenceMeta" class="meta"></div>
   <section class="bookmarkBox" aria-label="Marcadores do IPED">
     <div class="bookmarkHead"><h3>Marcadores do IPED</h3><span class="meta">Gravados no caso processado, nunca na evidência original. Cada alteração fica no log de auditoria.</span></div>
@@ -326,6 +347,73 @@ async function loadSavedInvestigations(){
     renderHistory();
   }catch{}
 }
+let notes=[],editingNoteId=null,notesInvestigationId=null;
+function referenceSources(){
+  const set=new Set(),workspace=investigationHistory.get(activeInvestigationId)?.workspace;
+  if(workspace?.case?.sourceId)set.add(String(workspace.case.sourceId));
+  (workspace?.panels?.evidence||[]).forEach(item=>{if(item.sourceId)set.add(String(item.sourceId));});
+  if(selectedSourceId)set.add(String(selectedSourceId));
+  return [...set];
+}
+function isWordChar(ch){return !!ch&&/[A-Za-z0-9_]/.test(ch);}
+function linkReferences(text){
+  const sources=referenceSources();let html="",i=0;
+  while(i<text.length){
+    let best=-1,src="";
+    for(const s of sources){const k=text.indexOf(s+":",i);if(k>=0&&(best<0||k<best||(k===best&&s.length>src.length))){best=k;src=s;}}
+    if(best<0){html+=escapeHtml(text.slice(i));break;}
+    let j=best+src.length+1;while(j<text.length&&text[j]>="0"&&text[j]<="9")j++;
+    const digits=text.slice(best+src.length+1,j);
+    if(digits&&!isWordChar(text[best-1])&&!isWordChar(text[j])){
+      html+=escapeHtml(text.slice(i,best))+'<button type="button" class="evidenceButton noteRef" data-source="'+escapeHtml(src)+'" data-item="'+digits+'">'+escapeHtml(src+":"+digits)+'</button>';i=j;
+    }else{html+=escapeHtml(text.slice(i,best+src.length+1));i=best+src.length+1;}
+  }
+  return html;
+}
+function formatNoteDate(iso){try{return new Date(iso).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});}catch{return iso;}}
+function resetNoteEditor(){editingNoteId=null;byId("noteSubmit").textContent="Adicionar nota";}
+function renderNotes(){
+  const list=byId("notesList");
+  byId("notebookTab").innerHTML="Caderno"+(notes.length?'<span class="tabCount">'+notes.length+'</span>':"");
+  if(!notes.length){list.innerHTML='<div class="empty">Nenhuma nota ainda. Use o caderno para registrar o raciocínio da análise.</div>';return;}
+  list.innerHTML=notes.map(note=>'<article class="note" data-id="'+escapeHtml(note.id)+'"><div class="noteMeta"><span>'+escapeHtml(formatNoteDate(note.createdAt))+(note.updatedAt!==note.createdAt?" · editada em "+escapeHtml(formatNoteDate(note.updatedAt)):"")+'</span><span class="noteActions"><button type="button" class="linkBtn noteEdit">Editar</button><button type="button" class="linkBtn noteDelete">Excluir</button></span></div><div class="noteBody">'+linkReferences(note.text)+'</div></article>').join("");
+  list.querySelectorAll(".noteRef").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
+  list.querySelectorAll(".note").forEach(article=>{
+    const note=notes.find(item=>item.id===article.dataset.id);
+    article.querySelector(".noteEdit").addEventListener("click",()=>{editingNoteId=note.id;const field=byId("noteText");field.value=note.text;field.dispatchEvent(new Event("input"));byId("noteSubmit").textContent="Salvar alteração";byId("noteStatus").textContent="Editando nota.";field.focus();});
+    const remove=article.querySelector(".noteDelete");
+    remove.addEventListener("click",async()=>{
+      if(remove.dataset.confirm!=="1"){remove.dataset.confirm="1";remove.textContent="Confirmar exclusão";setTimeout(()=>{remove.dataset.confirm="";remove.textContent="Excluir";},4000);return;}
+      const id=activeInvestigationId;
+      try{
+        const response=await fetch("/api/investigations/"+encodeURIComponent(id)+"/notes/"+encodeURIComponent(note.id)+"/delete",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
+        const result=await response.json();
+        if(!response.ok){byId("noteStatus").textContent=result.error||"Não foi possível excluir a nota.";return;}
+        notes=notes.filter(item=>item.id!==note.id);if(editingNoteId===note.id){resetNoteEditor();byId("noteText").value="";}
+        byId("noteStatus").textContent="Nota excluída.";renderNotes();
+      }catch{byId("noteStatus").textContent="Não foi possível excluir a nota.";}
+    });
+  });
+}
+async function loadNotes(id){
+  notesInvestigationId=id;notes=[];resetNoteEditor();byId("noteText").value="";byId("noteStatus").textContent="";renderNotes();
+  if(!id)return;
+  try{const response=await fetch("/api/investigations/"+encodeURIComponent(id)+"/notes");if(response.ok&&notesInvestigationId===id){notes=(await response.json()).notes||[];renderNotes();}}catch{}
+}
+byId("noteForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const text=byId("noteText").value.trim(),id=activeInvestigationId;if(!text||!id)return;
+  const path="/api/investigations/"+encodeURIComponent(id)+"/notes"+(editingNoteId?"/"+encodeURIComponent(editingNoteId):"");
+  byId("noteSubmit").disabled=true;
+  try{
+    const response=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text})});
+    const result=await response.json();
+    if(!response.ok){byId("noteStatus").textContent=result.error||"Não foi possível salvar a nota.";return;}
+    if(editingNoteId)notes=notes.map(item=>item.id===result.note.id?result.note:item);else notes.push(result.note);
+    resetNoteEditor();byId("noteText").value="";byId("noteText").style.height="";byId("noteStatus").textContent="Nota salva.";renderNotes();
+  }catch{byId("noteStatus").textContent="Não foi possível salvar a nota.";}
+  finally{byId("noteSubmit").disabled=false;}
+});
 function renderThread(entry){
   byId("questionCard").innerHTML=entry.questions.map((q,i)=>'<div class="bubble">'+(i?'<span class="kicker">Pergunta de acompanhamento</span>':'')+escapeHtml(q)+'</div>').join("");
   byId("topTitle").textContent=entry.questions[0];
@@ -344,6 +432,7 @@ function renderWorkspace(workspace){
   const entry=investigationHistory.get(workspace.investigationId)||{questions:[workspace.title||"Investigação"]};
   entry.workspace=workspace;investigationHistory.set(workspace.investigationId,entry);
   renderThread(entry);renderHistory();
+  if(notesInvestigationId!==workspace.investigationId)loadNotes(workspace.investigationId);
   const directTarget=byId("directAnswer"),direct=workspace.directAnswer;
   if(direct?.kind==="EVIDENCE_LIST"){
     directTarget.classList.remove("hidden");
@@ -584,6 +673,15 @@ async function changeBookmark(name,remove){
     status.textContent=remove?('Removido de "'+name+'".'):('Marcado em "'+name+'"'+(result.createdBookmark?' (novo marcador criado no IPED).':'.'));
   }catch{status.textContent="Não foi possível atualizar o marcador."}
 }
+byId("citeEvidence").addEventListener("click",()=>{
+  if(!bookmarkTarget||!activeInvestigationId)return;
+  const name=byId("evidenceTitle").textContent,reference=bookmarkTarget.sourceId+":"+bookmarkTarget.itemId;
+  const insert=reference+(name?" ("+name+")":""),field=byId("noteText");
+  field.value=field.value.trim()?field.value.trimEnd()+" "+insert+" ":insert+" ";
+  byId("evidenceDrawer").classList.add("hidden");selectTab("notebook");
+  field.dispatchEvent(new Event("input"));field.focus();field.setSelectionRange(field.value.length,field.value.length);
+  byId("noteStatus").textContent="Referência inserida. Complete a nota e salve.";
+});
 byId("bookmarkForm").addEventListener("submit",event=>{event.preventDefault();const name=byId("bookmarkName").value.trim();if(name)changeBookmark(name,false);});
 async function openEvidence(sourceId,itemId){
   byId("evidenceDrawer").classList.remove("hidden");
@@ -701,7 +799,7 @@ byId("questionForm").addEventListener("submit",async event=>{
   }catch{byId("status").textContent="Não foi possível iniciar a investigação."}
   finally{clearInterval(timer);byId("startButton").disabled=false;if(!activeInvestigationId)emptyState.textContent=idleText;}
 });
-["question","followUp"].forEach(id=>{
+["question","followUp","noteText"].forEach(id=>{
   const field=byId(id);if(!field)return;
   const grow=()=>{field.style.height="auto";field.style.height=field.scrollHeight+2+"px";};
   field.addEventListener("input",grow);
@@ -887,6 +985,67 @@ const server = createServer(async (request, response) => {
         result.status === "CORRELATION_NOT_AVAILABLE" ? 409 : 200,
         result
       );
+    }
+
+    const notesMatch = url.pathname.match(
+      /^\/api\/investigations\/([^/]+)\/notes(?:\/([^/]+)(\/delete)?)?$/
+    );
+    if (notesMatch) {
+      const investigationId = decodeURIComponent(notesMatch[1]);
+      const noteId = notesMatch[2] ? decodeURIComponent(notesMatch[2]) : undefined;
+      const remove = Boolean(notesMatch[3]);
+      if (!isInvestigationId(investigationId)) {
+        return json(response, 404, { error: "Investigação não encontrada." });
+      }
+
+      if (request.method === "GET" && !noteId) {
+        const notes = await investigationStore.listNotes(investigationId);
+        if (!notes) return json(response, 404, { error: "Investigação não encontrada." });
+        return json(response, 200, { notes });
+      }
+
+      if (request.method === "POST") {
+        if (!isTrustedLocalWrite(request.headers)) {
+          await audit.write("investigation_note_rejected", {
+            reason: "untrusted_request",
+            origin: request.headers.origin,
+            host: request.headers.host
+          });
+          return json(response, 403, { error: "Requisição não permitida." });
+        }
+        const input = await body(request);
+        try {
+          if (!noteId) {
+            const note = await investigationStore.addNote(investigationId, input.text);
+            if (!note) return json(response, 404, { error: "Investigação não encontrada." });
+            await audit.write("investigation_note_added", {
+              investigationId,
+              noteId: note.id,
+              length: note.text.length
+            });
+            return json(response, 200, { note });
+          }
+          if (remove) {
+            const deleted = await investigationStore.deleteNote(investigationId, noteId);
+            if (!deleted) return json(response, 404, { error: "Nota não encontrada." });
+            await audit.write("investigation_note_deleted", { investigationId, noteId });
+            return json(response, 200, { deleted: true });
+          }
+          const note = await investigationStore.updateNote(investigationId, noteId, input.text);
+          if (!note) return json(response, 404, { error: "Nota não encontrada." });
+          await audit.write("investigation_note_updated", {
+            investigationId,
+            noteId,
+            length: note.text.length
+          });
+          return json(response, 200, { note });
+        } catch (error) {
+          if (error instanceof NoteInputError) {
+            return json(response, 400, { error: error.message });
+          }
+          throw error;
+        }
+      }
     }
 
     if (request.method === "GET" && url.pathname === "/api/investigations") {

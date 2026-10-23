@@ -469,6 +469,12 @@ Each investigation is saved automatically after every result: the initial questi
 
 Each investigation is one JSON file in `INVESTIGATIONS_DIR`, readable only by the current user. It holds the session state (questions, queries and IPED item references) and the last rendered result, which may include extracted values and evidence names. Treat this directory with the same care as the audit log. It is never written back to the IPED case.
 
+### Analysis notebook
+
+Each investigation has a **Caderno** (notebook) tab where the examiner records observations, hypotheses and partial conclusions in chronological order. Any reference written as `source:item` (for example `resultado:8`) becomes a link that opens the evidence, and the **Citar no caderno** button in the evidence panel inserts the reference and file name into the note being written.
+
+Notes are saved with the investigation in `INVESTIGATIONS_DIR`, separate from the evidence, and can be edited or deleted by the examiner. Saving a new investigation result never overwrites the notebook. The audit log records that a note was added, edited or deleted, without its content.
+
 The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
 
 ## MCP client configuration
