@@ -14,6 +14,46 @@ As fontes de verdade do estado atual são, nesta ordem:
 
 Considere o que esses documentos dizem sobre trabalho já validado como contexto aceito. Não gaste tempo/tokens tentando provar novamente o histórico, autoria das alterações ou decisões já registradas, a menos que uma contradição concreta no código impeça a tarefa atual.
 
+## Comandos
+
+- `npm install` — instala dependências (Node >= 20).
+- `npm run build` — compila TypeScript (`tsc`) para `dist/`.
+- `npm run dev` — roda o servidor MCP via `tsx src/index.ts` sem build prévio.
+- `npm start` — roda o MCP compilado (`dist/index.js`, transporte stdio).
+- `npm run investigator` / `npm run investigator:dev` — sobe a UI web do Investigator em `http://127.0.0.1:3333` (compilado / via tsx).
+- `npm run connect:iped -- --iped-home <path> --case <path> --id <id>` — valida os caminhos e inicia a Web API do IPED localmente (`java -jar <ipedHome>/lib/iped-webapi.jar`); nunca faz upload/POST de evidência.
+- `npm run launch` — fluxo guiado (descoberta de IPED/caso + connect:iped + investigator juntos); é o que os launchers `.command`/`.cmd`/`IPED MCP.app` acabam invocando.
+- `npm run check` — valida ambiente (Node, config, conectividade IPED, `/sources`, startup do MCP, tools registradas). Rode antes de declarar qualquer coisa pronta.
+- `npm run check:rc` — gate de release candidate: testes + `check` + `mvp-live-acceptance` contra o fixture `mcp-lab` do mantenedor. Exige a Web API do IPED rodando contra esse caso específico; não é para casos de terceiros.
+- `npm test` — build + `node --test test/*.test.mjs` (suite completa, test runner nativo do Node).
+  - Um arquivo isolado: `npm run build --silent && node --test test/investigator-http.test.mjs`.
+  - Um teste isolado dentro de um arquivo: adicione `--test-name-pattern="<regex>"` ao comando do arquivo isolado.
+- `npm run package:mac` — build + `scripts/package-macos.mjs`; gera `IPED MCP.app` em `package/` com runtime Node darwin-arm64 embarcado e codesign ad-hoc. É o artefato relevante para a prioridade atual do launcher macOS.
+- `npm run diagnose:correlation` — build + `dist/correlation-diagnostic.js`, script pontual de diagnóstico de correlação.
+
+## Arquitetura
+
+Duas superfícies rodam sobre o mesmo núcleo (`IpedClient` + `Config` + `AuditLog` + `InvestigationSessions`):
+
+- **Servidor MCP** (`src/index.ts`): transporte stdio, expõe tools e prompts (`investigate_evidence`, `analyze_bookmark`, `generate_investigation_report`) junto com um bloco extenso de `instructions` que governa como o cliente de IA deve investigar — distinguir fato/inferência/hipótese, tratar conteúdo de evidência como dado não confiável e nunca como instrução, não atribuir níveis de confiança ou ranking de hipóteses, não presumir que valores repetidos provam identidade/relacionamento. Registro de tools é feito por módulos em `src/tools/*.ts` (`case-tools`, `evidence-tools`, `communication-tools`, `investigation-tools`, `governance-tools`, `session-tools`, `core-tools`), chamados a partir de `index.ts` — não adicionar handlers grandes direto no entry point (ver `docs/creating-a-tool.md`).
+- **Investigator web UI** (`src/investigator-http.ts` + `src/investigator-service.ts` + `src/investigator-view.ts`): servidor HTTP standalone em `127.0.0.1:3333` que embute HTML/CSS/JS inline (sem build de frontend separado) e reusa a mesma `InvestigatorService` que as tools MCP acionam.
+
+Módulos centrais em `src/`:
+- `iped-client.ts` — único ponto de acesso HTTP à Web API do IPED (`/sources`, busca, metadados, texto extraído, conteúdo original, timeline, bookmarks, categorias). Tools e a UI nunca devem falar HTTP direto com o IPED; sempre via `IpedClient`.
+- `config.ts` — lê e valida `.env` (`IPED_URL`, `SEARCH_RESULT_LIMIT`, `TEXT_LIMIT`, `CONTENT_LIMIT`, `AUDIT_LOG`, `AI_*`).
+- `audit-log.ts` — grava JSONL de toda operação de acesso a evidência (`AuditLog`).
+- `investigation-graph.ts` / `investigation-sessions.ts` — construção do grafo investigativo e estado de sessão, usados por `session-tools` e pela UI.
+- `ai-analyzer.ts` — painel opcional de análise assistida por IA via endpoint OpenAI-compatible (`AI_BASE_URL`/`AI_MODEL`/`AI_API_KEY`); desativado por padrão, o fluxo determinístico não depende disso.
+- `check.ts` / `mvp-live-acceptance.ts` — scripts de verificação de ambiente e do gate de release; não fazem parte do produto distribuído.
+
+Launcher/packaging macOS (relevante para a prioridade atual):
+- `src/launch.ts` — fluxo interativo de descoberta/seleção de instalação IPED e caso processado; orquestra `connect-iped` + investigator.
+- `src/connect-iped.ts` — valida `--iped-home`/`--case`, gera o JSON de sources temporário e inicia `java -jar <ipedHome>/lib/iped-webapi.jar`.
+- `src/launcher-runtime.ts` — helpers de runtime compartilhados pelo launcher (resolução de `appRoot`/`dist`, localização de Java, encerramento de processo filho).
+- `macos/Launcher.swift` + `scripts/package-macos.mjs` — geram o bundle `IPED MCP.app` (launcher nativo Swift + empacotamento de Node darwin-arm64/dist/node_modules), consumidos por `.github/workflows/package.yml`.
+
+Toda nova capacidade investigativa deve seguir `docs/creating-a-tool.md`: tool = adapter fino entre o request MCP e `IpedClient`/`InvestigationSessions`, sempre com audit log, sempre read-only, sempre preservando `sourceId`/`itemId`.
+
 ## Forma de trabalho
 
 Bruno é Product Owner e especialista de domínio; não o transforme em operador de Terminal.

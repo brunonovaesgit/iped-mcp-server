@@ -4,3 +4,4 @@ dist/
 audit/
 .DS_Store
 *.log
+package/

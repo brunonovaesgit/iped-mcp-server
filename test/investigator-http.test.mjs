@@ -13,6 +13,15 @@ test("relationship graph exposes adaptive layout and navigation controls", () =>
   assert.ok(investigatorHtml.includes("Math.max(1000,useCols*cellW)"));
 });
 
+test("relationship graph chooses its automatic layout from relationship density, not only node count", () => {
+  assert.ok(investigatorHtml.includes("const relationshipDensity=nodeCount?edgeCount/nodeCount:0;"));
+  assert.ok(
+    investigatorHtml.includes(
+      'const automatic=edgeCount>=8&&relationshipDensity>=2.5?"hierarchical":nodeCount<=18?"radial":nodeCount<=60?"grid":"wide";'
+    )
+  );
+});
+
 test("relationship graph renders the complete node collection without a UI cap", () => {
   assert.equal(investigatorHtml.includes("graph.nodes.slice("), false);
   assert.ok(investigatorHtml.includes("graph.nodes.map("));
@@ -138,8 +147,8 @@ test("fit-to-view is not constrained by the interactive zoom floor on very large
 test("direct evidence-list answers navigate back to the exact IPED evidence", () => {
   assert.ok(investigatorHtml.includes("directEvidenceButton"));
   assert.ok(investigatorHtml.includes(">Abrir evidência</button>"));
-  assert.ok(investigatorHtml.includes('data-source="'+escapeHtml(r.sourceId)'));
-  assert.ok(investigatorHtml.includes('data-item="'+escapeHtml(r.itemId)'));
+  assert.ok(investigatorHtml.includes(`data-source="'+escapeHtml(r.sourceId)`));
+  assert.ok(investigatorHtml.includes(`data-item="'+escapeHtml(r.itemId)`));
   assert.ok(investigatorHtml.includes("openEvidence(button.dataset.source,button.dataset.item)"));
 });
 
@@ -156,8 +165,8 @@ test("graph zoom resizes the SVG canvas so enlarged networks remain scrollable i
 
 test("observed findings expose their supporting IPED evidence as navigable references", () => {
   assert.ok(investigatorHtml.includes("findingEvidenceButton"));
-  assert.ok(investigatorHtml.includes('data-source="'+escapeHtml(e.sourceId)'));
-  assert.ok(investigatorHtml.includes('data-item="'+escapeHtml(e.itemId)'));
+  assert.ok(investigatorHtml.includes(`data-source="'+escapeHtml(e.sourceId)`));
+  assert.ok(investigatorHtml.includes(`data-item="'+escapeHtml(e.itemId)`));
 });
 
 

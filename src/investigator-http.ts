@@ -3,6 +3,7 @@ import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { AuditLog } from "./audit-log.js";
 import { getConfig } from "./config.js";
 import { IpedClient } from "./iped-client.js";
@@ -28,65 +29,215 @@ export const investigatorHtml = `<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>IPED MCP</title>
   <style>
-    :root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#17202a;background:#f4f6f8}
-    *{box-sizing:border-box} body{margin:0} button,input{font:inherit}
-    header{background:#17202a;color:white;padding:18px 28px;display:flex;justify-content:space-between;align-items:center}
-    header strong{font-size:18px} #connection{font-size:13px;color:#cbd5e1}
-    main{max-width:1180px;margin:auto;padding:32px 24px}
-    .hero,.panel{background:white;border:1px solid #dfe4ea;border-radius:12px;padding:24px}
-    .hero h1{margin:0 0 8px;font-size:26px}.hero p{margin:0;color:#5d6773}
-    form{display:flex;gap:10px;margin-top:22px} input,select{font:inherit;padding:13px 15px;border:1px solid #b8c1cc;border-radius:8px;background:white} input{flex:1}
-    .caseBar{display:flex;gap:12px;align-items:center;margin-top:18px;padding:12px 14px;background:#f7f9fb;border-radius:8px}.caseBar label{font-size:13px;color:#5d6773}.caseBar select{padding:8px 10px}
-    button{border:0;border-radius:8px;padding:12px 18px;background:#263b50;color:white;cursor:pointer}
-    button:disabled{opacity:.5;cursor:not-allowed}.status{margin-top:14px;font-size:14px}
-    .analysis{background:white;border:1px solid #dfe4ea;border-radius:12px;padding:22px;margin:20px 0}.analysis h2{margin:0 0 10px;font-size:18px}.analysis p{line-height:1.55}.analysis .observation{border-top:1px solid #edf0f3;padding:10px 0}.analysis .observation:first-of-type{border-top:0}
-    .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:20px 0}
-    .metric{background:white;border:1px solid #dfe4ea;border-radius:10px;padding:16px}.metric b{display:block;font-size:22px}.metric span{font-size:12px;color:#68727e}
-    .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.panel h2{margin-top:0;font-size:17px}.visualPanel{grid-column:1/-1}
-    .item{border-top:1px solid #edf0f3;padding:12px 0}.item:first-of-type{border-top:0}
-    .meta{font-size:12px;color:#68727e}.lead{display:flex;justify-content:space-between;gap:12px;align-items:center}
-    .graphToolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.graphToolbar button,.graphToolbar select{padding:7px 10px;font-size:12px}.graphToolbar .meta{margin-right:auto}\n    .graphShell{position:relative;margin-top:10px}.graph{position:relative;min-height:520px;overflow:auto;border:1px solid #edf0f3;border-radius:8px;background:#fff}\n    .graph svg{display:block}.graphMiniMap{position:absolute;left:12px;bottom:12px;z-index:4;width:180px;height:110px;border:1px solid #dfe4ea;border-radius:7px;background:#fff;box-shadow:0 2px 10px #0002;overflow:hidden;cursor:crosshair}.graphMiniMap svg{width:100%;height:100%}.graphMiniMap circle{fill:#7a8490;opacity:.7}.graphMiniMap .miniViewport{fill:none;stroke:#263b50;stroke-width:8;vector-effect:non-scaling-stroke;pointer-events:none}.graphShell.fullscreen{position:fixed;inset:16px;z-index:40;background:white;box-shadow:0 10px 50px #0005;border-radius:8px}.graphShell.fullscreen .graph{height:100%;max-height:none;margin:0}.graphShell.fullscreen .graph svg{min-width:100%}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}.graph .laneLabel{font-size:12px;font-weight:700;fill:#68727e}
-    .graph .node{cursor:pointer}.graph .node circle{fill:white;stroke:#52677b;stroke-width:2}.graph .node.evidence circle{stroke:#263b50}.graph .node.communication circle{stroke:#68727e}
-    .graph .edge{cursor:pointer}.graph .edge:hover{stroke-width:3}.graphDetail{margin-top:10px;padding:10px;background:#f7f9fb;border-radius:7px;font-size:12px}
-    .evidenceButton{background:none;color:#263b50;padding:0;text-align:left;font-weight:700}.evidenceButton:hover{text-decoration:underline}
-    .drawer{position:fixed;top:0;right:0;width:min(620px,92vw);height:100vh;background:white;border-left:1px solid #dfe4ea;box-shadow:-8px 0 30px #0002;padding:24px;overflow:auto;z-index:20}
-    .drawerHeader{display:flex;justify-content:space-between;gap:16px;align-items:start}.drawerHeader button{padding:7px 11px}.evidenceText{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.5;background:#f7f9fb;padding:14px;border-radius:8px;max-height:46vh;overflow:auto}.property{padding:7px 0;border-top:1px solid #edf0f3}
-    .empty{color:#7a8490;font-size:14px}.hidden{display:none}
-    @media(max-width:800px){.summary{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}form{flex-direction:column}}
-    @media print{header,.hero,#followUpForm,.graphToolbar,.graphMiniMap,.drawer{display:none!important}main{max-width:none;padding:0}.analysis,.panel,.metric{break-inside:avoid;border-color:#bbb}.graphShell,.graph{overflow:visible!important;height:auto!important;min-height:0!important}.graph svg{max-width:100%;height:auto}.grid{display:block}.panel{margin:12px 0}.visualPanel{width:100%}button{display:none!important}}
+    :root{
+      --ink:#17202a;--muted:#5d6773;--subtle:#68727e;
+      --border:#dfe4ea;--border-soft:#edf0f3;--border-strong:#c7cfd8;
+      --surface:#fff;--surface-alt:#f7f9fb;--page:#f4f6f8;
+      --accent:#263b50;--accent-strong:#17202a;--accent-soft:#eef2f7;--accent-soft-hover:#e2e9f0;
+      --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;
+      --radius-sm:8px;--radius-md:12px;--radius-lg:16px;
+      --shadow-sm:0 1px 2px rgba(23,32,42,.05),0 1px 1px rgba(23,32,42,.04);
+      --shadow-md:0 12px 28px rgba(23,32,42,.09),0 2px 6px rgba(23,32,42,.06);
+      font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--page)
+    }
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;display:flex;flex-direction:column;overflow:hidden} button,input,select{font:inherit}
+    header{background:var(--accent-strong);color:white;padding:var(--space-4) var(--space-6);display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow-sm);flex-shrink:0}
+    header strong{font-size:18px;letter-spacing:.2px} #connection{font-size:13px;color:#a9b6c4}
+    .appBody{display:flex;flex:1;min-height:0}
+    .sidebar{width:400px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--border);overflow-x:hidden;overflow-wrap:anywhere}
+    .sidebar *{min-width:0}
+    .sidebarTop{padding:var(--space-5);border-bottom:1px solid var(--border);flex-shrink:0}
+    .sidebarScroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:var(--space-4) var(--space-5) var(--space-5)}
+    .mainArea{flex:1;display:flex;flex-direction:column;min-height:0}
+    #workspaceMain{display:flex;flex-direction:column;min-height:0;flex:1}
+    #workspaceMain.hidden{display:none}
+    .tabBar{display:flex;gap:var(--space-2);padding:0 var(--space-5);background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+    .tabButton{background:none;border:0;border-radius:0;border-bottom:3px solid transparent;padding:14px 6px;font-size:14px;font-weight:600;color:var(--muted)}
+    .tabButton:hover{background:none;color:var(--accent-strong)}
+    .tabButton.tabActive{border-bottom-color:var(--accent);color:var(--accent-strong)}
+    .tabCount{font-size:11px;background:var(--surface-alt);color:var(--subtle);border-radius:999px;padding:2px 7px;font-weight:600;margin-left:6px}
+    .tabContent{flex:1;overflow-y:auto;padding:var(--space-5) var(--space-6)}
+    .tabPanel+.tabPanel{margin-top:var(--space-5)}
+    .hero{padding:0} .hero h1{margin:0 0 4px;font-size:17px;letter-spacing:-.1px}.hero p{margin:0;color:var(--muted);font-size:12.5px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-5);box-shadow:var(--shadow-sm)}
+    form{display:flex;gap:var(--space-2);margin-top:var(--space-4)} input,select{font:inherit;padding:13px 15px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface)} input{flex:1}
+    textarea{font:inherit;width:100%;resize:vertical;padding:13px 15px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);line-height:1.5}
+    textarea:focus,input:focus{outline:3px solid var(--accent-soft-hover);outline-offset:0;border-color:var(--accent)}
+    .askForm{flex-direction:column;align-items:stretch}
+    #question{min-height:132px;max-height:45vh}#followUp{min-height:76px;max-height:30vh}
+    .askActions{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3)}.askHint{font-size:12px;color:var(--subtle)}
+    #followUpForm{margin:0 0 var(--space-5)}
+    .questionCard{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-5);box-shadow:var(--shadow-sm)}
+    .questionCard .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--subtle);margin-bottom:6px}.questionCard p{margin:0;font-size:15px;line-height:1.55;white-space:pre-wrap}
+    body.landing .sidebar,body.landing #mainEmptyState{display:none}
+    .landingSlot{display:none}body.landing .landingSlot{display:block;width:min(760px,92vw);margin:auto;padding:var(--space-6) 0}
+    body.landing .hero h1{font-size:30px;font-weight:650;letter-spacing:-.4px;text-align:center;margin:0 0 10px}
+    body.landing .hero>p{text-align:center;font-size:15px;margin:0 0 var(--space-5)}
+    body.landing #question{min-height:150px;font-size:16px;padding:18px 20px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
+    body.landing .status{text-align:center;min-height:20px}
+    .landingNote{display:none}body.landing .landingNote{display:block;text-align:center;font-size:12.5px;color:var(--subtle);margin-top:var(--space-4)}
+    .mainEmpty{margin:auto;max-width:560px;text-align:center;padding:var(--space-6);color:var(--subtle);font-size:15px;line-height:1.6}
+    .caseBar{display:flex;gap:var(--space-3);align-items:center;margin-top:var(--space-4);padding:var(--space-3) var(--space-4);background:var(--surface-alt);border-radius:var(--radius-sm)}.caseBar label{font-size:13px;color:var(--muted)}.caseBar select{padding:8px 10px}
+    button{border:0;border-radius:var(--radius-sm);padding:12px 18px;background:var(--accent-soft);color:var(--accent-strong);cursor:pointer;font-weight:600;transition:background .12s ease}
+    button:hover{background:var(--accent-soft-hover)}
+    @keyframes pulse{0%,100%{opacity:.45}50%{opacity:.85}}
+    button:disabled{opacity:.5;cursor:not-allowed;animation:pulse 1.1s ease-in-out infinite}
+    .status{margin-top:var(--space-3);font-size:14px;color:var(--muted)}
+    .newEvidence{background:var(--accent-soft);border-radius:var(--radius-sm);margin:0 -10px;padding-left:10px;padding-right:10px}
+    #startButton{background:var(--accent);color:white;padding:14px 22px;font-size:15px;box-shadow:var(--shadow-sm)}
+    #startButton:hover{background:var(--accent-strong)}
+    .leadButton,.graphToolbar button{background:transparent;color:var(--accent);border:1px solid var(--border-strong);font-weight:600}
+    .leadButton:hover,.graphToolbar button:hover{background:var(--accent-soft)}
+    .analysis{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-5);margin:var(--space-5) 0;box-shadow:var(--shadow-sm)}.analysis h2{margin:0 0 10px;font-size:18px}.analysis p{line-height:1.55}.analysis .observation{border-top:1px solid var(--border-soft);padding:var(--space-3) 0}.analysis .observation:first-of-type{border-top:0}
+    .summary{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-3);margin-bottom:var(--space-5)}
+    .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3);box-shadow:var(--shadow-sm)}.metric b{display:block;font-size:20px;color:var(--accent-strong)}.metric span{font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.4px}
+    .panel h2{margin-top:0;font-size:14px;text-transform:uppercase;letter-spacing:.4px;color:var(--subtle)}
+    .panel+.panel{margin-top:var(--space-4)}
+    .item{border-top:1px solid var(--border-soft);padding:var(--space-3) 0}.item:first-of-type{border-top:0}
+    .meta{font-size:12px;color:var(--subtle)}.lead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--space-2) var(--space-3);align-items:center}
+    .badge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:3px 8px;border-radius:999px;background:var(--surface-alt);color:var(--subtle)}
+    .graphToolbar{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;margin-top:var(--space-3)}.graphToolbar button,.graphToolbar select{padding:7px 10px;font-size:12px}.graphToolbar select{border-radius:var(--radius-sm)}.graphToolbar .meta{margin-right:auto}
+    .graphShell{position:relative;margin-top:10px}.graph{position:relative;min-height:520px;overflow:auto;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface)}
+    .graph svg{display:block}.graphMiniMap{position:absolute;left:12px;bottom:12px;z-index:4;width:180px;height:110px;border:1px solid var(--border);border-radius:7px;background:var(--surface);box-shadow:var(--shadow-md);overflow:hidden;cursor:crosshair}.graphMiniMap svg{width:100%;height:100%}.graphMiniMap circle{fill:#7a8490;opacity:.7}.graphMiniMap .miniViewport{fill:none;stroke:var(--accent);stroke-width:8;vector-effect:non-scaling-stroke;pointer-events:none}.graphShell.fullscreen{position:fixed;inset:16px;z-index:40;background:var(--surface);box-shadow:0 10px 50px #0005;border-radius:var(--radius-md)}.graphShell.fullscreen .graph{height:100%;max-height:none;margin:0}.graphShell.fullscreen .graph svg{min-width:100%}.graph line{stroke:#aeb8c2;stroke-width:1.4}.graph text{font-size:11px;fill:#26323d}.graph .laneLabel{font-size:12px;font-weight:700;fill:var(--subtle)}
+    .graph .node{cursor:pointer}.graph .node circle{fill:white;stroke:#52677b;stroke-width:2}.graph .node.evidence circle{stroke:var(--accent)}.graph .node.communication circle{stroke:var(--subtle)}
+    .graph .edge{cursor:pointer}.graph .edge:hover{stroke-width:3}.graphDetail{margin-top:10px;padding:var(--space-3);background:var(--surface-alt);border-radius:7px;font-size:12px}
+    .evidenceButton{background:none;color:var(--accent);padding:0;text-align:left;font-weight:700}.evidenceButton:hover{text-decoration:underline;background:none}
+    .drawer{position:fixed;top:0;right:0;width:min(620px,92vw);height:100vh;background:var(--surface);border-left:1px solid var(--border);box-shadow:-8px 0 30px #0002;padding:var(--space-5);overflow:auto;z-index:20}
+    .drawerHeader{display:flex;justify-content:space-between;gap:var(--space-4);align-items:start}.drawerHeader button{padding:7px 11px}.evidenceText{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.5;background:var(--surface-alt);padding:14px;border-radius:var(--radius-sm);max-height:46vh;overflow:auto}.property{padding:7px 0;border-top:1px solid var(--border-soft)}
+    .empty{color:var(--subtle);font-size:14px}.hidden{display:none}
+
+    /* ---- Conversational shell ---- */
+    .shell{display:flex;height:100%;min-height:0}
+    .nav{width:272px;flex-shrink:0;display:flex;flex-direction:column;background:#f9fafb;border-right:1px solid var(--border);transition:width .18s ease,margin .18s ease;overflow:hidden}
+    body.navCollapsed .nav{width:0;border-right:0}
+    .navTop{display:flex;align-items:center;justify-content:space-between;padding:14px 12px 10px 18px}
+    .brand{font-weight:700;font-size:16px;letter-spacing:.1px;white-space:nowrap}
+    .iconBtn{background:transparent;color:var(--muted);padding:7px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;line-height:0}
+    .iconBtn:hover{background:var(--accent-soft);color:var(--ink)}
+    .newBtn{margin:4px 12px 14px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);color:var(--ink);padding:10px 12px;font-weight:600;white-space:nowrap;box-shadow:var(--shadow-sm)}
+    .newBtn:hover{background:var(--accent-soft)}
+    .navSection{padding:6px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--subtle);white-space:nowrap}
+    .history{flex:1;overflow-y:auto;padding:2px 8px}
+    .historyItem{display:block;width:100%;text-align:left;background:transparent;color:var(--ink);font-weight:500;font-size:13.5px;padding:9px 10px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .historyItem:hover{background:var(--accent-soft)}.historyItem.active{background:var(--accent-soft-hover);font-weight:600}
+    .historyEmpty{padding:8px 10px;font-size:13px;color:var(--subtle);white-space:nowrap}
+    .navBottom{border-top:1px solid var(--border);padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px}
+    .navBottom .caseBar{margin:0;flex-direction:column;align-items:stretch;gap:6px;padding:0;background:none}
+    .conn{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+    .dot{width:8px;height:8px;border-radius:50%;background:#b8c0c8;flex-shrink:0}.dot.ok{background:#2f9e5b}
+    #connection{color:var(--muted);font-size:13px}
+    .navNote{font-size:12px;color:var(--subtle);line-height:1.45}
+    .mainCol{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--surface)}
+    .topBar{height:52px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--border-soft)}
+    .topTitle{font-weight:500;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #navOpen{display:none}body.navCollapsed #navOpen{display:inline-flex}
+    .mainCol .mainArea{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;background:var(--surface)}
+    body.landing #workspaceMain,body.landing .composerDock{display:none!important}
+    body:not(.landing) .landingSlot{display:none!important}
+    body.landing .landingSlot{display:block;width:min(760px,92%);margin:auto;padding:var(--space-6) 0}
+    .thread{width:min(940px,100%);margin:0 auto;padding:28px 24px 40px;display:flex;flex-direction:column;gap:22px}
+    #workspaceMain.thread{flex:none}
+    .userTurn{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+    .bubble{max-width:82%;background:var(--accent-soft);color:var(--ink);padding:12px 16px;border-radius:18px 18px 4px 18px;font-size:15px;line-height:1.55;white-space:pre-wrap}
+    .bubble .kicker{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--subtle);margin-bottom:4px}
+    .answer{display:flex;flex-direction:column;gap:14px}
+    .answerHead{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px}
+    .avatar{min-width:28px;height:28px;padding:0 8px;border-radius:8px;letter-spacing:.3px;background:var(--accent-strong);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+    .thread .summary{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+    .thread .metric{display:inline-flex;align-items:baseline;gap:6px;padding:6px 12px;border-radius:999px;box-shadow:none;background:var(--surface-alt)}
+    .thread .metric b{display:inline;font-size:14px}.thread .metric span{font-size:11px}
+    .thread .tabBar{position:sticky;top:0;z-index:3;padding:0;margin:0;background:var(--surface)}
+    .thread .tabContent{overflow:visible;padding:4px 0 0;flex:none}
+    .thread .analysis{margin:0 0 var(--space-4)}
+    .composerDock{flex-shrink:0;padding:10px 24px 18px;background:linear-gradient(to top,var(--surface) 70%,rgba(255,255,255,0))}
+    .composerInner{width:min(940px,100%);margin:0 auto}
+    .composer{display:flex;align-items:flex-end;gap:8px;margin:0;padding:8px 8px 8px 14px;border:1px solid var(--border-strong);border-radius:22px;background:var(--surface);box-shadow:var(--shadow-md)}
+    .composer:focus-within{border-color:var(--accent)}
+    .composer textarea{border:0;outline:0!important;box-shadow:none;padding:8px 4px;min-height:24px!important;max-height:30vh;resize:none;font-size:15px;background:transparent}
+    .sendBtn{width:38px;height:38px;border-radius:50%;padding:0;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+    .sendBtn:hover{background:var(--accent-strong)}
+    .dockMeta{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:6px 8px 0;font-size:12px;color:var(--subtle)}.dockMeta>span:last-child{white-space:nowrap;flex-shrink:0}#dockStatusSlot{min-width:0;flex:1}#dockStatusSlot .status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .composerDock .status{margin:0;font-size:12.5px}
+    @media(max-width:800px){.nav{position:fixed;left:0;top:0;bottom:0;z-index:30;box-shadow:var(--shadow-md)}.thread{padding:20px 14px 32px}.bubble{max-width:92%}}
+    @media(max-width:800px){.appBody{flex-direction:column}.sidebar{width:100%;max-height:42vh;border-right:0;border-bottom:1px solid var(--border)}form{flex-direction:column}}
+    @media print{header,.nav,.topBar,.composerDock,.hero,#followUpForm,.tabBar,.sidebarTop,.graphToolbar,.graphMiniMap,.drawer{display:none!important}body{display:block;height:auto;overflow:visible}.appBody{display:block}.sidebar{width:100%;border:0;overflow:visible}.mainArea{display:block}#workspaceMain{display:block!important}.tabContent{overflow:visible!important;height:auto!important}.tabPanel{display:block!important;margin:16px 0}.analysis,.panel,.metric{break-inside:avoid;border-color:#bbb}.graphShell,.graph{overflow:visible!important;height:auto!important;min-height:0!important}.graph svg{max-width:100%;height:auto}button{display:none!important}}
   </style>
 </head>
-<body>
-<header><strong>IPED MCP</strong><span id="connection">Conectando ao IPED...</span></header>
-<main>
-  <section class="hero">
-    <h1>O que você quer investigar neste caso?</h1>
-    <p>Descreva o fato, pessoa, organização, comunicação ou relação que deseja analisar.</p>
-    <div id="onboarding" class="analysis hidden"><h2>Conectar ao seu IPED</h2><p>Seu caso continua no IPED. Para conectá-lo, use o comando <b>npm run connect:iped</b> descrito no README. Nenhuma evidência é enviada, importada ou modificada.</p></div><div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
-    <form id="questionForm">
-      <input id="question" autocomplete="off" placeholder="Ex.: investigue relações e comunicações envolvendo Carlos Almeida">
-      <button id="startButton">Investigar</button>
-    </form>
-    <div class="status" id="status"></div>
-  </section>
-  <section id="workspace" class="hidden">
-    <form id="followUpForm">
-      <input id="followUp" autocomplete="off" placeholder="Pergunte algo sobre esta investigação">
-      <button>Continuar investigação</button>
-    </form>
-    <div class="analysis hidden" id="directAnswer"></div>\n    <div class="analysis" id="analysis"></div>
-    <div class="analysis hidden" id="retrievalAmbiguities"></div>
-    <div class="analysis hidden" id="valueVariations"></div>\n      <div class="analysis hidden" id="aiAnalysis"></div>
-    <div class="summary" id="summary"></div>
-    <div class="grid">
-      <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
-      <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
-      <div class="panel"><h2>Valores e entidades correlacionáveis</h2><div id="leads"></div></div>
-      <div class="panel visualPanel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
-      <div class="panel visualPanel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
+<body class="landing">
+<div class="shell">
+  <aside class="nav" id="nav" aria-label="Menu lateral">
+    <div class="navTop"><span class="brand">IPED MCP</span><button type="button" class="iconBtn" id="navToggle" title="Recolher menu" aria-label="Recolher menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button></div>
+    <button type="button" class="newBtn" id="newInvestigation"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nova investigação</span></button>
+    <div class="navSection">Investigações desta sessão</div>
+    <div class="history" id="history"><div class="historyEmpty">Nenhuma investigação ainda.</div></div>
+    <div class="navBottom">
+      <div id="caseBar" class="caseBar hidden"><label for="sourceSelect">Fonte do caso</label><select id="sourceSelect"></select></div>
+      <div class="conn"><span class="dot" id="connDot"></span><span id="connection">Conectando ao IPED...</span></div>
+      <div class="navNote">Acesso somente leitura. O histórico existe apenas enquanto esta página estiver aberta.</div>
     </div>
-  </section>
-</main>
+  </aside>
+  <div class="mainCol">
+    <div class="topBar"><button type="button" class="iconBtn" id="navOpen" title="Abrir menu" aria-label="Abrir menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button><span class="topTitle" id="topTitle">Nova investigação</span></div>
+    <main class="mainArea" id="mainArea">
+      <div class="landingSlot" id="landingSlot">
+        <section class="hero">
+          <h1>O que você quer investigar neste caso?</h1>
+          <p>Descreva o fato, pessoa, organização, comunicação ou relação que deseja analisar.</p>
+          <div id="onboarding" class="analysis hidden"><h2>Conectar ao seu IPED</h2><p>Seu caso continua no IPED. Para conectá-lo, use o comando <b>npm run connect:iped</b> descrito no README. Nenhuma evidência é enviada, importada ou modificada.</p></div>
+          <form id="questionForm" class="askForm">
+            <textarea id="question" rows="5" aria-label="Pergunta investigativa" placeholder="Escreva livremente, com o contexto que julgar útil. Ex.: investigue possíveis relações entre Carlos Almeida, Orion Tecnologia e pagamentos de R$ 18.750; identifique contradições e pontos que não podem ser confirmados."></textarea>
+            <div class="askActions"><span class="askHint">⌘/Ctrl + Enter para investigar</span><button id="startButton">Investigar</button></div>
+          </form>
+          <div class="status" id="status"></div>
+          <p class="landingNote">Seu caso permanece no IPED, com acesso somente leitura. Cada achado traz a referência da evidência de origem.</p>
+        </section>
+      </div>
+      <div class="mainEmpty hidden" id="mainEmptyState"></div>
+      <div id="workspaceMain" class="thread hidden">
+        <div class="userTurn" id="questionCard"></div>
+        <div class="answer">
+          <div class="answerHead"><span class="avatar">IPED</span><span>Resultado da investigação</span></div>
+          <div class="summary" id="summary"></div>
+          <div class="tabBar">
+            <button type="button" class="tabButton tabActive" data-tab="resumo">Resumo</button>
+            <button type="button" class="tabButton" data-tab="evidence">Evidências</button>
+            <button type="button" class="tabButton" data-tab="relationships">Relações</button>
+            <button type="button" class="tabButton" data-tab="timeline">Timeline</button>
+          </div>
+          <div class="tabContent">
+            <div class="tabPanel" data-tab-panel="resumo">
+              <div class="analysis hidden" id="directAnswer"></div>
+              <div class="analysis" id="analysis"></div>
+              <div class="analysis hidden" id="retrievalAmbiguities"></div>
+              <div class="analysis hidden" id="valueVariations"></div>
+              <div class="analysis hidden" id="aiAnalysis"></div>
+              <div class="panel"><h2>Correlações para explorar</h2><div id="leads"></div></div>
+              <div class="panel"><h2>Achados observados</h2><div id="findings"></div></div>
+            </div>
+            <div class="tabPanel hidden" data-tab-panel="evidence">
+              <div class="panel"><h2>Evidências</h2><div id="evidence"></div></div>
+            </div>
+            <div class="tabPanel hidden" data-tab-panel="relationships">
+              <div class="panel"><h2>Relações</h2><div id="relationships"></div><div id="relationshipDetail"></div></div>
+            </div>
+            <div class="tabPanel hidden" data-tab-panel="timeline">
+              <div class="panel"><h2>Linha do tempo</h2><div id="timeline"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <div class="composerDock" id="composerDock">
+      <div class="composerInner" id="workspaceSidebar">
+        <form id="followUpForm" class="composer">
+          <textarea id="followUp" rows="1" aria-label="Pergunta de acompanhamento" placeholder="Pergunte algo sobre esta investigação"></textarea>
+          <button class="sendBtn" title="Enviar (⌘/Ctrl + Enter)" aria-label="Enviar pergunta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        </form>
+        <div class="dockMeta"><span id="dockStatusSlot"></span><span>⌘/Ctrl + Enter para enviar</span></div>
+      </div>
+    </div>
+  </div>
+</div>
 <aside id="evidenceDrawer" class="drawer hidden">
   <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><button id="closeEvidence">Fechar</button></div>
   <div id="evidenceMeta" class="meta"></div>
@@ -106,9 +257,38 @@ const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","
 function items(target,values,render){
   byId(target).innerHTML=values?.length?values.map(render).join(""):'<div class="empty">Nenhum item para exibir.</div>';
 }
+const statusEl=byId("status"),statusHome=statusEl.parentElement,investigationHistory=new Map();
+function leaveLanding(){if(!document.body.classList.contains("landing"))return;document.body.classList.remove("landing");byId("dockStatusSlot").appendChild(statusEl);}
+function enterLanding(){
+  activeInvestigationId=undefined;document.body.classList.add("landing");
+  statusHome.insertBefore(statusEl,statusHome.querySelector(".landingNote"));statusEl.textContent="";
+  byId("question").value="";byId("question").style.height="";byId("topTitle").textContent="Nova investigação";
+  renderHistory();setTimeout(()=>byId("question").focus(),0);
+}
+function renderHistory(){
+  const target=byId("history");
+  if(!investigationHistory.size){target.innerHTML='<div class="historyEmpty">Nenhuma investigação ainda.</div>';return;}
+  target.innerHTML=[...investigationHistory.entries()].reverse().map(([id,entry])=>'<button type="button" class="historyItem'+(id===activeInvestigationId?' active':'')+'" data-id="'+escapeHtml(id)+'" title="'+escapeHtml(entry.questions[0])+'">'+escapeHtml(entry.questions[0])+'</button>').join("");
+  target.querySelectorAll(".historyItem").forEach(button=>button.addEventListener("click",()=>{const entry=investigationHistory.get(button.dataset.id);if(entry){renderWorkspace(entry.workspace);selectTab("resumo");byId("mainArea").scrollTop=0;}}));
+}
+function renderThread(entry){
+  byId("questionCard").innerHTML=entry.questions.map((q,i)=>'<div class="bubble">'+(i?'<span class="kicker">Pergunta de acompanhamento</span>':'')+escapeHtml(q)+'</div>').join("");
+  byId("topTitle").textContent=entry.questions[0];
+}
+function setNavCollapsed(collapsed){document.body.classList.toggle("navCollapsed",collapsed);try{localStorage.setItem("ipedMcpNavCollapsed",collapsed?"1":"0")}catch{}}
+try{if(localStorage.getItem("ipedMcpNavCollapsed")==="1"||window.innerWidth<800)document.body.classList.add("navCollapsed")}catch{if(window.innerWidth<800)document.body.classList.add("navCollapsed")}
+byId("navToggle").addEventListener("click",()=>setNavCollapsed(true));
+byId("navOpen").addEventListener("click",()=>setNavCollapsed(false));
+byId("newInvestigation").addEventListener("click",()=>{enterLanding();if(window.innerWidth<800)setNavCollapsed(true);});
 function renderWorkspace(workspace){
+  leaveLanding();
   activeInvestigationId=workspace.investigationId;
-  byId("workspace").classList.remove("hidden");
+  byId("workspaceSidebar").classList.remove("hidden");
+  byId("workspaceMain").classList.remove("hidden");
+  byId("mainEmptyState").classList.add("hidden");
+  const entry=investigationHistory.get(workspace.investigationId)||{questions:[workspace.title||"Investigação"]};
+  entry.workspace=workspace;investigationHistory.set(workspace.investigationId,entry);
+  renderThread(entry);renderHistory();
   const directTarget=byId("directAnswer"),direct=workspace.directAnswer;
   if(direct?.kind==="EVIDENCE_LIST"){
     directTarget.classList.remove("hidden");
@@ -179,7 +359,7 @@ function renderWorkspace(workspace){
   items("findings",workspace.panels?.findings,f=>'<div class="item"><b>'+escapeHtml(f.value)+'</b><div class="meta">'+escapeHtml(f.type)+' · observado em '+escapeHtml(f.evidenceCount)+' evidência(s)</div><div>'+(f.evidence||[]).map(e=>'<button type="button" class="evidenceButton findingEvidenceButton" data-source="'+escapeHtml(e.sourceId)+'" data-item="'+escapeHtml(e.itemId)+'">'+escapeHtml(e.sourceId)+':'+escapeHtml(e.itemId)+'</button>').join(" · ")+'</div></div>');
     items("evidence",workspace.panels?.evidence,e=>'<div class="item"><button type="button" class="evidenceButton" data-source="'+escapeHtml(e.sourceId)+'" data-item="'+escapeHtml(e.itemId)+'">'+escapeHtml(e.name||"Evidência")+'</button><div class="meta">'+escapeHtml(e.path||"")+' · item '+escapeHtml(e.itemId)+'</div></div>');
   document.querySelectorAll(".evidenceButton").forEach(button=>button.addEventListener("click",()=>openEvidence(button.dataset.source,button.dataset.item)));
-  items("leads",workspace.panels?.leads,l=>'<div class="item"><div class="lead"><div><b>'+escapeHtml(l.value)+'</b><div class="meta">'+escapeHtml(l.type)+'</div></div>'+(l.status==="OPEN"?'<button type="button" class="leadButton" data-type="'+escapeHtml(l.type)+'" data-value="'+escapeHtml(l.value)+'">Explorar</button>':'<span class="meta">'+escapeHtml(l.status)+'</span>')+'</div><div>'+(l.evidence||[]).map(e=>'<button type="button" class="evidenceButton leadEvidenceButton" data-source="'+escapeHtml(e.sourceId)+'" data-item="'+escapeHtml(e.itemId)+'">'+escapeHtml(e.sourceId)+':'+escapeHtml(e.itemId)+'</button>').join(" · ")+'</div></div>');
+  items("leads",workspace.panels?.leads,l=>'<div class="item" data-lead-type="'+escapeHtml(l.type)+'" data-lead-value="'+escapeHtml(l.value)+'"><div class="lead"><div><b>'+escapeHtml(l.value)+'</b><div class="meta">'+escapeHtml(l.type)+'</div></div>'+(l.status==="OPEN"?'<button type="button" class="leadButton" data-type="'+escapeHtml(l.type)+'" data-value="'+escapeHtml(l.value)+'">Explorar</button>':'<span class="badge leadStatusBadge">'+escapeHtml(l.status)+'</span>')+'</div><div>'+(l.evidence||[]).map(e=>'<button type="button" class="evidenceButton leadEvidenceButton" data-source="'+escapeHtml(e.sourceId)+'" data-item="'+escapeHtml(e.itemId)+'">'+escapeHtml(e.sourceId)+':'+escapeHtml(e.itemId)+'</button>').join(" · ")+'</div></div>');
   document.querySelectorAll(".leadButton").forEach(button=>button.addEventListener("click",()=>exploreLead(button.dataset.type,button.dataset.value)));
   renderGraph(workspace.panels?.relationships);
   items("timeline",workspace.panels?.timeline,t=>'<div class="item"><div class="lead"><div><b>'+escapeHtml(t.label||t.name||"Evento")+'</b><div class="meta">'+escapeHtml(t.event||"data")+' · '+escapeHtml(t.timestamp||t.date||"")+'</div>'+(t.path?'<div class="meta">'+escapeHtml(t.path)+'</div>':'')+'</div>'+(t.sourceId!=null&&t.itemId!=null?'<button type="button" class="timelineEvidenceButton" data-source="'+escapeHtml(t.sourceId)+'" data-item="'+escapeHtml(t.itemId)+'">Abrir evidência</button>':'')+'</div></div>');
@@ -191,7 +371,8 @@ function renderGraph(graph){
   detail.innerHTML="";
   if(!graph?.nodes?.length){target.innerHTML='<div class="empty">Nenhuma relação para exibir.</div>';return}
   const nodeCount=graph.summary?.nodeCount??graph.nodes.length,edgeCount=graph.summary?.edgeCount??(graph.edges?.length||0);
-  const automatic=nodeCount<=18?"radial":nodeCount<=60?"grid":"wide";
+  const relationshipDensity=nodeCount?edgeCount/nodeCount:0;
+  const automatic=edgeCount>=8&&relationshipDensity>=2.5?"hierarchical":nodeCount<=18?"radial":nodeCount<=60?"grid":"wide";
   let layout=automatic;
   const draw=()=>{
     const cols=layout==="radial"?0:layout==="hierarchical"?Math.max(1,graph.nodes.filter(n=>n.kind==="EVIDENCE").length):Math.max(4,Math.ceil(Math.sqrt(nodeCount*1.5)));
@@ -260,7 +441,7 @@ function renderGraph(graph){
       });
       target.querySelectorAll(".edge").forEach(el=>el.style.opacity=query?".08":"");
       graphSearchStatus.textContent=query?(matches+" nó(s) localizado(s)"):"";
-      const matchingNodes=query?graph.nodes.filter(node=>[node.label,node.kind,node.entityType].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR").includes(query)):[];
+      const matchingNodes=query?graph.nodes.filter(n=>[n.label,n.kind,n.entityType].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR").includes(query)):[];
       graphSearchResults.innerHTML='<option value="">'+(matches>1?"Escolha um dos "+matches+" nós...":"Escolha um nó...")+'</option>'+matchingNodes.map(node=>'<option value="'+escapeHtml(node.id)+'">'+escapeHtml((node.label||node.id)+" · "+(node.entityType||node.kind))+'</option>').join("");
       graphSearchResults.classList.toggle("hidden",matches<=1);
       if(query&&matches===1){
@@ -364,6 +545,7 @@ async function loadHome(){
       selectedSourceId=home.sourceId||sources[0]?.id;
     }
     byId("connection").textContent=ready?"IPED conectado":(selectionStatus==="SOURCE_SELECTION_REQUIRED"?"IPED conectado · selecione uma fonte":"IPED não disponível");
+    byId("connDot").classList.toggle("ok",ready);
     byId("startButton").disabled=!ready;
     if(!ready){byId("status").textContent=selectionStatus==="SOURCE_SELECTION_REQUIRED"?"Há mais de uma fonte neste caso. Selecione qual deseja investigar.":"Conecte um caso IPED já processado.";if(selectionStatus!=="SOURCE_SELECTION_REQUIRED")byId("onboarding").classList.remove("hidden");}
     else byId("status").textContent="";
@@ -374,13 +556,31 @@ async function updateInvestigation(path,payload){
   if(!activeInvestigationId)return;
   const leadButtons=[...document.querySelectorAll(".leadButton")];
   const followUpButton=byId("followUpForm")?.querySelector("button");
-  leadButtons.forEach(button=>{button.disabled=true;if(path==="/leads")button.textContent="Analisando...";});
+  leadButtons.forEach(button=>{button.disabled=true;if(path==="/leads")button.textContent="Buscando...";});
   if(followUpButton)followUpButton.disabled=true;
-  byId("status").textContent="Analisando evidências com IA. Isso pode levar alguns segundos...";
+  byId("status").textContent="Buscando evidências relacionadas no IPED. Isso pode levar alguns segundos...";
   try{
     const response=await fetch("/api/investigations/"+encodeURIComponent(activeInvestigationId)+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
     const result=await response.json();
-    if(result.workspace)renderWorkspace(result.workspace);
+    if(result.workspace){
+      renderWorkspace(result.workspace);
+      if(result.status==="LEAD_EXPLORED"){
+        const label=result.exploredLead?.value??"";
+        const found=result.newEvidenceCount||0;
+        byId("status").textContent='Exploração de "'+label+'" concluída: '+(found>0?found+' nova(s) evidência(s) incorporada(s) à investigação.':'nenhuma evidência nova além do que já estava na investigação.');
+        const leadRow=[...document.querySelectorAll(".item")].find(el=>el.dataset.leadType===result.exploredLead?.type&&el.dataset.leadValue===result.exploredLead?.value);
+        const leadBadge=leadRow?.querySelector(".leadStatusBadge");
+        if(leadBadge)leadBadge.textContent=found>0?("+"+found+" nova(s)"):"sem evidência nova";
+        if(found>0)leadRow?.classList.add("newEvidence");
+        const newKeys=new Set((result.newEvidence||[]).map(e=>e.sourceId+":"+e.itemId));
+        if(newKeys.size){
+          document.querySelectorAll(".evidenceButton").forEach(button=>{
+            if(newKeys.has(button.dataset.source+":"+button.dataset.item))button.closest(".item")?.classList.add("newEvidence");
+          });
+          selectTab("evidence");
+        }
+      }
+    }
     else if(result.status==="CORRELATION_NOT_AVAILABLE"){
       byId("status").textContent="Esta correlação já não está disponível para exploração. A investigação não foi alterada.";
       await loadHome();
@@ -397,22 +597,39 @@ async function exploreLead(leadType,leadValue){
 byId("followUpForm").addEventListener("submit",async event=>{
   event.preventDefault();
   const question=byId("followUp").value.trim();if(!question)return;
-  byId("followUp").value="";
+  byId("followUp").value="";byId("followUp").style.height="";
+  const entry=investigationHistory.get(activeInvestigationId);if(entry){entry.questions.push(question);renderThread(entry);}
   await updateInvestigation("/questions",{question});
 });
 byId("questionForm").addEventListener("submit",async event=>{
   event.preventDefault();
   const question=byId("question").value.trim(); if(!question)return;
-  byId("startButton").disabled=true;byId("status").textContent="Investigando evidências...";
+  byId("startButton").disabled=true;
+  const startedAt=Date.now(),emptyState=byId("mainEmptyState"),idleText=emptyState.textContent;
+  const tick=()=>{byId("status").textContent="Investigando evidências... "+Math.round((Date.now()-startedAt)/1000)+" s"+(document.body.classList.contains("landing")?" · com a análise assistida por IA ativa, pode levar alguns minutos":"");};
+  tick();const timer=setInterval(tick,1000);
+  if(!activeInvestigationId)emptyState.textContent="Investigando evidências no IPED. Com a análise assistida por IA ativa, isso pode levar alguns minutos.";
   try{
     const response=await fetch("/api/investigations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question,sourceId:selectedSourceId||undefined})});
     const result=await response.json();
-    if(result.workspace) renderWorkspace(result.workspace);
+    if(result.workspace){renderWorkspace(result.workspace);selectTab("resumo");}
     else if(result.sourceSelection) byId("status").textContent="Selecione uma fonte do caso para continuar.";
     else byId("status").textContent=result.error||"Não foi possível iniciar a investigação.";
   }catch{byId("status").textContent="Não foi possível iniciar a investigação."}
-  finally{byId("startButton").disabled=false}
+  finally{clearInterval(timer);byId("startButton").disabled=false;if(!activeInvestigationId)emptyState.textContent=idleText;}
 });
+["question","followUp"].forEach(id=>{
+  const field=byId(id);if(!field)return;
+  const grow=()=>{field.style.height="auto";field.style.height=field.scrollHeight+2+"px";};
+  field.addEventListener("input",grow);
+  field.addEventListener("keydown",event=>{if(event.key==="Enter"&&(event.metaKey||event.ctrlKey)){event.preventDefault();field.form?.requestSubmit();}});
+});
+function selectTab(tab){
+  document.querySelectorAll(".tabButton").forEach(b=>b.classList.toggle("tabActive",b.dataset.tab===tab));
+  document.querySelectorAll(".tabPanel").forEach(p=>p.classList.toggle("hidden",p.dataset.tabPanel!==tab));
+  if(tab==="relationships")requestAnimationFrame(()=>document.querySelector('[data-graph-action="fit"]')?.click());
+}
+document.querySelectorAll(".tabButton").forEach(b=>b.addEventListener("click",()=>selectTab(b.dataset.tab)));
 loadHome();
 </script>
 </body>
@@ -583,8 +800,13 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(port, "127.0.0.1", () => {
-  process.stdout.write(
-    `IPED MCP available at http://127.0.0.1:${port}\n`
-  );
-});
+const isEntryPoint =
+  !!process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntryPoint) {
+  server.listen(port, "127.0.0.1", () => {
+    process.stdout.write(
+      `IPED MCP available at http://127.0.0.1:${port}\n`
+    );
+  });
+}

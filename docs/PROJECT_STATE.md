@@ -36,7 +36,7 @@ A referência fundamental usa sourceId/itemId.
 Comportamento implementado:
 - painel visual full-width;
 - sem max-height normal restritivo;
-- layouts automáticos aproximados: <=18 radial, <=60 grid, >60 wide;
+- layout automático considera densidade de relacionamento (relações por nó), não só quantidade de nós: com >=8 relações e densidade >=2.5, usa Evidências × entidades (lanes por tipo, reduz cruzamento de linhas em redes densas); caso contrário, aproximação por quantidade de nós permanece <=18 radial, <=60 grid, >60 wide;
 - layouts manuais: Radial, Grade, Ampla, Evidências × entidades;
 - canvas lógico proporcional, sem node cap;
 - zoom comum aproximadamente 0.35–2.5 e fit-to-view podendo reduzir mais;

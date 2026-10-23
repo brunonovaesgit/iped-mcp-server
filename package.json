@@ -16,7 +16,8 @@
     "test": "npm run build --silent && node --test test/*.test.mjs",
     "preinvestigator": "npm run build --silent",
     "connect:iped": "npm run build --silent && node dist/connect-iped.js",
-    "launch": "npm run build --silent && node dist/launch.js"
+    "launch": "npm run build --silent && node dist/launch.js",
+    "package:mac": "npm run build && node scripts/package-macos.mjs"
   },
   "engines": {
     "node": ">=20"

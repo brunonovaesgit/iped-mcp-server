@@ -798,8 +798,8 @@ test("expanded investigation deduplicates graph nodes, edges and timeline events
 
 test("expanded investigation timeline remains globally chronological after contextual searches are combined", async () => {
   const evidence = [
-    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }], communication: { from: [], to: [] } },
-    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }], communication: { from: [], to: [] } }
+    { sourceId: "case-1", itemId: 1, name: "a.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }, { type: "PROJECT", value: "Atlas" }], communication: { from: [], to: [] } },
+    { sourceId: "case-1", itemId: 2, name: "b.txt", text: "Atlas 18.750", entities: [{ type: "MONEY", value: "18.750,00" }, { type: "PROJECT", value: "Atlas" }], communication: { from: [], to: [] } }
   ];
   const make = (question, timestamp, itemId) => {
     const base = view(question, evidence);
@@ -816,7 +816,7 @@ test("expanded investigation timeline remains globally chronological after conte
     async getCaseContext() { return { sources: [{ id: "case-1", name: "Caso" }] }; },
     async investigateEvidence(query) {
       call += 1;
-      return call === 1 ? make(query, "2026-09-20T12:00:00Z", 2) : make(query, "2026-09-18T09:00:00Z", 1);
+      return call <= 2 ? make(query, "2026-09-20T12:00:00Z", 2) : make(query, "2026-09-18T09:00:00Z", 1);
     },
     async getEvidence(sourceId, itemId) { return { sourceId, itemId, properties: { "Regex:MONEY": ["18.750,00"] } }; }
   };
