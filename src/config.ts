@@ -7,6 +7,7 @@ export interface Config {
   contentLimit: number;
   auditLog?: string;
   investigationsDir: string;
+  ipedCaseDir?: string;
   aiBaseUrl?: string;
   aiModel?: string;
   aiApiKey?: string;
@@ -42,6 +43,7 @@ export function getConfig(): Config {
     auditLog: process.env.AUDIT_LOG || "./audit/requests.jsonl",
     investigationsDir:
       process.env.INVESTIGATIONS_DIR || "./workspace/investigations",
+    ipedCaseDir: process.env.IPED_CASE_DIR || undefined,
     aiBaseUrl: process.env.AI_BASE_URL,
     aiModel: process.env.AI_MODEL,
     aiApiKey: process.env.AI_API_KEY

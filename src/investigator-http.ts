@@ -10,7 +10,7 @@ import { IpedClient } from "./iped-client.js";
 import { InvestigatorService } from "./investigator-service.js";
 import { InvestigationSessions } from "./investigation-sessions.js";
 import { createAiAnalyzer } from "./ai-analyzer.js";
-import { BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
+import { BookmarkConflictError, BookmarkInputError, ExaminerBookmarks } from "./examiner-bookmarks.js";
 import { InvestigationStore, NoteInputError, isInvestigationId } from "./investigation-store.js";
 import { ClaimInputError, normalizeClaimInput, verifyClaim, type Claim } from "./claims.js";
 import { buildReportHtml, collectReferences, type ReportAuditEntry, type ReportEvidence } from "./report.js";
@@ -136,7 +136,7 @@ export const investigatorHtml = `<!doctype html>
     .chip{display:inline-flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--border-strong);border-radius:999px;padding:3px 4px 3px 10px;font-size:12.5px;font-weight:600}
     .chipRemove{background:none;padding:0 6px;color:var(--subtle);font-size:15px;line-height:1;font-weight:500}.chipRemove:hover{background:var(--accent-soft);color:var(--ink)}
     .bookmarkForm{display:flex;gap:8px;margin:0}.bookmarkForm input{flex:1;padding:9px 12px}.bookmarkForm button{background:var(--accent);color:#fff;padding:9px 16px}.bookmarkForm button:hover{background:var(--accent-strong)}
-    #bookmarkStatus{margin-top:8px;min-height:16px}
+    #bookmarkStatus{margin-top:8px;min-height:16px}.bookmarkWarning{color:#8a5a12;margin-top:4px}
     .noteForm{flex-direction:column;align-items:stretch;margin:12px 0 6px}#noteText{min-height:96px;max-height:40vh}
     .note{border-top:1px solid var(--border-soft);padding:14px 0}.note:first-child{border-top:0}
     .noteMeta{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--subtle);margin-bottom:6px}
@@ -328,7 +328,7 @@ export const investigatorHtml = `<!doctype html>
   <div class="drawerHeader"><div><div class="meta">Evidência IPED</div><h2 id="evidenceTitle"></h2></div><div class="drawerActions"><button type="button" id="citeEvidence" title="Inserir a referência deste item no caderno de análise">Citar no caderno</button><button type="button" id="claimEvidence" title="Usar este item como evidência a favor numa afirmação">Usar em afirmação</button><button id="closeEvidence">Fechar</button></div></div>
   <div id="evidenceMeta" class="meta"></div>
   <section class="bookmarkBox" aria-label="Marcadores do IPED">
-    <div class="bookmarkHead"><h3>Marcadores do IPED</h3><span class="meta">Gravados no caso processado, nunca na evidência original. Cada alteração fica no log de auditoria.</span></div>
+    <div class="bookmarkHead"><h3>Marcadores do IPED</h3><span class="meta">Gravados no caso processado, nunca na evidência original. Cada alteração fica no log de auditoria.</span><span class="meta bookmarkWarning">Não marque itens com o IPED desktop aberto neste mesmo caso: os dois gravam o mesmo arquivo de marcadores e um pode apagar as marcações do outro.</span></div>
     <div id="bookmarkChips" class="chips"></div>
     <form id="bookmarkForm" class="bookmarkForm"><input id="bookmarkName" list="bookmarkOptions" maxlength="80" value="Relevante" aria-label="Nome do marcador" placeholder="Nome do marcador"><datalist id="bookmarkOptions"></datalist><button>Marcar</button></form>
     <div id="bookmarkStatus" class="meta"></div>
@@ -1410,6 +1410,9 @@ const server = createServer(async (request, response) => {
       } catch (error) {
         if (error instanceof BookmarkInputError) {
           return json(response, 400, { error: error.message });
+        }
+        if (error instanceof BookmarkConflictError) {
+          return json(response, 409, { error: error.message, conflict: true });
         }
         throw error;
       }

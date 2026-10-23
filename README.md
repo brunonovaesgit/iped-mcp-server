@@ -461,7 +461,9 @@ Controls:
 - the write endpoint accepts only JSON requests from the loopback interface with a matching origin, which blocks cross-site requests and DNS rebinding;
 - every change is recorded in the audit log (`examiner_bookmark_add`, `examiner_bookmark_remove`).
 
-Known limitation: the IPED Web API has no concurrency control. Avoid changing bookmarks in the IPED desktop application and in the Investigator at the same time on the same case, since one may overwrite the other's changes.
+**Do not change bookmarks in IPED desktop and in the Investigator on the same case at the same time.** IPED loads bookmarks once when a case is opened and rewrites the whole state file (`<case>/iped/bookmarks.iped`) on every change, without locking or reloading. Each program therefore overwrites the other's bookmarks.
+
+The Investigator protects the IPED desktop side: when started by the launcher (which sets `IPED_CASE_DIR`), it records the state file's modification time and blocks bookmark changes if the file was modified by another program since then. The examiner is asked to close IPED desktop and restart IPED MCP so the current bookmarks are loaded. Blocked attempts are audited (`examiner_bookmark_conflict`). It cannot stop IPED desktop from overwriting bookmarks made in the Investigator, so close IPED desktop while marking in IPED MCP, or reopen it afterwards.
 
 ### Saved investigations
 

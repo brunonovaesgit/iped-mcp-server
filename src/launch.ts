@@ -160,7 +160,8 @@ async function main(){
  if(!desktop)await nativeAlert("Caso IPED validado",`O IPED confirmou o caso "${sourceId}". O Investigator será iniciado agora.`);
  const investigatorPort=await freeLocalPort();
  console.log(`\n✓ Caso IPED validado: ${sourceId}\n✓ IPED conectado\n✓ Iniciando Investigator em http://127.0.0.1:${investigatorPort}\n`);
- const investigatorEnv={...process.env,IPED_URL:`http://127.0.0.1:${ipedPort}`,INVESTIGATOR_PORT:String(investigatorPort)};
+ const caseRoot=await processedCaseRoot(resolve(answers.casePath));
+ const investigatorEnv={...process.env,IPED_URL:`http://127.0.0.1:${ipedPort}`,INVESTIGATOR_PORT:String(investigatorPort),...(caseRoot?{IPED_CASE_DIR:caseRoot}:{})};
  investigator=spawn(node,[entryPoint("investigator-http.js")],{stdio:"inherit",env:investigatorEnv});
  investigator.on("error",error=>console.error("Falha ao iniciar interface:",error.message));
  investigator.on("exit",code=>{if(!stopping)void shutdown(code??1);});
