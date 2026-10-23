@@ -6,6 +6,14 @@ It allows an investigator to ask questions in natural language while the AI sear
 
 The project does not require a modified IPED installation.
 
+## Discussion and articles
+
+- Discussion in the IPED community forum: [IPED MCP on GitHub Discussions](https://github.com/sepinf-inc/IPED/discussions/3034)
+- Article in English (Medium): [IPED MCP: AI-assisted forensic investigation with traceable evidence](https://medium.com/@brunonovaesbr/iped-mcp-ai-assisted-forensic-investigation-with-traceable-evidence-abd04eb5e4d3)
+- Article in Portuguese (LinkedIn): [IPED MCP: investigação assistida por IA com rastreabilidade das evidências](https://www.linkedin.com/pulse/iped-mcp-investiga%C3%A7%C3%A3o-assistida-por-ia-com-das-bruno-novaes-rq3df)
+
+Feedback, questions and reproducibility reports are welcome in the discussion. Security issues should be reported privately, as described in `SECURITY.md`.
+
 ## What it is for
 
 Instead of manually translating an investigative question into several IPED searches, an investigator can ask questions such as:
