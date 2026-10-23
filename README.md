@@ -57,6 +57,8 @@ Its investigation instructions require AI clients to:
 
 Original evidence is never modified by this server.
 
+The only write the project performs is an examiner-initiated IPED bookmark change from the Investigator interface (see **Examiner bookmarks** below). The MCP server exposes no write tools, so AI clients cannot create or change bookmarks.
+
 ## Distribution for non-developers
 
 The project now builds a **self-contained macOS `IPED MCP.app`** in GitHub Actions. It contains the compiled application, locked JavaScript dependencies and a private Node.js runtime used only by the Investigator. A tester therefore does not need Git, TypeScript, a repository clone, `npm install`, or a system-wide Node.js installation after receiving the artifact.
@@ -218,6 +220,16 @@ Default:
 
 ```env
 AUDIT_LOG=./audit/requests.jsonl
+```
+
+### `INVESTIGATIONS_DIR`
+
+Directory where the Investigator saves investigations (derived workspace data, kept outside the IPED case).
+
+Default:
+
+```env
+INVESTIGATIONS_DIR=./workspace/investigations
 ```
 
 ## Running the server
@@ -435,7 +447,41 @@ Findings + evidence + relationships + timeline
 Investigator review and conclusions
 ```
 
-No evidence upload is performed by this application. Evidence processing remains an IPED responsibility, and the investigator interface remains read-only with respect to the case.
+No evidence upload is performed by this application. Evidence processing remains an IPED responsibility. With the single exception of examiner bookmarks, the investigator interface is read-only with respect to the case.
+
+### Examiner bookmarks
+
+From the evidence detail panel, the examiner can add the item to an IPED bookmark (creating the bookmark if it does not exist yet) or remove it from a bookmark. The change is written through the standard IPED Web API, so it appears in IPED's own interface as a regular bookmark, and IPED bookmarks created elsewhere appear in the Investigator.
+
+Controls:
+
+- bookmarks live in the processed case state, never in the original evidence;
+- only three operations exist: create a bookmark label, add an item, remove an item. Deleting or renaming bookmarks and changing the IPED selection are not available;
+- writes happen only from an explicit click in the local interface. They are not reachable from the MCP server or by an AI model;
+- the write endpoint accepts only JSON requests from the loopback interface with a matching origin, which blocks cross-site requests and DNS rebinding;
+- every change is recorded in the audit log (`examiner_bookmark_add`, `examiner_bookmark_remove`).
+
+Known limitation: the IPED Web API has no concurrency control. Avoid changing bookmarks in the IPED desktop application and in the Investigator at the same time on the same case, since one may overwrite the other's changes.
+
+### Saved investigations
+
+Each investigation is saved automatically after every result: the initial question, follow-up questions and explored correlations. When the Investigator opens, the side menu lists the saved investigations of the selected case. Reopening one shows the last result immediately, without re-running assisted AI analysis, and follow-up questions continue from where the examiner stopped.
+
+Each investigation is one JSON file in `INVESTIGATIONS_DIR`, readable only by the current user. It holds the session state (questions, queries and IPED item references) and the last rendered result, which may include extracted values and evidence names. Treat this directory with the same care as the audit log. It is never written back to the IPED case.
+
+### Analysis notebook
+
+Each investigation has a **Caderno** (notebook) tab where the examiner records observations, hypotheses and partial conclusions in chronological order. Any reference written as `source:item` (for example `resultado:8`) becomes a link that opens the evidence, and the **Citar no caderno** button in the evidence panel inserts the reference and file name into the note being written.
+
+Notes are saved with the investigation in `INVESTIGATIONS_DIR`, separate from the evidence, and can be edited or deleted by the examiner. Saving a new investigation result never overwrites the notebook. The audit log records that a note was added, edited or deleted, without its content.
+
+### Claims board
+
+The **Afirmações** (claims) tab is where the examiner records each conclusion as a **fact**, **inference** or **hypothesis**, with the evidence for and against it and an optional limitation. A fact must state its basis (a statement in a document or observed metadata) and cite at least one supporting item. The **Usar em afirmação** button in the evidence panel adds the item to the supporting evidence of the claim being written.
+
+Each claim is checked against IPED when it is recorded, edited or re-verified. The check uses the same rules as the MCP `build_evidence_ledger` tool: it confirms that every cited item exists and treats items with identical content (same hash) as a single independent source. It then warns, without blocking, when a fact has contradicting evidence, when a fact combines several items (likely an inference), when references are missing or when no supporting item was confirmed. The check is structural only: it never decides whether the content proves the statement.
+
+Claims are saved with the investigation, separate from the evidence. The audit log records the classification and evidence counts of each change, without the statement text.
 
 The web interface is a local investigator experience included with the project. MCP-compatible AI clients can still connect independently through the standard MCP server described below.
 

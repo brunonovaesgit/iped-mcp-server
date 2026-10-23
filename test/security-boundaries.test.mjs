@@ -109,7 +109,7 @@ test("relationship outputs are explicitly observational rather than proof", asyn
 });
 
 
-test("investigator application remains read-only at the IPED boundary", async () => {
+test("investigator writes to IPED only through examiner-initiated bookmark changes", async () => {
   const serviceSource = await readFile(
     new URL("../src/investigator-service.ts", import.meta.url),
     "utf8"
@@ -128,6 +128,32 @@ test("investigator application remains read-only at the IPED boundary", async ()
       source,
       /\b(?:exec|execFile|spawn|fork)\s*\(/i
     );
+  }
+
+  // The service layer (shared with investigation logic) never writes.
+  assert.doesNotMatch(serviceSource, /examinerBookmarks|ExaminerBookmarks/);
+
+  // The HTTP layer writes only via the examiner bookmark module, behind the local write guard.
+  const writeCalls = [...httpSource.matchAll(/examinerBookmarks\.(\w+)\(/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(writeCalls)].sort(), ["list", "mark", "unmark"]);
+  assert.match(httpSource, /if \(!isTrustedLocalWrite\(request\.headers\)\)/);
+
+  // Every state-changing local route (bookmarks, notebook and claims) is guarded.
+  const guards = httpSource.match(/if \(!isTrustedLocalWrite\(request\.headers\)\)/g) ?? [];
+  assert.equal(guards.length, 3, "bookmark, notebook and claim writes must all be guarded");
+});
+
+test("MCP server and its tools cannot reach the bookmark write module", async () => {
+  const sources = await Promise.all([
+    readFile(new URL("../src/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/tool-context.ts", import.meta.url), "utf8"),
+    ...toolFiles.map(file =>
+      readFile(new URL(`../src/tools/${file}`, import.meta.url), "utf8")
+    ),
+    readFile(new URL("../src/tools/session-tools.ts", import.meta.url), "utf8")
+  ]);
+  for (const source of sources) {
+    assert.doesNotMatch(source, /examiner-bookmarks|ExaminerBookmarks/);
   }
 });
 

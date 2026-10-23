@@ -46,6 +46,16 @@ export class InvestigationSessions {
     return structuredClone(state);
   }
 
+  /**
+   * Re-register a previously persisted investigation so that follow-up
+   * questions keep working after a restart. An investigation already active
+   * in memory is never overwritten.
+   */
+  restore(state: InvestigationState): void {
+    if (!state?.id || this.sessions.has(state.id)) return;
+    this.sessions.set(state.id, structuredClone(state));
+  }
+
   get(id: string): InvestigationState | undefined {
     const state = this.sessions.get(id);
     return state ? structuredClone(state) : undefined;

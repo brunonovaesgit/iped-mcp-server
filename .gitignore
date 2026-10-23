@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 audit/
+workspace/
 .DS_Store
 *.log
 package/
