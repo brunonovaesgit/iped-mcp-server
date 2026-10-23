@@ -55,13 +55,17 @@ function record(overrides = {}) {
         updatedAt: "2026-10-23T14:46:00.000Z"
       }
     ],
+    events: [
+      { id: "e2", date: "2026-03-14T10:30", approximate: false, description: "Reunião combinada por e-mail", evidence: [ref(7)], createdAt: "2026-10-23T14:47:00.000Z", updatedAt: "2026-10-23T14:47:00.000Z" },
+      { id: "e1", date: "2026-02-01", approximate: true, description: "Assinatura do contrato <b>x</b>", evidence: [ref(4)], createdAt: "2026-10-23T14:48:00.000Z", updatedAt: "2026-10-23T14:48:00.000Z" }
+    ],
     ...overrides
   };
 }
 
-test("references are collected from the result, claims and notebook without duplicates", () => {
+test("references are collected from the result, claims, case events and notebook without duplicates", () => {
   const refs = collectReferences(record(), ["resultado"]).map(r => `${r.sourceId}:${r.itemId}`);
-  assert.deepEqual(refs.sort(), ["resultado:2", "resultado:4", "resultado:8", "resultado:9", "resultado:99"].sort());
+  assert.deepEqual(refs.sort(), ["resultado:2", "resultado:4", "resultado:7", "resultado:8", "resultado:9", "resultado:99"].sort());
 });
 
 test("note references respect word boundaries and escape the source id", () => {
@@ -90,14 +94,17 @@ test("the report is a clearly labelled draft with every section", () => {
     "Hipóteses",
     "declaração em documento",
     "1 evidência(s) independente(s) a favor de 2 confirmada(s)",
-    "4. Caderno de análise",
-    "5. Evidências referenciadas",
+    "4. Linha do tempo do caso",
+    "01/02/2026 (aproximada)",
+    "14/03/2026 10:30",
+    "5. Caderno de análise",
+    "6. Evidências referenciadas",
     "contrato.txt",
     "Relevante",
     "Não encontrada no caso no momento da geração.",
-    "6. Rastreabilidade",
+    "7. Rastreabilidade",
     "begin_investigation",
-    "7. Limitações",
+    "8. Limitações",
     "não avalia se o conteúdo prova a afirmação"
   ]) {
     assert.ok(html.includes(expected), `missing: ${expected}`);
@@ -109,17 +116,19 @@ test("examiner and evidence text is escaped in the report", () => {
   assert.ok(!html.includes("<script>alert(1)</script>"));
   assert.ok(!html.includes("<img src=x"));
   assert.ok(html.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
+  assert.ok(!html.includes("<b>x</b>"));
 });
 
 test("an empty investigation still produces a complete, honest draft", () => {
   const html = buildReportHtml({
-    record: record({ claims: [], notes: [], workspace: {} }),
+    record: record({ claims: [], notes: [], events: [], workspace: {} }),
     evidence: [],
     audit: [],
     generatedAt: "2026-10-23T15:00:00.000Z"
   });
   assert.ok(html.includes("Nenhuma afirmação foi registrada"));
   assert.ok(html.includes("Nenhuma nota foi registrada"));
+  assert.ok(html.includes("Nenhum evento foi registrado"));
   assert.ok(html.includes("Nenhuma operação encontrada no log de auditoria."));
 });
 
@@ -127,4 +136,9 @@ test("last activity includes notebook and claims changes", () => {
   const html = buildReportHtml({ record: record(), evidence: [], audit: [], generatedAt: "2026-10-23T15:00:00.000Z" });
   // Latest change is the note at 14:50 UTC (11:50 in Brasília), after the 14:40 search update.
   assert.ok(html.includes("última atividade em 23/10/2026, 11:50:00"), html.match(/última atividade em [^<]+/)?.[0]);
+});
+
+test("case events appear in chronological order regardless of entry order", () => {
+  const html = buildReportHtml({ record: record(), evidence: [], audit: [], generatedAt: "2026-10-23T15:00:00.000Z" });
+  assert.ok(html.indexOf("01/02/2026") < html.indexOf("14/03/2026 10:30"));
 });

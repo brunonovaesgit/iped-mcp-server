@@ -140,7 +140,7 @@ test("investigator writes to IPED only through examiner-initiated bookmark chang
 
   // Every state-changing local route (bookmarks, notebook and claims) is guarded.
   const guards = httpSource.match(/if \(!isTrustedLocalWrite\(request\.headers\)\)/g) ?? [];
-  assert.equal(guards.length, 3, "bookmark, notebook and claim writes must all be guarded");
+  assert.equal(guards.length, 4, "bookmark, notebook, claim and case-event writes must all be guarded");
 });
 
 test("MCP server and its tools cannot reach the bookmark write module", async () => {

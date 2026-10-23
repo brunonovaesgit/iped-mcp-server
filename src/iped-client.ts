@@ -10,6 +10,8 @@ interface SearchResponse { data?: Array<{ source: string; ids: number[] }>; }
 export interface EvidenceReference { sourceId: string; itemId: number; }
 
 export class IpedClient {
+  /** Optional observer used by the Investigator to report progress. It never sees response bodies. */
+  onRequest?: (path: string) => void;
   constructor(private readonly config: Config) {}
   listSources(): Promise<unknown> { return this.getJson("/sources"); }
   listBookmarks(): Promise<unknown> { return this.getJson("/bookmarks"); }
@@ -1386,6 +1388,7 @@ export class IpedClient {
 
   private async request(path: string, parameters: Record<string,string|undefined> = {}): Promise<Response> {
     const url = new URL(path, this.config.ipedUrl);
+    try { this.onRequest?.(url.pathname); } catch { /* progress is best-effort */ }
     for (const [name,value] of Object.entries(parameters)) if (value !== undefined) url.searchParams.set(name,value);
     const response = await fetch(url);
     if (!response.ok) throw new Error(`IPED request failed: ${response.status} ${response.statusText}`);

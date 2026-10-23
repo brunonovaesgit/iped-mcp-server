@@ -1,4 +1,5 @@
 import type { Claim } from "./claims.js";
+import { sortEvents, type CaseEvent } from "./case-events.js";
 import type { InvestigationNote, StoredInvestigation } from "./investigation-store.js";
 import type { EvidenceReference } from "./iped-client.js";
 
@@ -52,7 +53,7 @@ function formatDate(iso: string | undefined): string {
   return date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium", timeZone: "America/Sao_Paulo" });
 }
 
-/** Collects every evidence reference mentioned by the investigation, claims and notes. */
+/** Collects every evidence reference mentioned by the investigation, claims, case events and notes. */
 export function collectReferences(record: StoredInvestigation, sourceIds: string[]): EvidenceReference[] {
   const seen = new Map<string, EvidenceReference>();
   const add = (ref: EvidenceReference | undefined) => {
@@ -66,6 +67,7 @@ export function collectReferences(record: StoredInvestigation, sourceIds: string
     claim.supporting.forEach(add);
     claim.contradicting.forEach(add);
   }
+  for (const event of record.events ?? []) event.evidence.forEach(add);
   for (const note of record.notes ?? []) noteReferences(note.text, sourceIds).forEach(add);
   return [...seen.values()];
 }
@@ -119,6 +121,22 @@ function claimsSection(claims: Claim[], byKey: Map<string, ReportEvidence>): str
   }).join("");
 }
 
+function formatEventDate(value: string): string {
+  const [day, time] = value.split("T");
+  return day.split("-").reverse().join("/") + (time ? ` ${time}` : "");
+}
+
+function eventsSection(events: CaseEvent[], byKey: Map<string, ReportEvidence>): string {
+  if (!events.length) return `<p class="empty">Nenhum evento foi registrado na linha do tempo do caso.</p>`;
+  return `<table><thead><tr><th>Data</th><th>Evento</th><th>Lida em</th></tr></thead><tbody>${sortEvents(events)
+    .map(
+      event => `<tr><td>${esc(formatEventDate(event.date))}${event.approximate ? " (aproximada)" : ""}</td><td>${esc(
+        event.description
+      )}</td><td>${event.evidence.map(ref => evidenceLabel(ref, byKey)).join("<br>")}</td></tr>`
+    )
+    .join("")}</tbody></table>`;
+}
+
 function notesSection(notes: InvestigationNote[]): string {
   if (!notes.length) return `<p class="empty">Nenhuma nota foi registrada no caderno de análise.</p>`;
   return notes
@@ -147,6 +165,7 @@ export function buildReportHtml(input: ReportInput): string {
   const lastActivity = [
     record.updatedAt,
     ...(record.notes ?? []).map(note => note.updatedAt),
+    ...(record.events ?? []).map(event => event.updatedAt),
     ...(record.claims ?? []).flatMap(claim => [claim.updatedAt, claim.verification?.checkedAt ?? ""])
   ]
     .filter(Boolean)
@@ -204,10 +223,14 @@ ${analysis.limitation ? `<p class="meta">${esc(analysis.limitation)}</p>` : ""}
 <p class="meta">A verificação de cada afirmação é estrutural: confirma que os itens citados existem no caso e trata conteúdo idêntico (mesmo hash) como uma única fonte. Ela não avalia se o conteúdo prova a afirmação.</p>
 ${claimsSection(record.claims ?? [], byKey)}
 
-<h2>4. Caderno de análise</h2>
+<h2>4. Linha do tempo do caso</h2>
+<p class="meta">Datas lidas pelo perito no conteúdo das evidências. Não incluem datas de sistema de arquivos ou metadados. A ferramenta confirma apenas que os itens citados existem no caso, não que a data foi lida corretamente.</p>
+${eventsSection(record.events ?? [], byKey)}
+
+<h2>5. Caderno de análise</h2>
 ${notesSection(record.notes ?? [])}
 
-<h2>5. Evidências referenciadas</h2>
+<h2>6. Evidências referenciadas</h2>
 ${
   evidence.length
     ? `<table><thead><tr><th>Referência</th><th>Nome</th><th>Caminho</th><th>Hash</th><th>Marcadores do IPED</th></tr></thead><tbody>${evidence
@@ -220,7 +243,7 @@ ${
     : `<p class="empty">Nenhuma evidência referenciada.</p>`
 }
 
-<h2>6. Rastreabilidade</h2>
+<h2>7. Rastreabilidade</h2>
 <p class="meta">Operações registradas no log de auditoria do IPED MCP para esta investigação.</p>
 ${
   audit.length
@@ -230,7 +253,7 @@ ${
     : `<p class="empty">Nenhuma operação encontrada no log de auditoria.</p>`
 }
 
-<h2>7. Limitações</h2>
+<h2>8. Limitações</h2>
 <ul>
   <li>Os achados derivam do que o IPED indexou e extraiu; itens não processados ou não indexados não aparecem.</li>
   <li>Valores repetidos, participantes de comunicação e caminhos entre itens são observações para correlação, não prova de identidade ou de relação.</li>

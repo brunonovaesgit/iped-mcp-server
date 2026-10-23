@@ -970,13 +970,13 @@ export class InvestigatorService {
     };
   }
 
-  async evidence(sourceId: string, itemId: number) {
+  async evidence(sourceId: string, itemId: number, mode: "open" | "preview" = "open") {
     const [metadata, text] = await Promise.all([
       this.iped.getEvidence(sourceId, itemId),
       this.iped.getText(sourceId, itemId).catch(() => undefined)
     ]);
 
-    await this.audit.write("open_investigator_evidence", {
+    await this.audit.write(mode === "preview" ? "preview_investigator_evidence" : "open_investigator_evidence", {
       sourceId,
       itemId,
       textAvailable: Boolean(text)

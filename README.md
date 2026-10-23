@@ -485,9 +485,21 @@ Each claim is checked against IPED when it is recorded, edited or re-verified. T
 
 Claims are saved with the investigation, separate from the evidence. The audit log records the classification and evidence counts of each change, without the statement text.
 
+### Case timeline
+
+The **Timeline** tab has two parts. **Linha do tempo do caso** (case timeline) holds events the examiner dates from the *content* of the evidence: the day a contract was signed, a meeting arranged in a message. **Datas de arquivos e metadados** keeps the file-system and metadata timestamps returned by IPED, which say when a file was written or changed, not necessarily when the described event happened.
+
+Each case event has a date (optionally with time, and an "approximate" flag), a description and at least one cited item from which the date was read. The **Usar em evento** button in the evidence panel adds the open item to the event being written. Recording or editing an event checks that the cited items exist in the case; it never checks that the date was read correctly. Events are listed in chronological order, saved with the investigation, separate from the evidence, and the audit log records the date and evidence count of each change, without the description.
+
+### Evidence preview and progress
+
+Hovering over an evidence reference for a moment shows a small card with its name, path, bookmarks and the first lines of extracted text, so the examiner can check a citation without leaving the page. Clicking still opens the full evidence panel. Previews are audited as `preview_investigator_evidence`. On touch screens the preview is disabled.
+
+While a question is being answered, the status line shows the current phase (searching the index, reading evidence, assisted AI analysis), the number of index searches and evidence lookups made so far, and the elapsed time. Progress holds only counters and phase names, never case content.
+
 ### Draft report
 
-**Exportar relatório**, next to the result, downloads a draft report as a standalone HTML file. It opens in any browser (print or save as PDF) and in Word or LibreOffice for editing. The draft contains, in order: the investigative question and follow-ups; the observed findings; the claims grouped as facts, inferences and hypotheses with their evidence and structural verification; the notebook; a table of every referenced item with name, path, hash and current IPED bookmarks (looked up at export time); the audit trail of the investigation; and the limitations.
+**Exportar relatório**, next to the result, downloads a draft report as a standalone HTML file. It opens in any browser (print or save as PDF) and in Word or LibreOffice for editing. The draft contains, in order: the investigative question and follow-ups; the observed findings; the claims grouped as facts, inferences and hypotheses with their evidence and structural verification; the case timeline; the notebook; a table of every referenced item with name, path, hash and current IPED bookmarks (looked up at export time); the audit trail of the investigation; and the limitations.
 
 The report is explicitly labelled as a draft that requires the examiner's review. It restates what was recorded and what IPED returned, adds no conclusions and does not validate evidence content. Like the saved investigations, it contains names, extracted values and the examiner's notes, and must be handled with the same care as the case. Each export is audited.
 

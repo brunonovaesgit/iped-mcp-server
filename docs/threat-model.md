@@ -48,7 +48,7 @@ Deployment must make the model/data-egress boundary explicit. A future local-onl
 
 ### Saved investigation data
 
-The Investigator saves each investigation locally (`INVESTIGATIONS_DIR`) so it can be reopened. These files are derived data that may contain evidence names, extracted values, the examiner's notebook entries and claims. They are written with user-only permissions, kept outside the IPED case and outside version control, and must follow the same handling rules as the audit log and the case itself.
+The Investigator saves each investigation locally (`INVESTIGATIONS_DIR`) so it can be reopened. These files are derived data that may contain evidence names, extracted values, the examiner's notebook entries, claims and case-timeline events. They are written with user-only permissions, kept outside the IPED case and outside version control, and must follow the same handling rules as the audit log and the case itself.
 
 ### Exposed IPED Web API
 

@@ -1164,3 +1164,15 @@ test("reports the total references returned by IPED when MCP bounds the search r
   assert.equal(result.truncated, true);
   assert.equal(result.totalAvailable, 3);
 });
+
+test("reports each IPED request path to the optional progress observer", async () => {
+  const iped = client(2);
+  const seen = [];
+  iped.onRequest = path => seen.push(path);
+  await iped.search("anything", "case-test");
+  assert.ok(seen.length > 0);
+  assert.ok(seen.every(path => typeof path === "string" && path.startsWith("/")));
+  assert.ok(seen.every(path => !path.includes("anything")), "the observer receives the path only, never the query string");
+  iped.onRequest = () => { throw new Error("observer failure"); };
+  await iped.search("anything", "case-test");
+});

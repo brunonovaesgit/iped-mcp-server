@@ -147,6 +147,9 @@ test("runs the investigator flow from case discovery through follow-up and evide
   assert.ok(actions.includes("begin_investigation"));
   assert.ok(actions.includes("continue_investigation"));
   assert.ok(actions.includes("open_investigator_evidence"));
+
+  await service.evidence("case-1", 2, "preview");
+  assert.equal(audit.entries().at(-1).action, "preview_investigator_evidence", "hover previews are audited separately from opening");
 });
 
 
